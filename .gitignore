@@ -9,6 +9,14 @@ frontend/.env
 # Database
 database/*.sqlite
 database/*.sqlite3
+database/*.sqlite-journal
+database/*.sqlite-wal
+database/*.sqlite-shm
+backend/database/*.sqlite
+backend/database/*.sqlite3
+backend/database/*.sqlite-journal
+backend/database/*.sqlite-wal
+backend/database/*.sqlite-shm
 
 # Uploads
 backend/uploads/patrones/*
@@ -26,3 +34,4 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
