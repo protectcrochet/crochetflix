@@ -1,9 +1,9 @@
 #!/bin/bash
-# ============================================================
-#  CrochetFlix — Script de deploy local
+# ============================================
+#  CrochetFlix — Script de deploy local (Mac)
 #  Uso: ./deploy/subir.sh IP_DEL_VPS
-#  Ejemplo: ./deploy/subir.sh 45.33.12.100
-# ============================================================
+#  Ejemplo: ./deploy/subir.sh 185.123.456.78
+# ============================================
 
 set -e
 
@@ -15,12 +15,15 @@ if [ -z "$VPS_IP" ]; then
   exit 1
 fi
 
-PROJECT_DIR="/Users/jennifergarcia/Desktop/flix/crochetflix"
+# Detectar directorio del proyecto
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 ZIP_FILE="/tmp/crochetflix-deploy.zip"
 
 echo ""
 echo "🧶 CrochetFlix — Deploy a $VPS_IP"
 echo "============================================"
+echo "📁 Proyecto: $PROJECT_DIR"
 
 # 1. Build del frontend
 echo ""
@@ -29,18 +32,22 @@ cd "$PROJECT_DIR/frontend"
 npm run build
 echo "    ✅ Build listo en frontend/dist/"
 
-# 2. Crear zip (sin node_modules ni database)
+# 2. Crear zip (sin node_modules, database, .git)
 echo ""
 echo "🗜️  [2/4] Empaquetando código..."
-cd "$PROJECT_DIR/.."
-zip -r "$ZIP_FILE" crochetflix \
-  --exclude "crochetflix/backend/node_modules/*" \
-  --exclude "crochetflix/frontend/node_modules/*" \
-  --exclude "crochetflix/database/*.sqlite" \
-  --exclude "crochetflix/.git/*" \
-  --exclude "crochetflix/backend/database/*.sqlite" \
-  -q
+cd "$PROJECT_DIR"
+
+# Verificar que estamos en el directorio correcto
+if [ ! -f "backend/server.js" ] || [ ! -f "frontend/package.json" ]; then
+    echo "❌ No se encontró estructura de CrochetFlix en $PROJECT_DIR"
+    exit 1
+fi
+
+rm -f "$ZIP_FILE"
+zip -r "$ZIP_FILE" .   -x "*/node_modules/*"   -x "*/.git/*"   -x "*/database/*.sqlite"   -x "*/database/*.sqlite3"   -x "*/backend/database/*.sqlite"   -x "*/backend/database/*.sqlite3"   -x "*/frontend/dist/*"   -x "*/.DS_Store"   -x "*/.env"   -x "*/.env.local"   -x "*/.vscode/*"   -x "*/.idea/*"   -q
+
 echo "    ✅ Paquete listo: $ZIP_FILE"
+echo "    📊 Tamaño: $(du -h $ZIP_FILE | cut -f1)"
 
 # 3. Subir al VPS
 echo ""
@@ -59,3 +66,10 @@ echo "✅ ¡Deploy completado!"
 echo "🌐 Tu app está en: http://$VPS_IP"
 echo "📡 API en:         http://$VPS_IP/api/health"
 echo "============================================"
+echo ""
+echo "⚠️  SIGUIENTES PASOS:"
+echo "   1. Apunta crochetflix.app al VPS en OrangeWebsite DNS"
+echo "   2. SSH al VPS: ssh root@$VPS_IP"
+echo "   3. Ejecuta:    ./deploy/setup_ssl.sh"
+echo "   4. Cambia JWT_SECRET en /var/www/crochetflix/backend/.env"
+echo ""
