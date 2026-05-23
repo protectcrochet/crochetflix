@@ -1,0 +1,29 @@
+CONFIGURACIÓN IPN - NOWPAYMENTS
+================================
+
+Tu IP pública: 187.243.198.175
+
+PASOS:
+
+1. En tu router, redirige puerto 3001:
+   - Puerto externo: 3001
+   - Puerto interno: 3001  
+   - Protocolo: TCP
+   - IP interna: (IP de tu PC en red local, ej: 192.168.1.100)
+
+2. En NOWPayments dashboard:
+   - Ve a: Account → IPN Settings
+   - IPN URL: http://187.243.198.175:3001/api/pagos/webhook
+   - Guarda cambios
+
+3. Edita backend/.env:
+   - Busca: NOWPAYMENTS_IPN_SECRET=COLOCA_TU_IPN_SECRET_AQUI
+   - Reemplázalo con tu IPN Secret real
+
+4. Verifica que funciona:
+   curl http://187.243.198.175:3001/api/health
+
+   Debe responder: {"status":"ok"}
+
+5. Prueba webhook:
+   curl -X POST http://187.243.198.175:3001/api/pagos/webhook      -H "Content-Type: application/json"      -d '{"test": true}'
