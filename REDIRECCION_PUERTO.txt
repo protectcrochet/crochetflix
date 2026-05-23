@@ -1,0 +1,10 @@
+# Redirección de puerto necesaria en tu router
+
+Puerto externo: 3001
+Puerto interno: 3001
+Protocolo: TCP
+IP interna: (tu IP local, ej: 192.168.1.100)
+
+# Verificar si funciona
+curl http://TU_IP_AQUI:3001/api/health
+# Debe responder: {"status":"ok"}

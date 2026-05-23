@@ -1,0 +1,28 @@
+# Dependencies
+backend/node_modules/
+frontend/node_modules/
+
+# Environment
+backend/.env
+frontend/.env
+
+# Database
+database/*.sqlite
+database/*.sqlite3
+
+# Uploads
+backend/uploads/patrones/*
+!backend/uploads/patrones/.gitkeep
+
+# Build
+frontend/dist/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
