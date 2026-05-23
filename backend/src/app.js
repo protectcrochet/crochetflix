@@ -14,7 +14,16 @@ app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
   credentials: true
 }));
-app.use(express.json());
+
+// JSON parser con captura de rawBody para webhooks (HMAC verification)
+app.use(express.json({
+  verify: (req, res, buf, encoding) => {
+    if (req.path && req.path.includes('/webhook')) {
+      req.rawBody = buf.toString(encoding || 'utf8');
+    }
+  }
+}));
+app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use('/api/auth', authRoutes);
