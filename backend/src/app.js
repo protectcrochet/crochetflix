@@ -6,6 +6,7 @@ const authRoutes = require('./routes/auth');
 const patronesRoutes = require('./routes/patrones');
 const viewerRoutes = require('./routes/viewer');
 const pagosRoutes = require('./routes/pagos');
+const adminRoutes = require('./routes/admin');
 
 const app = express();
 
@@ -30,6 +31,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/patrones', patronesRoutes);
 app.use('/api/viewer', viewerRoutes);
 app.use('/api/pagos', pagosRoutes);
+
+app.use('/api/admin', adminRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

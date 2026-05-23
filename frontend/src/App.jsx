@@ -8,11 +8,13 @@ import Viewer from './pages/Viewer';
 import MiLista from './pages/MiLista';
 import Descargas from './pages/Descargas';
 import Perfil from './pages/Perfil';
+import Admin from './pages/Admin';
 
 function App() {
   return (
     <AuthProvider>
       <Routes>
+        <Route path="/admin" element={<Admin />} />
         <Route path="/" element={<Layout />}>
           <Route index element={<Home />} />
           <Route path="login" element={<Login />} />
