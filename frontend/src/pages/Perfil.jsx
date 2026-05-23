@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
 import { Crown, Check, Clock, Loader, CreditCard } from 'lucide-react';
@@ -7,6 +7,15 @@ export default function Perfil() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [stats, setStats] = useState(null);
+
+  useEffect(() => {
+    if (user) {
+      api.get('/auth/stats')
+        .then(res => setStats(res.data))
+        .catch(() => {});
+    }
+  }, [user]);
 
   const esPremium = user?.tier === 'premium';
   const expira = user?.subscription_expires_at 
@@ -170,21 +179,21 @@ export default function Perfil() {
         </div>
       )}
 
-      {/* Estadísticas (solo para premium) */}
-      {esPremium && (
+      {/* Estadísticas para todos los usuarios */}
+      {stats && (
         <div className="bg-gray-800 rounded-lg p-6">
           <h2 className="text-lg font-semibold mb-4">Tu actividad</h2>
           <div className="grid grid-cols-3 gap-4">
             <div className="text-center">
-              <p className="text-2xl font-bold text-crochet-primary">12</p>
+              <p className="text-2xl font-bold text-crochet-primary">{stats.vistos}</p>
               <p className="text-xs text-gray-400">Patrones vistos</p>
             </div>
             <div className="text-center">
-              <p className="text-2xl font-bold text-crochet-primary">3</p>
+              <p className="text-2xl font-bold text-crochet-primary">{stats.completados}</p>
               <p className="text-xs text-gray-400">Completados</p>
             </div>
             <div className="text-center">
-              <p className="text-2xl font-bold text-crochet-primary">5</p>
+              <p className="text-2xl font-bold text-crochet-primary">{stats.enLista}</p>
               <p className="text-xs text-gray-400">En mi lista</p>
             </div>
           </div>

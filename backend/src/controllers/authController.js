@@ -5,6 +5,7 @@ const db = require('../models');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-cambia-en-prod';
 const JWT_EXPIRES = process.env.JWT_EXPIRES_IN || '7d';
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 exports.register = async (req, res) => {
   try {
@@ -12,6 +13,14 @@ exports.register = async (req, res) => {
 
     if (!email || !password) {
       return res.status(400).json({ error: 'Email y contraseña requeridos' });
+    }
+
+    if (!EMAIL_REGEX.test(email)) {
+      return res.status(400).json({ error: 'Formato de email inválido' });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres' });
     }
 
     // Verificar si existe
@@ -107,6 +116,35 @@ exports.login = async (req, res) => {
 
   } catch (err) {
     console.error('Error login:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+exports.stats = async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    const [vistos, completados, enLista] = await Promise.all([
+      new Promise((resolve, reject) => {
+        db.get('SELECT COUNT(*) as total FROM progreso WHERE user_id = ?', [userId], (err, row) => {
+          if (err) reject(err); else resolve(row.total);
+        });
+      }),
+      new Promise((resolve, reject) => {
+        db.get('SELECT COUNT(*) as total FROM progreso WHERE user_id = ? AND completado = 1', [userId], (err, row) => {
+          if (err) reject(err); else resolve(row.total);
+        });
+      }),
+      new Promise((resolve, reject) => {
+        db.get('SELECT COUNT(*) as total FROM mi_lista WHERE user_id = ?', [userId], (err, row) => {
+          if (err) reject(err); else resolve(row.total);
+        });
+      }),
+    ]);
+
+    res.json({ vistos, completados, enLista });
+  } catch (err) {
+    console.error('Error stats:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 };
