@@ -68,8 +68,8 @@ exports.crearPatron = async (req, res) => {
       return res.status(500).json({ error: 'No se generaron páginas del patrón' });
     }
 
-    // Thumbnail = primera página
-    const thumbnailPath = `patrones/${patronId}/pagina_1.jpg`;
+    // Thumbnail = primera página (ruta pública servida por /uploads)
+    const thumbnailPath = `/uploads/patrones/${patronId}/pagina_1.jpg`;
 
     // Insertar patrón en BD
     await new Promise((resolve, reject) => {

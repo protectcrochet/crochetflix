@@ -38,7 +38,14 @@ const uploadFields = upload.fields([
 router.use(adminAuth);
 
 router.get('/patrones', adminController.listarPatrones);
-router.post('/patrones', uploadFields, adminController.crearPatron);
+router.post('/patrones', (req, res, next) => {
+  uploadFields(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message });
+    }
+    next();
+  });
+}, adminController.crearPatron);
 router.patch('/patrones/:id/toggle', adminController.toggleActivo);
 router.delete('/patrones/:id', adminController.eliminarPatron);
 
