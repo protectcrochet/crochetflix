@@ -33,7 +33,7 @@ exports.crearPatron = async (req, res) => {
   fs.mkdirSync(patronDir, { recursive: true });
 
   try {
-    const { titulo, descripcion, autor, categoria, dificultad, tiempo_minutos, es_preview } = req.body;
+    const { titulo, descripcion, autor, diseñadora, categoria, subcategoria, dificultad, tiempo_minutos, es_preview } = req.body;
 
     if (!titulo || !autor || !categoria || !dificultad) {
       return res.status(400).json({ error: 'titulo, autor, categoria y dificultad son requeridos' });
@@ -74,9 +74,9 @@ exports.crearPatron = async (req, res) => {
     // Insertar patrón en BD
     await new Promise((resolve, reject) => {
       db.run(
-        `INSERT INTO patrones (id, titulo, descripcion, autor, categoria, dificultad, tiempo_minutos, paginas, thumbnail_path, es_preview)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [patronId, titulo, descripcion || '', autor, categoria, dificultad,
+        `INSERT INTO patrones (id, titulo, descripcion, autor, diseñadora, categoria, subcategoria, dificultad, tiempo_minutos, paginas, thumbnail_path, es_preview)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [patronId, titulo, descripcion || '', autor, diseñadora || '', categoria, subcategoria || null, dificultad,
          parseInt(tiempo_minutos) || 0, paginas.length, thumbnailPath, es_preview === 'true' ? 1 : 0],
         function(err) { if (err) reject(err); else resolve(); }
       );
@@ -111,7 +111,7 @@ exports.listarPatrones = async (req, res) => {
   try {
     const patrones = await new Promise((resolve, reject) => {
       db.all(
-        'SELECT id, titulo, autor, categoria, dificultad, paginas, es_preview, activo, created_at FROM patrones ORDER BY created_at DESC',
+        'SELECT id, titulo, autor, diseñadora, categoria, subcategoria, dificultad, paginas, es_preview, activo, created_at FROM patrones ORDER BY created_at DESC',
         [],
         (err, rows) => { if (err) reject(err); else resolve(rows); }
       );

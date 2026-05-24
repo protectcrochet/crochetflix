@@ -30,7 +30,9 @@ function initTables() {
       titulo TEXT NOT NULL,
       descripcion TEXT,
       autor TEXT,
+      diseñadora TEXT,
       categoria TEXT,
+      subcategoria TEXT,
       dificultad TEXT,
       tiempo_minutos INTEGER,
       paginas INTEGER DEFAULT 0,
@@ -39,6 +41,10 @@ function initTables() {
       es_preview BOOLEAN DEFAULT 0,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`);
+
+    // Migración: agregar columnas nuevas si la tabla ya existía
+    db.run(`ALTER TABLE patrones ADD COLUMN diseñadora TEXT`, () => {});
+    db.run(`ALTER TABLE patrones ADD COLUMN subcategoria TEXT`, () => {});
 
     // Páginas de patrones
     db.run(`CREATE TABLE IF NOT EXISTS paginas (

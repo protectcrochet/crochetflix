@@ -3,6 +3,7 @@ import api from '../services/api';
 import { Upload, Trash2, Eye, EyeOff, Plus, FileText, Image, Loader, LogOut } from 'lucide-react';
 
 const CATEGORIAS = ['amigurumi', 'ropa', 'accesorios', 'decoracion', 'hogar', 'otro'];
+const SUBCATEGORIAS_AMIGURUMI = ['animales', 'personas y muñecos', 'comida', 'plantas y flores', 'personajes y fantasía', 'navidad', 'otro'];
 const DIFICULTADES = ['principiante', 'intermedio', 'avanzado'];
 
 export default function Admin() {
@@ -14,8 +15,8 @@ export default function Admin() {
   const [mensaje, setMensaje] = useState(null); // { tipo: 'ok'|'error', texto }
 
   const [form, setForm] = useState({
-    titulo: '', descripcion: '', autor: '',
-    categoria: 'amigurumi', dificultad: 'principiante',
+    titulo: '', descripcion: '', autor: '', diseñadora: '',
+    categoria: 'amigurumi', subcategoria: 'animales', dificultad: 'principiante',
     tiempo_minutos: '', es_preview: false,
   });
   const [archivoPDF, setArchivoPDF] = useState(null);
@@ -68,8 +69,8 @@ export default function Admin() {
     e.preventDefault();
     setMensaje(null);
 
-    if (!form.titulo || !form.autor) {
-      setMensaje({ tipo: 'error', texto: 'Título y autor son obligatorios' });
+    if (!form.titulo) {
+      setMensaje({ tipo: 'error', texto: 'El título es obligatorio' });
       return;
     }
     if (modoSubida === 'pdf' && !archivoPDF) {
@@ -178,10 +179,18 @@ export default function Admin() {
                 className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-crochet-primary" required />
             </div>
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Autor *</label>
-              <input value={form.autor} onChange={e => setForm(f => ({ ...f, autor: e.target.value }))}
-                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-crochet-primary" required />
+              <label className="block text-sm text-gray-400 mb-1">Diseñadora *</label>
+              <input value={form.diseñadora} onChange={e => setForm(f => ({ ...f, diseñadora: e.target.value }))}
+                placeholder="Nombre de quien diseñó el patrón"
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-crochet-primary" />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">Autor / Fuente</label>
+            <input value={form.autor} onChange={e => setForm(f => ({ ...f, autor: e.target.value }))}
+              placeholder="Blog, tienda, usuario de Ravelry, etc."
+              className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-crochet-primary" />
           </div>
 
           <div>
@@ -193,7 +202,8 @@ export default function Admin() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm text-gray-400 mb-1">Categoría</label>
-              <select value={form.categoria} onChange={e => setForm(f => ({ ...f, categoria: e.target.value }))}
+              <select value={form.categoria}
+                onChange={e => setForm(f => ({ ...f, categoria: e.target.value, subcategoria: e.target.value === 'amigurumi' ? 'animales' : '' }))}
                 className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-crochet-primary">
                 {CATEGORIAS.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
@@ -211,6 +221,21 @@ export default function Admin() {
                 className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-crochet-primary" />
             </div>
           </div>
+
+          {form.categoria === 'amigurumi' && (
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Subcategoría amigurumi</label>
+              <div className="flex flex-wrap gap-2">
+                {SUBCATEGORIAS_AMIGURUMI.map(sub => (
+                  <button key={sub} type="button"
+                    onClick={() => setForm(f => ({ ...f, subcategoria: sub }))}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${form.subcategoria === sub ? 'bg-crochet-primary text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
+                    {sub}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="flex items-center gap-3">
             <input type="checkbox" id="esPreview" checked={form.es_preview}
@@ -281,7 +306,9 @@ export default function Admin() {
                     {p.es_preview === 1 && <span className="bg-green-700 text-xs px-1.5 py-0.5 rounded">GRATIS</span>}
                     {!p.activo && <span className="bg-gray-600 text-xs px-1.5 py-0.5 rounded">OCULTO</span>}
                   </div>
-                  <p className="text-xs text-gray-400">{p.autor} · {p.categoria} · {p.dificultad} · {p.paginas} págs.</p>
+                  <p className="text-xs text-gray-400">
+                    {p.diseñadora || p.autor || '—'} · {p.categoria}{p.subcategoria ? ` / ${p.subcategoria}` : ''} · {p.dificultad} · {p.paginas} págs.
+                  </p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <button onClick={() => handleToggle(p.id)} title={p.activo ? 'Ocultar' : 'Publicar'}
