@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const { execSync } = require('child_process');
 const { v4: uuidv4 } = require('uuid');
+const Anthropic = require('@anthropic-ai/sdk');
 
 const UPLOADS_DIR = path.join(__dirname, '../../uploads/patrones');
 
@@ -336,6 +337,115 @@ exports.sincronizarPDFs = async (req, res) => {
   } catch (err) {
     console.error('Error sincronizar:', err);
     res.status(500).json({ error: 'Error sincronizando: ' + err.message });
+  }
+};
+
+exports.categorizarConIA = async (req, res) => {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return res.status(503).json({ error: 'Falta ANTHROPIC_API_KEY en .env' });
+  }
+
+  try {
+    // Obtener patrones sin categorizar (los del bot tienen dificultad='principiante' y diseñadora vacía)
+    const pendientes = await new Promise((resolve, reject) => {
+      db.all(
+        `SELECT id, titulo FROM patrones WHERE autor = 'Telegram' AND (diseñadora = '' OR diseñadora IS NULL) LIMIT 50`,
+        [],
+        (err, rows) => { if (err) reject(err); else resolve(rows); }
+      );
+    });
+
+    if (pendientes.length === 0) {
+      return res.json({ message: 'Todos los patrones ya están categorizados', actualizados: 0 });
+    }
+
+    const anthropic = new Anthropic({ apiKey });
+    const LOTE = 20;
+    let actualizados = 0;
+
+    for (let i = 0; i < pendientes.length; i += LOTE) {
+      const lote = pendientes.slice(i, i + LOTE);
+
+      const msg = await anthropic.messages.create({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 2048,
+        messages: [{
+          role: 'user',
+          content: `Clasifica estos patrones de crochet. Responde SOLO con un JSON array válido, sin texto adicional.
+
+Formato de cada elemento:
+{
+  "id": "el id exacto",
+  "titulo_limpio": "título legible sin 'pdf', sin números raros, sin guiones bajos",
+  "diseñadora": "nombre del diseñador si aparece claramente en el título, sino null",
+  "categoria": "amigurumi|ropa|accesorios|decoracion|hogar|navidad|halloween|otro",
+  "subcategoria": "animales|personas y muñecos|comida|plantas y flores|personajes y fantasía|navidad|otro (solo si amigurumi, sino null)",
+  "dificultad": "principiante|intermedio|avanzado"
+}
+
+Reglas:
+- amigurumi: muñecos tejidos, animales, personajes, figuras 3D
+- ropa: suéteres, vestidos, blusas, pantalones
+- accesorios: bolsos, mochilas, gorros, bufandas, joyería tejida
+- decoracion: flores, guirnaldas, móviles, adornos decorativos
+- hogar: cojines, tapetes, manteles, fundas
+- navidad: santa, renos, árboles, elfo, regalos navideños
+- halloween: calabazas, fantasmas, brujas, murciélagos
+- dificultad: si el título no da pistas → principiante
+
+Patrones:
+${JSON.stringify(lote.map(p => ({ id: p.id, titulo: p.titulo })), null, 2)}`
+        }]
+      });
+
+      let resultados;
+      try {
+        const texto = msg.content[0].text.trim();
+        const jsonStr = texto.startsWith('[') ? texto : texto.match(/\[[\s\S]*\]/)?.[0];
+        resultados = JSON.parse(jsonStr);
+      } catch (e) {
+        console.error('[categorizar] Error parseando respuesta de Claude:', e.message);
+        continue;
+      }
+
+      for (const r of resultados) {
+        if (!r.id) continue;
+        await new Promise((resolve, reject) => {
+          db.run(
+            `UPDATE patrones SET
+              titulo = COALESCE(NULLIF(?, ''), titulo),
+              diseñadora = ?,
+              categoria = COALESCE(NULLIF(?, ''), categoria),
+              subcategoria = ?,
+              dificultad = COALESCE(NULLIF(?, ''), dificultad)
+            WHERE id = ?`,
+            [r.titulo_limpio, r.diseñadora || '', r.categoria, r.subcategoria || null, r.dificultad, r.id],
+            function(err) { if (err) reject(err); else { actualizados += this.changes; resolve(); } }
+          );
+        });
+      }
+
+      console.log(`[categorizar] Lote ${Math.floor(i/LOTE)+1}: ${resultados.length} patrones procesados`);
+    }
+
+    // Cuántos quedan
+    const restantes = await new Promise((resolve, reject) => {
+      db.get(
+        `SELECT COUNT(*) as total FROM patrones WHERE autor = 'Telegram' AND (diseñadora = '' OR diseñadora IS NULL)`,
+        [],
+        (err, row) => { if (err) reject(err); else resolve(row.total); }
+      );
+    });
+
+    res.json({
+      message: `${actualizados} patrón(es) categorizados${restantes > 0 ? ` — quedan ${restantes} por procesar` : ' — ¡todos al día!'}`,
+      actualizados,
+      restantes
+    });
+  } catch (err) {
+    console.error('Error categorizar:', err);
+    res.status(500).json({ error: 'Error: ' + err.message });
   }
 };
 

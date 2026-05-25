@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
-import { Upload, Trash2, Eye, EyeOff, Plus, FileText, Image, Loader, LogOut, Download } from 'lucide-react';
+import { Upload, Trash2, Eye, EyeOff, Plus, FileText, Image, Loader, LogOut, Download, Sparkles } from 'lucide-react';
 
 const CATEGORIAS = ['amigurumi', 'ropa', 'accesorios', 'decoracion', 'hogar', 'otro'];
 const SUBCATEGORIAS_AMIGURUMI = ['animales', 'personas y muñecos', 'comida', 'plantas y flores', 'personajes y fantasía', 'navidad', 'otro'];
@@ -63,6 +63,20 @@ export default function Admin() {
     a.download = 'patrones.csv';
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const categorizarConIA = async () => {
+    setCargando(true);
+    setMensaje(null);
+    try {
+      const res = await api.post('/admin/patrones/categorizar', {}, { headers: authHeader, timeout: 120000 });
+      setMensaje({ tipo: 'ok', texto: res.data.message });
+      cargarPatrones();
+    } catch (err) {
+      setMensaje({ tipo: 'error', texto: err.response?.data?.error || 'Error categorizando' });
+    } finally {
+      setCargando(false);
+    }
   };
 
   const sincronizarPDFs = async () => {
@@ -210,6 +224,11 @@ export default function Admin() {
             <Upload className="w-4 h-4" /> Importar
             <input type="file" accept=".csv" onChange={importarCSV} className="hidden" />
           </label>
+          <button onClick={categorizarConIA} disabled={cargando} title="Categorizar patrones automáticamente con IA (lotes de 50)"
+            className="flex items-center gap-1.5 px-3 py-2 bg-purple-700 hover:bg-purple-600 rounded text-sm text-white transition disabled:opacity-50">
+            {cargando ? <Loader className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            Categorizar IA
+          </button>
           <button onClick={sincronizarPDFs} disabled={cargando} title="Procesar PDFs nuevos subidos por el bot"
             className="flex items-center gap-1.5 px-3 py-2 bg-blue-700 hover:bg-blue-600 rounded text-sm text-white transition disabled:opacity-50">
             {cargando ? <Loader className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
