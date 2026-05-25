@@ -90,22 +90,9 @@ exports.detalle = async (req, res) => {
       }
     }
 
-    // Verificar suscripción activa
+    // Acceso libre para usuarios registrados (temporalmente sin suscripción requerida)
     if (!tieneAcceso && userId) {
-      const user = await new Promise((resolve, reject) => {
-        db.get(
-          'SELECT tier, subscription_expires_at FROM users WHERE id = ?',
-          [userId],
-          (err, row) => {
-            if (err) reject(err);
-            resolve(row);
-          }
-        );
-      });
-
-      if (user && user.tier === 'premium' && new Date(user.subscription_expires_at) > new Date()) {
-        tieneAcceso = true;
-      }
+      tieneAcceso = true;
     }
 
     // Progreso del usuario

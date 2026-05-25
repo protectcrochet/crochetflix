@@ -155,19 +155,21 @@ export default function Viewer() {
   }
 
   if (!tieneAcceso) {
-    const destino = user ? '/perfil' : '/login?redirect=/perfil';
     return (
       <div className="flex flex-col items-center justify-center h-96 px-4">
         <Lock className="w-16 h-16 text-gray-600 mb-4" />
-        <h2 className="text-xl font-bold mb-2">Suscripción requerida</h2>
+        <h2 className="text-xl font-bold mb-2">Crea una cuenta gratis</h2>
         <p className="text-gray-400 text-center mb-4">
-          {user
-            ? 'Este patrón requiere suscripción. Obtén acceso ilimitado por $4.99 USD/mes.'
-            : 'Inicia sesión o regístrate para suscribirte y acceder a todos los patrones.'}
+          Regístrate gratis y accede a todos los patrones sin límites.
         </p>
-        <button onClick={() => navigate(destino)} className="btn-primary">
-          {user ? 'Suscribirme' : 'Iniciar sesión'}
-        </button>
+        <div className="flex gap-3">
+          <button onClick={() => navigate('/register')} className="btn-primary">
+            Registrarme gratis
+          </button>
+          <button onClick={() => navigate('/login')} className="btn-secondary">
+            Iniciar sesión
+          </button>
+        </div>
       </div>
     );
   }

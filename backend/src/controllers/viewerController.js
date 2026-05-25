@@ -54,22 +54,9 @@ exports.getPagina = async (req, res) => {
       }
     }
 
-    // Verificar suscripción premium
-    if (!tieneAcceso) {
-      const user = await new Promise((resolve, reject) => {
-        db.get(
-          'SELECT tier, subscription_expires_at FROM users WHERE id = ?',
-          [userId],
-          (err, row) => {
-            if (err) reject(err);
-            resolve(row);
-          }
-        );
-      });
-
-      if (user && user.tier === 'premium' && new Date(user.subscription_expires_at) > new Date()) {
-        tieneAcceso = true;
-      }
+    // Acceso libre para usuarios registrados (temporalmente sin suscripción requerida)
+    if (!tieneAcceso && userId) {
+      tieneAcceso = true;
     }
 
     if (!tieneAcceso) {
