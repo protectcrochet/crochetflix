@@ -114,13 +114,12 @@ exports.getPagina = async (req, res) => {
     }
 
     // Buscar archivo de página
-    const pagina = await new Promise((resolve, reject) => {
+    let pagina = await new Promise((resolve, reject) => {
       db.get(
         'SELECT archivo_path FROM paginas WHERE patron_id = ? AND numero = ?',
         [patronId, paginaNum],
         (err, row) => {
-          if (err) reject(err);
-          resolve(row);
+          if (err) reject(err); else resolve(row);
         }
       );
     });
