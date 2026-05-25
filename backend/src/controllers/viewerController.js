@@ -1,6 +1,55 @@
 const db = require('../models');
 const path = require('path');
 const fs = require('fs');
+const { execSync } = require('child_process');
+const crypto = require('crypto');
+
+const UPLOADS_DIR = path.join(__dirname, '../../uploads/patrones');
+
+function convertirPDFLazy(patronId) {
+  const outDir = path.join(UPLOADS_DIR, patronId);
+  fs.mkdirSync(outDir, { recursive: true });
+
+  // Buscar PDF: en subdirectorio propio o en formato plano del bot
+  let pdfPath = null;
+  const subFiles = fs.existsSync(outDir) ? fs.readdirSync(outDir) : [];
+  const pdfSub = subFiles.find(f => f.endsWith('.pdf'));
+  if (pdfSub) {
+    pdfPath = path.join(outDir, pdfSub);
+  } else {
+    const shortId = patronId.replace('patron-', '');
+    const flatFiles = fs.readdirSync(UPLOADS_DIR);
+    const pdfFlat = flatFiles.find(f => f.startsWith(shortId) && f.endsWith('.pdf'));
+    if (pdfFlat) pdfPath = path.join(UPLOADS_DIR, pdfFlat);
+  }
+
+  if (!pdfPath) return 0;
+
+  console.log(`[viewer] Convirtiendo PDF lazy: ${pdfPath}`);
+  execSync(`pdftoppm -jpeg -r 120 "${pdfPath}" "${path.join(outDir, 'pagina')}"`, { timeout: 300000 });
+
+  const imgs = fs.readdirSync(outDir)
+    .filter(f => /^pagina.*\.(jpg|jpeg|ppm)$/i.test(f)).sort();
+
+  const paginas = [];
+  imgs.forEach((f, i) => {
+    const nombre = `pagina_${i + 1}.jpg`;
+    fs.renameSync(path.join(outDir, f), path.join(outDir, nombre));
+    paginas.push(nombre);
+  });
+
+  // Insertar en DB
+  for (let i = 0; i < paginas.length; i++) {
+    db.run(
+      'INSERT INTO paginas (id, patron_id, numero, archivo_path) VALUES (?,?,?,?)',
+      [crypto.randomUUID(), patronId, i + 1, `patrones/${patronId}/${paginas[i]}`]
+    );
+  }
+  db.run('UPDATE patrones SET paginas = ? WHERE id = ?', [paginas.length, patronId]);
+
+  console.log(`[viewer] ✅ ${patronId}: ${paginas.length} páginas generadas`);
+  return paginas.length;
+}
 
 // Entregar página de patrón (blob, no URL directa)
 exports.getPagina = async (req, res) => {
@@ -77,8 +126,24 @@ exports.getPagina = async (req, res) => {
     });
 
     if (!pagina) {
-      console.error(`[viewer] Página no encontrada en DB: patronId=${patronId} num=${paginaNum}`);
-      return res.status(404).json({ error: 'Página no encontrada' });
+      // Conversión lazy: convertir el PDF ahora y reintentar
+      console.log(`[viewer] Sin páginas para ${patronId} — iniciando conversión lazy`);
+      const generadas = convertirPDFLazy(patronId);
+      if (generadas === 0) {
+        return res.status(404).json({ error: 'Patrón sin archivo PDF disponible' });
+      }
+      // Reintentar buscar la página recién generada
+      const paginaNueva = await new Promise((resolve, reject) => {
+        db.get(
+          'SELECT archivo_path FROM paginas WHERE patron_id = ? AND numero = ?',
+          [patronId, paginaNum],
+          (err, row) => { if (err) reject(err); else resolve(row); }
+        );
+      });
+      if (!paginaNueva) {
+        return res.status(404).json({ error: 'Página no disponible tras conversión' });
+      }
+      pagina = paginaNueva;
     }
 
     const filePath = path.join(__dirname, '../../uploads', pagina.archivo_path);
