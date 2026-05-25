@@ -141,28 +141,32 @@ export default function Viewer() {
   }
 
   if (error) {
+    const destino = user ? '/perfil' : '/login?redirect=/perfil';
     return (
       <div className="flex flex-col items-center justify-center h-96 px-4">
         <Lock className="w-16 h-16 text-gray-600 mb-4" />
         <h2 className="text-xl font-bold mb-2">Acceso restringido</h2>
         <p className="text-gray-400 text-center mb-4">{error}</p>
-        <button onClick={() => navigate('/perfil')} className="btn-primary">
-          Suscribirme ahora
+        <button onClick={() => navigate(destino)} className="btn-primary">
+          {user ? 'Suscribirme ahora' : 'Iniciar sesión'}
         </button>
       </div>
     );
   }
 
   if (!tieneAcceso) {
+    const destino = user ? '/perfil' : '/login?redirect=/perfil';
     return (
       <div className="flex flex-col items-center justify-center h-96 px-4">
         <Lock className="w-16 h-16 text-gray-600 mb-4" />
         <h2 className="text-xl font-bold mb-2">Suscripción requerida</h2>
         <p className="text-gray-400 text-center mb-4">
-          Este patrón requiere suscripción. Obtén acceso ilimitado por $100 MXN/mes.
+          {user
+            ? 'Este patrón requiere suscripción. Obtén acceso ilimitado por $4.99 USD/mes.'
+            : 'Inicia sesión o regístrate para suscribirte y acceder a todos los patrones.'}
         </p>
-        <button onClick={() => navigate('/perfil')} className="btn-primary">
-          Suscribirme
+        <button onClick={() => navigate(destino)} className="btn-primary">
+          {user ? 'Suscribirme' : 'Iniciar sesión'}
         </button>
       </div>
     );

@@ -1,13 +1,21 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
 import { Crown, Check, Clock, Loader, CreditCard } from 'lucide-react';
 
 export default function Perfil() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [stats, setStats] = useState(null);
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/login?redirect=/perfil', { replace: true });
+    }
+  }, [user, authLoading]);
 
   useEffect(() => {
     if (user) {
