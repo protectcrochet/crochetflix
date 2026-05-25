@@ -70,7 +70,8 @@ export default function Admin() {
     setMensaje(null);
     try {
       const res = await api.post('/admin/patrones/sincronizar', {}, { headers: authHeader });
-      setMensaje({ tipo: 'ok', texto: res.data.message + (res.data.errores ? ` (${res.data.errores.length} errores)` : '') });
+      const extra = res.data.errores ? ` (${res.data.errores.length} errores)` : '';
+      setMensaje({ tipo: 'ok', texto: res.data.message + extra });
       cargarPatrones();
     } catch (err) {
       setMensaje({ tipo: 'error', texto: err.response?.data?.error || 'Error sincronizando' });

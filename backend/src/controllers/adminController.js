@@ -198,41 +198,76 @@ exports.listarPatrones = async (req, res) => {
   }
 };
 
+// Extrae título legible del nombre de archivo del bot (hash16_Nombre_Del_Patron.pdf)
+function extractTitleFromFilename(filename) {
+  const noExt = filename.replace(/\.pdf$/i, '');
+  const withoutHash = noExt.replace(/^[0-9a-f]{16}_/i, '');
+  const withoutPdfSuffix = withoutHash.replace(/_?pdf$/i, '');
+  return withoutPdfSuffix.replace(/_/g, ' ').trim() || noExt;
+}
+
+const BATCH_SIZE = 20; // PDFs a convertir por llamada (evita timeout HTTP)
+
 exports.sincronizarPDFs = async (req, res) => {
   try {
-    // Patrones sin entradas en paginas
+    const archivosFlat = fs.readdirSync(UPLOADS_DIR);
+    let registrados = 0;
+
+    // Fase 1: Auto-registrar PDFs del bot que no tienen entrada en patrones
+    // Formato del bot: [hash16]_[Nombre].pdf
+    const pdfsBotFormat = archivosFlat.filter(f => /^[0-9a-f]{16}_.*\.pdf$/i.test(f));
+
+    for (const pdfFile of pdfsBotFormat) {
+      const hash16 = pdfFile.substring(0, 16);
+      const patronId = `patron-${hash16.substring(0, 8)}`;
+
+      const existe = await new Promise((resolve, reject) => {
+        db.get('SELECT id FROM patrones WHERE id = ?', [patronId], (err, row) => {
+          if (err) reject(err); else resolve(row);
+        });
+      });
+
+      if (!existe) {
+        const titulo = extractTitleFromFilename(pdfFile);
+        await new Promise((resolve, reject) => {
+          db.run(
+            `INSERT INTO patrones (id, titulo, descripcion, autor, diseñadora, categoria, dificultad, tiempo_minutos, paginas, thumbnail_path, activo, es_preview)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [patronId, titulo, '', 'Telegram', '', 'amigurumi', 'principiante', 0, 1,
+             `/uploads/patrones/${patronId}/pagina_1.jpg`, 1, 0],
+            function(err) { if (err) reject(err); else { registrados++; resolve(); } }
+          );
+        });
+        console.log(`[sincronizar] 📝 Registrado: ${patronId} — ${titulo}`);
+      }
+    }
+
+    // Fase 2: Convertir lote de patrones sin páginas (max BATCH_SIZE para evitar timeout)
     const pendientes = await new Promise((resolve, reject) => {
       db.all(
         `SELECT p.id FROM patrones p
          LEFT JOIN paginas pg ON pg.patron_id = p.id
-         WHERE pg.id IS NULL`,
-        [],
+         WHERE pg.id IS NULL
+         LIMIT ?`,
+        [BATCH_SIZE],
         (err, rows) => { if (err) reject(err); else resolve(rows); }
       );
     });
 
-    if (pendientes.length === 0) {
-      return res.json({ message: 'No hay patrones pendientes de sincronizar', procesados: 0 });
-    }
-
-    const archivosFlat = fs.readdirSync(UPLOADS_DIR);
     let procesados = 0;
     const errores = [];
 
     for (const { id: patronId } of pendientes) {
       try {
-        // Buscar el PDF: puede estar en subdir propio o en directorio plano (bot Telegram)
         let pdfPath = null;
         const patronDir = path.join(UPLOADS_DIR, patronId);
 
-        // Primero buscar en subdirectorio del patrón
         if (fs.existsSync(patronDir)) {
           const subFiles = fs.readdirSync(patronDir);
           const pdfEnSub = subFiles.find(f => f.endsWith('.pdf'));
           if (pdfEnSub) pdfPath = path.join(patronDir, pdfEnSub);
         }
 
-        // Si no, buscar en directorio plano (bot Telegram usa shortId como prefijo)
         if (!pdfPath) {
           const shortId = patronId.replace('patron-', '');
           const pdfFlat = archivosFlat.find(f => f.startsWith(shortId) && f.endsWith('.pdf'));
@@ -277,9 +312,25 @@ exports.sincronizarPDFs = async (req, res) => {
       }
     }
 
+    // Cuántos quedan pendientes de conversión
+    const pendientesRestantes = await new Promise((resolve, reject) => {
+      db.get(
+        `SELECT COUNT(*) as total FROM patrones p LEFT JOIN paginas pg ON pg.patron_id = p.id WHERE pg.id IS NULL`,
+        [],
+        (err, row) => { if (err) reject(err); else resolve(row.total); }
+      );
+    });
+
+    const partes = [];
+    if (registrados > 0) partes.push(`${registrados} registrado(s)`);
+    if (procesados > 0) partes.push(`${procesados} convertido(s)`);
+    if (registrados === 0 && procesados === 0) partes.push('Sin cambios');
+
     res.json({
-      message: `${procesados} patrón(es) sincronizado(s)`,
+      message: partes.join(', ') + (pendientesRestantes > 0 ? ` — quedan ${pendientesRestantes} por convertir` : ' — todo al día'),
+      registrados,
       procesados,
+      pendientes: pendientesRestantes,
       errores: errores.length ? errores : undefined
     });
   } catch (err) {
