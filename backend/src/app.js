@@ -11,6 +11,8 @@ const adminRoutes = require('./routes/admin');
 
 const app = express();
 
+app.set('trust proxy', 1); // Required for rate limiting behind nginx
+
 // Middleware
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
