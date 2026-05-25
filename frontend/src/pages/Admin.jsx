@@ -65,17 +65,29 @@ export default function Admin() {
     URL.revokeObjectURL(url);
   };
 
+  const [progresoIA, setProgresoIA] = useState(null); // { actualizados, restantes }
+
   const categorizarConIA = async () => {
     setCargando(true);
     setMensaje(null);
+    setProgresoIA(null);
+    let totalActualizados = 0;
+
     try {
-      const res = await api.post('/admin/patrones/categorizar', {}, { headers: authHeader, timeout: 120000 });
-      setMensaje({ tipo: 'ok', texto: res.data.message });
+      while (true) {
+        const res = await api.post('/admin/patrones/categorizar', {}, { headers: authHeader, timeout: 120000 });
+        totalActualizados += res.data.actualizados || 0;
+        setProgresoIA({ actualizados: totalActualizados, restantes: res.data.restantes });
+
+        if (!res.data.restantes || res.data.restantes === 0) break;
+      }
+      setMensaje({ tipo: 'ok', texto: `✅ ${totalActualizados} patrones categorizados con IA` });
       cargarPatrones();
     } catch (err) {
       setMensaje({ tipo: 'error', texto: err.response?.data?.error || 'Error categorizando' });
     } finally {
       setCargando(false);
+      setProgresoIA(null);
     }
   };
 
@@ -239,6 +251,19 @@ export default function Admin() {
           </button>
         </div>
       </div>
+
+      {progresoIA && (
+        <div className="mb-4 px-4 py-3 rounded text-sm bg-purple-900/40 border border-purple-500 text-purple-200">
+          <div className="flex items-center gap-2 mb-2">
+            <Loader className="w-4 h-4 animate-spin" />
+            <span className="font-semibold">Categorizando con IA...</span>
+          </div>
+          <div className="flex gap-6 text-xs">
+            <span>✅ Categorizados: <strong>{progresoIA.actualizados}</strong></span>
+            <span>⏳ Pendientes: <strong>{progresoIA.restantes ?? '...'}</strong></span>
+          </div>
+        </div>
+      )}
 
       {mensaje && (
         <div className={`mb-4 px-4 py-3 rounded text-sm ${mensaje.tipo === 'ok' ? 'bg-green-900/50 border border-green-500 text-green-300' : 'bg-red-900/50 border border-red-500 text-red-300'}`}>
