@@ -9,6 +9,7 @@ import MiLista from './pages/MiLista';
 import Descargas from './pages/Descargas';
 import Perfil from './pages/Perfil';
 import Admin from './pages/Admin';
+import Catalogo from './pages/Catalogo';
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
           <Route path="login" element={<Login />} />
           <Route path="register" element={<Register />} />
           <Route path="patron/:id" element={<Viewer />} />
+          <Route path="catalogo" element={<Catalogo />} />
           <Route path="mi-lista" element={<MiLista />} />
           <Route path="descargas" element={<Descargas />} />
           <Route path="perfil" element={<Perfil />} />

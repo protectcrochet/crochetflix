@@ -1,6 +1,6 @@
 import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { Home, Bookmark, Download, User, LogOut, Search } from 'lucide-react';
+import { Home, Bookmark, Download, User, LogOut, LayoutGrid } from 'lucide-react';
 
 export default function Layout() {
   const { user, logout } = useAuth();
@@ -21,9 +21,9 @@ export default function Layout() {
           </Link>
 
           <div className="flex items-center gap-4">
-            <button className="p-2 hover:bg-gray-800 rounded-full">
-              <Search className="w-5 h-5" />
-            </button>
+            <Link to="/catalogo" className="hidden sm:flex items-center gap-1.5 text-sm text-gray-300 hover:text-white transition">
+              <LayoutGrid className="w-4 h-4" /> Catálogo
+            </Link>
 
             {user ? (
               <div className="flex items-center gap-3">
@@ -50,6 +50,10 @@ export default function Layout() {
           <Link to="/" className="flex flex-col items-center p-2 text-gray-400 hover:text-white">
             <Home className="w-5 h-5" />
             <span className="text-xs mt-1">Inicio</span>
+          </Link>
+          <Link to="/catalogo" className="flex flex-col items-center p-2 text-gray-400 hover:text-white">
+            <LayoutGrid className="w-5 h-5" />
+            <span className="text-xs mt-1">Catálogo</span>
           </Link>
           <Link to="/mi-lista" className="flex flex-col items-center p-2 text-gray-400 hover:text-white">
             <Bookmark className="w-5 h-5" />

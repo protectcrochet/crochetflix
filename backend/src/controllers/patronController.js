@@ -28,11 +28,28 @@ exports.listar = async (req, res) => {
       params.push(dificultad);
     }
     if (search) {
-      sql += ' AND (p.titulo LIKE ? OR p.autor LIKE ?)';
-      params.push(`%${search}%`, `%${search}%`);
+      sql += ' AND (p.titulo LIKE ? OR p.autor LIKE ? OR p.diseñadora LIKE ?)';
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
     }
 
     sql += ' ORDER BY p.created_at DESC';
+
+    // Paginación
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 24));
+
+    const total = await new Promise((resolve, reject) => {
+      const countSql = sql.replace(
+        /SELECT[\s\S]*?FROM patrones p/,
+        'SELECT COUNT(*) as total FROM patrones p'
+      ).split('ORDER BY')[0];
+      db.get(countSql, params, (err, row) => {
+        if (err) reject(err); else resolve(row?.total || 0);
+      });
+    });
+
+    sql += ` LIMIT ? OFFSET ?`;
+    params.push(limit, (page - 1) * limit);
 
     const patrones = await new Promise((resolve, reject) => {
       db.all(sql, params, (err, rows) => {
@@ -41,7 +58,7 @@ exports.listar = async (req, res) => {
       });
     });
 
-    res.json({ patrones });
+    res.json({ patrones, total, page, limit, totalPaginas: Math.ceil(total / limit) });
 
   } catch (err) {
     console.error('Error listar patrones:', err);
