@@ -35,9 +35,26 @@ const uploadFields = upload.fields([
   { name: 'imagenes', maxCount: 100 }
 ]);
 
+const uploadCSV = multer({
+  dest: os.tmpdir(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter(req, file, cb) {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (ext === '.csv') cb(null, true);
+    else cb(new Error('Solo se aceptan archivos .csv'));
+  }
+}).single('csv');
+
 router.use(adminAuth);
 
 router.get('/patrones', adminController.listarPatrones);
+router.get('/patrones/exportar', adminController.exportarCSV);
+router.post('/patrones/importar', (req, res, next) => {
+  uploadCSV(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+    next();
+  });
+}, adminController.importarCSV);
 router.post('/patrones', (req, res, next) => {
   uploadFields(req, res, (err) => {
     if (err) {

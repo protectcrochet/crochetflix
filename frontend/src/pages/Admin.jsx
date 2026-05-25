@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
-import { Upload, Trash2, Eye, EyeOff, Plus, FileText, Image, Loader, LogOut } from 'lucide-react';
+import { Upload, Trash2, Eye, EyeOff, Plus, FileText, Image, Loader, LogOut, Download } from 'lucide-react';
 
 const CATEGORIAS = ['amigurumi', 'ropa', 'accesorios', 'decoracion', 'hogar', 'otro'];
 const SUBCATEGORIAS_AMIGURUMI = ['animales', 'personas y muñecos', 'comida', 'plantas y flores', 'personajes y fantasía', 'navidad', 'otro'];
@@ -52,6 +52,38 @@ export default function Admin() {
     localStorage.removeItem('admin_secret');
     setAutenticado(false);
     setSecret('');
+  };
+
+  const exportarCSV = async () => {
+    const res = await fetch('/api/admin/patrones/exportar', { headers: authHeader });
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'patrones.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importarCSV = async (e) => {
+    const archivo = e.target.files[0];
+    if (!archivo) return;
+    setCargando(true);
+    setMensaje(null);
+    const data = new FormData();
+    data.append('csv', archivo);
+    try {
+      const res = await api.post('/admin/patrones/importar', data, {
+        headers: { ...authHeader, 'Content-Type': 'multipart/form-data' },
+      });
+      setMensaje({ tipo: 'ok', texto: res.data.message });
+      cargarPatrones();
+    } catch (err) {
+      setMensaje({ tipo: 'error', texto: err.response?.data?.error || 'Error importando CSV' });
+    } finally {
+      setCargando(false);
+      e.target.value = '';
+    }
   };
 
   const handleToggle = async (id) => {
@@ -145,7 +177,7 @@ export default function Admin() {
           <h1 className="text-2xl font-bold">Panel Admin</h1>
           <p className="text-gray-400 text-sm">{patrones.length} patrones en total</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {mostrando === 'lista' ? (
             <button onClick={() => { setMostrando('nuevo'); setMensaje(null); }} className="btn-primary flex items-center gap-2 text-sm">
               <Plus className="w-4 h-4" /> Nuevo patrón
@@ -155,6 +187,14 @@ export default function Admin() {
               Cancelar
             </button>
           )}
+          <button onClick={exportarCSV} title="Exportar CSV para editar en Excel"
+            className="flex items-center gap-1.5 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm text-gray-200 transition">
+            <Download className="w-4 h-4" /> CSV
+          </button>
+          <label title="Importar CSV editado" className="flex items-center gap-1.5 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm text-gray-200 transition cursor-pointer">
+            <Upload className="w-4 h-4" /> Importar
+            <input type="file" accept=".csv" onChange={importarCSV} className="hidden" />
+          </label>
           <button onClick={cerrarSesion} className="text-gray-400 hover:text-white p-2">
             <LogOut className="w-5 h-5" />
           </button>

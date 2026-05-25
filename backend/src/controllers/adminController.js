@@ -107,7 +107,81 @@ exports.crearPatron = async (req, res) => {
   }
 };
 
-exports.listarPatrones = async (req, res) => {
+exports.exportarCSV = async (req, res) => {
+  try {
+    const patrones = await new Promise((resolve, reject) => {
+      db.all(
+        'SELECT id, titulo, diseñadora, autor, categoria, subcategoria, dificultad, descripcion, activo FROM patrones ORDER BY created_at DESC',
+        [],
+        (err, rows) => { if (err) reject(err); else resolve(rows); }
+      );
+    });
+
+    const escapar = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const cabecera = ['id', 'titulo', 'diseñadora', 'autor', 'categoria', 'subcategoria', 'dificultad', 'descripcion', 'activo'];
+    const filas = patrones.map(p =>
+      [p.id, p.titulo, p.diseñadora, p.autor, p.categoria, p.subcategoria, p.dificultad, p.descripcion, p.activo ? 'si' : 'no']
+        .map(escapar).join(',')
+    );
+
+    const csv = [cabecera.join(','), ...filas].join('\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="patrones.csv"');
+    res.send('﻿' + csv); // BOM para que Excel abra UTF-8 correctamente
+  } catch (err) {
+    res.status(500).json({ error: 'Error exportando' });
+  }
+};
+
+exports.importarCSV = async (req, res) => {
+  try {
+    const archivo = req.file;
+    if (!archivo) return res.status(400).json({ error: 'No se recibió archivo CSV' });
+
+    const contenido = fs.readFileSync(archivo.path, 'utf-8').replace(/^﻿/, '');
+    const lineas = contenido.trim().split('\n');
+    const cabecera = lineas[0].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+
+    const idx = (campo) => cabecera.indexOf(campo);
+    if (idx('id') === -1) return res.status(400).json({ error: 'El CSV debe tener columna "id"' });
+
+    const parsearCelda = (celda) => celda?.trim().replace(/^"|"$/g, '').replace(/""/g, '"') ?? '';
+
+    let actualizados = 0;
+    for (let i = 1; i < lineas.length; i++) {
+      const cols = lineas[i].match(/("(?:[^"]|"")*"|[^,]*)/g) || [];
+      const get = (campo) => parsearCelda(cols[idx(campo)]);
+
+      const id = get('id');
+      if (!id) continue;
+
+      await new Promise((resolve, reject) => {
+        db.run(
+          `UPDATE patrones SET
+            titulo      = COALESCE(NULLIF(?, ''), titulo),
+            diseñadora  = COALESCE(NULLIF(?, ''), diseñadora),
+            autor       = COALESCE(NULLIF(?, ''), autor),
+            categoria   = COALESCE(NULLIF(?, ''), categoria),
+            subcategoria= COALESCE(NULLIF(?, ''), subcategoria),
+            dificultad  = COALESCE(NULLIF(?, ''), dificultad),
+            descripcion = COALESCE(NULLIF(?, ''), descripcion),
+            activo      = CASE WHEN ? = 'no' THEN 0 WHEN ? = 'si' THEN 1 ELSE activo END
+           WHERE id = ?`,
+          [get('titulo'), get('diseñadora'), get('autor'), get('categoria'),
+           get('subcategoria'), get('dificultad'), get('descripcion'),
+           get('activo'), get('activo'), id],
+          function(err) { if (err) reject(err); else { actualizados += this.changes; resolve(); } }
+        );
+      });
+    }
+
+    fs.unlinkSync(archivo.path);
+    res.json({ message: `${actualizados} patrones actualizados` });
+  } catch (err) {
+    console.error('Error importar CSV:', err);
+    res.status(500).json({ error: 'Error procesando CSV: ' + err.message });
+  }
+};
   try {
     const patrones = await new Promise((resolve, reject) => {
       db.all(
