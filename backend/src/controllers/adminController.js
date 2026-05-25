@@ -420,7 +420,7 @@ ${JSON.stringify(lote.map(p => ({ id: p.id, titulo: p.titulo })), null, 2)}`
               subcategoria = ?,
               dificultad = COALESCE(NULLIF(?, ''), dificultad)
             WHERE id = ?`,
-            [r.titulo_limpio, r.diseñadora || '', r.categoria, r.subcategoria || null, r.dificultad, r.id],
+            [r.titulo_limpio, r.diseñadora || 'N/A', r.categoria, r.subcategoria || null, r.dificultad, r.id],
             function(err) { if (err) reject(err); else { actualizados += this.changes; resolve(); } }
           );
         });
