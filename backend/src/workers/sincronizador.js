@@ -5,8 +5,9 @@ const { execSync } = require('child_process');
 const { v4: uuidv4 } = require('uuid');
 
 const UPLOADS_DIR = path.join(__dirname, '../../../uploads/patrones');
-const INTERVALO_MS = 5 * 60 * 1000; // cada 5 minutos
-const BATCH_SIZE = 10; // convertir 10 por ciclo para no saturar CPU
+const INTERVALO_IDLE_MS = 5 * 60 * 1000; // sin pendientes: esperar 5 min
+const INTERVALO_ACTIVO_MS = 5 * 1000;    // con pendientes: esperar 5 seg entre lotes
+const BATCH_SIZE = 30;
 
 function convertirPDF(pdfPath, outputDir) {
   const prefix = path.join(outputDir, 'pagina');
@@ -113,15 +114,23 @@ async function ciclo() {
     if (registrados > 0 || convertidos > 0) {
       console.log(`[worker] Ciclo: ${registrados} registrado(s), ${convertidos} convertido(s)`);
     }
+
+    return convertidos; // para saber si hubo actividad
   } catch (err) {
     console.error('[worker] Error en ciclo:', err.message);
+    return 0;
   }
 }
 
+async function bucle() {
+  const convertidos = await ciclo();
+  const espera = convertidos > 0 ? INTERVALO_ACTIVO_MS : INTERVALO_IDLE_MS;
+  setTimeout(bucle, espera);
+}
+
 function iniciar() {
-  console.log(`[worker] Sincronizador automático iniciado (cada ${INTERVALO_MS / 60000} min, lote ${BATCH_SIZE})`);
-  ciclo(); // primer ciclo inmediato al arrancar
-  setInterval(ciclo, INTERVALO_MS);
+  console.log(`[worker] Sincronizador automático iniciado (lote ${BATCH_SIZE})`);
+  bucle();
 }
 
 module.exports = { iniciar };
