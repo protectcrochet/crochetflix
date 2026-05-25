@@ -449,6 +449,27 @@ ${JSON.stringify(lote.map(p => ({ id: p.id, titulo: p.titulo })), null, 2)}`
   }
 };
 
+exports.toggleDestacado = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const patron = await new Promise((resolve, reject) => {
+      db.get('SELECT destacado FROM patrones WHERE id = ?', [id], (err, row) => {
+        if (err) reject(err); else resolve(row);
+      });
+    });
+    if (!patron) return res.status(404).json({ error: 'Patrón no encontrado' });
+    const nuevoEstado = patron.destacado ? 0 : 1;
+    await new Promise((resolve, reject) => {
+      db.run('UPDATE patrones SET destacado = ? WHERE id = ?', [nuevoEstado, id],
+        function(err) { if (err) reject(err); else resolve(); }
+      );
+    });
+    res.json({ destacado: nuevoEstado === 1 });
+  } catch (err) {
+    res.status(500).json({ error: 'Error interno' });
+  }
+};
+
 exports.toggleActivo = async (req, res) => {
   try {
     const { id } = req.params;

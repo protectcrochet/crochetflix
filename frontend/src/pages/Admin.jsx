@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
-import { Upload, Trash2, Eye, EyeOff, Plus, FileText, Image, Loader, LogOut, Download, Sparkles } from 'lucide-react';
+import { Upload, Trash2, Eye, EyeOff, Plus, FileText, Image, Loader, LogOut, Download, Sparkles, Star } from 'lucide-react';
 
 const CATEGORIAS = ['amigurumi', 'ropa', 'accesorios', 'decoracion', 'hogar', 'otro'];
 const SUBCATEGORIAS_AMIGURUMI = ['animales', 'personas y muñecos', 'comida', 'plantas y flores', 'personajes y fantasía', 'navidad', 'otro'];
@@ -129,6 +129,11 @@ export default function Admin() {
 
   const handleToggle = async (id) => {
     await api.patch(`/admin/patrones/${id}/toggle`, {}, { headers: authHeader });
+    cargarPatrones();
+  };
+
+  const handleDestacar = async (id) => {
+    await api.patch(`/admin/patrones/${id}/destacar`, {}, { headers: authHeader });
     cargarPatrones();
   };
 
@@ -407,6 +412,7 @@ export default function Admin() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-sm truncate">{p.titulo}</span>
+                    {p.destacado === 1 && <span className="bg-yellow-600 text-xs px-1.5 py-0.5 rounded">HERO</span>}
                     {p.es_preview === 1 && <span className="bg-green-700 text-xs px-1.5 py-0.5 rounded">GRATIS</span>}
                     {!p.activo && <span className="bg-gray-600 text-xs px-1.5 py-0.5 rounded">OCULTO</span>}
                   </div>
@@ -415,6 +421,10 @@ export default function Admin() {
                   </p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
+                  <button onClick={() => handleDestacar(p.id)} title={p.destacado ? 'Quitar del hero' : 'Poner en hero'}
+                    className={`p-2 transition ${p.destacado ? 'text-yellow-400 hover:text-yellow-200' : 'text-gray-400 hover:text-yellow-400'}`}>
+                    <Star className="w-4 h-4" fill={p.destacado ? 'currentColor' : 'none'} />
+                  </button>
                   <button onClick={() => handleToggle(p.id)} title={p.activo ? 'Ocultar' : 'Publicar'}
                     className="p-2 text-gray-400 hover:text-white transition">
                     {p.activo ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}

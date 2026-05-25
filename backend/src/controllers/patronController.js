@@ -3,7 +3,7 @@ const db = require('../models');
 // Listar patrones (con info de preview gratis)
 exports.listar = async (req, res) => {
   try {
-    const { categoria, dificultad, search } = req.query;
+    const { categoria, dificultad, search, destacado } = req.query;
     const userId = req.userId || null;
 
     let sql = `
@@ -30,6 +30,9 @@ exports.listar = async (req, res) => {
     if (search) {
       sql += ' AND (p.titulo LIKE ? OR p.autor LIKE ? OR p.diseñadora LIKE ?)';
       params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+    }
+    if (destacado === '1') {
+      sql += ' AND p.destacado = 1';
     }
 
     sql += ' ORDER BY p.created_at DESC';

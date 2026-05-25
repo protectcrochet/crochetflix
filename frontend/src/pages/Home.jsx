@@ -21,10 +21,14 @@ export default function Home() {
 
   const cargarPatrones = async () => {
     try {
-      const res = await api.get('/patrones');
-      const data = res.data.patrones || [];
+      const [resAll, resDestacados] = await Promise.all([
+        api.get('/patrones'),
+        api.get('/patrones', { params: { destacado: '1', limit: 5 } }),
+      ]);
+      const data = resAll.data.patrones || [];
+      const dest = resDestacados.data.patrones || [];
       setPatrones(data);
-      if (data.length > 0) setDestacado(data[0]);
+      setDestacado(dest[0] || data[0] || null);
     } catch (err) {
       console.error('Error cargando patrones:', err);
     } finally {

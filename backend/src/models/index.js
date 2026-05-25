@@ -45,6 +45,7 @@ function initTables() {
     // Migración: agregar columnas nuevas si la tabla ya existía
     db.run(`ALTER TABLE patrones ADD COLUMN diseñadora TEXT`, () => {});
     db.run(`ALTER TABLE patrones ADD COLUMN subcategoria TEXT`, () => {});
+    db.run(`ALTER TABLE patrones ADD COLUMN destacado INTEGER DEFAULT 0`, () => {});
 
     // Páginas de patrones
     db.run(`CREATE TABLE IF NOT EXISTS paginas (
