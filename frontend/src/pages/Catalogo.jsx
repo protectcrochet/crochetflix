@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
-import { Clock, Star, Download, Search, X, SlidersHorizontal } from 'lucide-react';
+import { Search, X, ChevronLeft } from 'lucide-react';
 
 const CATEGORIAS = ['todas', 'amigurumi', 'ropa', 'accesorios', 'decoracion', 'hogar', 'navidad', 'halloween', 'animales', 'general', 'otro'];
 const DIFICULTADES = ['todas', 'principiante', 'intermedio', 'avanzado'];
@@ -84,10 +84,14 @@ export default function Catalogo() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
       {/* Cabecera */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center gap-3 mb-6">
+        <Link to="/" className="flex items-center gap-1 text-gray-400 hover:text-white transition text-sm">
+          <ChevronLeft className="w-4 h-4" /> Inicio
+        </Link>
+        <span className="text-gray-700">|</span>
         <div>
           <h1 className="text-2xl font-bold">Catálogo</h1>
-          {!loading && <p className="text-gray-400 text-sm">{total.toLocaleString()} patrones</p>}
+          {!loading && <p className="text-gray-400 text-sm">{total.toLocaleString()} patrones disponibles</p>}
         </div>
       </div>
 
