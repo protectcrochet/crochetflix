@@ -11,8 +11,8 @@ function adminAuth(req, res, next) {
   if (!secret) {
     return res.status(503).json({ error: 'Admin no configurado (falta ADMIN_SECRET en .env)' });
   }
-  const authHeader = req.headers.authorization;
-  if (!authHeader || authHeader !== `Bearer ${secret}`) {
+  const adminSecret = req.headers['x-admin-secret'];
+  if (!adminSecret || adminSecret !== secret) {
     return res.status(401).json({ error: 'Acceso denegado' });
   }
   next();

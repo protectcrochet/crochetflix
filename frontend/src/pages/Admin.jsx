@@ -26,7 +26,7 @@ export default function Admin() {
   const pdfRef = useRef();
   const imgRef = useRef();
 
-  const authHeader = { Authorization: `Bearer ${secret}` };
+  const authHeader = { 'X-Admin-Secret': secret };
 
   const verificarAcceso = async () => {
     try {
