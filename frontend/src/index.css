@@ -8,6 +8,21 @@
   }
 }
 
+@media print {
+  body * { visibility: hidden !important; }
+  body::after {
+    content: "CrochetFlix — Contenido protegido. No está permitida la impresión.";
+    visibility: visible !important;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1.5rem;
+    color: #000;
+    text-align: center;
+  }
+}
+
 @layer components {
   .carrusel-container {
     @apply flex gap-4 overflow-x-auto pb-4;

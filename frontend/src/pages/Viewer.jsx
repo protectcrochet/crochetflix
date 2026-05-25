@@ -59,6 +59,23 @@ export default function Viewer() {
 
   const [paginaError, setPaginaError] = useState('');
 
+  // Bloquear impresión y atajos de descarga
+  useEffect(() => {
+    const bloquear = (e) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 's' || e.key === 'u')) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    const bloquearImprimir = (e) => e.preventDefault();
+    document.addEventListener('keydown', bloquear);
+    window.addEventListener('beforeprint', bloquearImprimir);
+    return () => {
+      document.removeEventListener('keydown', bloquear);
+      window.removeEventListener('beforeprint', bloquearImprimir);
+    };
+  }, []);
+
   const cargarPagina = async (numero) => {
     setPaginaError('');
     try {
@@ -226,12 +243,16 @@ export default function Viewer() {
         )}
         <canvas
           ref={canvasRef}
-          className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
+          className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 select-none"
           style={{
             transform: `translate(-50%, -50%) translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
             maxWidth: '100%',
-            maxHeight: '100%'
+            maxHeight: '100%',
+            WebkitUserDrag: 'none',
+            userSelect: 'none',
+            pointerEvents: 'none'
           }}
+          onContextMenu={(e) => e.preventDefault()}
         />
       </div>
 
