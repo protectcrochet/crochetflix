@@ -182,6 +182,8 @@ exports.importarCSV = async (req, res) => {
     res.status(500).json({ error: 'Error procesando CSV: ' + err.message });
   }
 };
+
+exports.listarPatrones = async (req, res) => {
   try {
     const patrones = await new Promise((resolve, reject) => {
       db.all(
@@ -193,6 +195,96 @@ exports.importarCSV = async (req, res) => {
     res.json({ patrones });
   } catch (err) {
     res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+exports.sincronizarPDFs = async (req, res) => {
+  try {
+    // Patrones sin entradas en paginas
+    const pendientes = await new Promise((resolve, reject) => {
+      db.all(
+        `SELECT p.id FROM patrones p
+         LEFT JOIN paginas pg ON pg.patron_id = p.id
+         WHERE pg.id IS NULL`,
+        [],
+        (err, rows) => { if (err) reject(err); else resolve(rows); }
+      );
+    });
+
+    if (pendientes.length === 0) {
+      return res.json({ message: 'No hay patrones pendientes de sincronizar', procesados: 0 });
+    }
+
+    const archivosFlat = fs.readdirSync(UPLOADS_DIR);
+    let procesados = 0;
+    const errores = [];
+
+    for (const { id: patronId } of pendientes) {
+      try {
+        // Buscar el PDF: puede estar en subdir propio o en directorio plano (bot Telegram)
+        let pdfPath = null;
+        const patronDir = path.join(UPLOADS_DIR, patronId);
+
+        // Primero buscar en subdirectorio del patrón
+        if (fs.existsSync(patronDir)) {
+          const subFiles = fs.readdirSync(patronDir);
+          const pdfEnSub = subFiles.find(f => f.endsWith('.pdf'));
+          if (pdfEnSub) pdfPath = path.join(patronDir, pdfEnSub);
+        }
+
+        // Si no, buscar en directorio plano (bot Telegram usa shortId como prefijo)
+        if (!pdfPath) {
+          const shortId = patronId.replace('patron-', '');
+          const pdfFlat = archivosFlat.find(f => f.startsWith(shortId) && f.endsWith('.pdf'));
+          if (pdfFlat) pdfPath = path.join(UPLOADS_DIR, pdfFlat);
+        }
+
+        if (!pdfPath) {
+          errores.push(`${patronId}: PDF no encontrado`);
+          continue;
+        }
+
+        fs.mkdirSync(patronDir, { recursive: true });
+        const paginas = convertirPDF(pdfPath, patronDir);
+
+        if (paginas.length === 0) {
+          errores.push(`${patronId}: no se generaron páginas`);
+          continue;
+        }
+
+        await new Promise((resolve, reject) => {
+          db.run('UPDATE patrones SET paginas = ? WHERE id = ?', [paginas.length, patronId],
+            function(err) { if (err) reject(err); else resolve(); }
+          );
+        });
+
+        for (let i = 0; i < paginas.length; i++) {
+          const paginaId = uuidv4();
+          await new Promise((resolve, reject) => {
+            db.run(
+              'INSERT INTO paginas (id, patron_id, numero, archivo_path) VALUES (?, ?, ?, ?)',
+              [paginaId, patronId, i + 1, `patrones/${patronId}/${paginas[i]}`],
+              function(err) { if (err) reject(err); else resolve(); }
+            );
+          });
+        }
+
+        procesados++;
+        console.log(`[sincronizar] ✅ ${patronId}: ${paginas.length} páginas`);
+      } catch (err) {
+        console.error(`[sincronizar] ❌ ${patronId}:`, err.message);
+        errores.push(`${patronId}: ${err.message}`);
+      }
+    }
+
+    res.json({
+      message: `${procesados} patrón(es) sincronizado(s)`,
+      procesados,
+      errores: errores.length ? errores : undefined
+    });
+  } catch (err) {
+    console.error('Error sincronizar:', err);
+    res.status(500).json({ error: 'Error sincronizando: ' + err.message });
   }
 };
 

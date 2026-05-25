@@ -49,6 +49,7 @@ router.use(adminAuth);
 
 router.get('/patrones', adminController.listarPatrones);
 router.get('/patrones/exportar', adminController.exportarCSV);
+router.post('/patrones/sincronizar', adminController.sincronizarPDFs);
 router.post('/patrones/importar', (req, res, next) => {
   uploadCSV(req, res, (err) => {
     if (err) return res.status(400).json({ error: err.message });

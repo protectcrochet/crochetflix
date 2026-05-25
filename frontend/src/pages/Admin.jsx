@@ -65,6 +65,20 @@ export default function Admin() {
     URL.revokeObjectURL(url);
   };
 
+  const sincronizarPDFs = async () => {
+    setCargando(true);
+    setMensaje(null);
+    try {
+      const res = await api.post('/admin/patrones/sincronizar', {}, { headers: authHeader });
+      setMensaje({ tipo: 'ok', texto: res.data.message + (res.data.errores ? ` (${res.data.errores.length} errores)` : '') });
+      cargarPatrones();
+    } catch (err) {
+      setMensaje({ tipo: 'error', texto: err.response?.data?.error || 'Error sincronizando' });
+    } finally {
+      setCargando(false);
+    }
+  };
+
   const importarCSV = async (e) => {
     const archivo = e.target.files[0];
     if (!archivo) return;
@@ -195,6 +209,11 @@ export default function Admin() {
             <Upload className="w-4 h-4" /> Importar
             <input type="file" accept=".csv" onChange={importarCSV} className="hidden" />
           </label>
+          <button onClick={sincronizarPDFs} disabled={cargando} title="Procesar PDFs nuevos subidos por el bot"
+            className="flex items-center gap-1.5 px-3 py-2 bg-blue-700 hover:bg-blue-600 rounded text-sm text-white transition disabled:opacity-50">
+            {cargando ? <Loader className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+            Sincronizar
+          </button>
           <button onClick={cerrarSesion} className="text-gray-400 hover:text-white p-2">
             <LogOut className="w-5 h-5" />
           </button>
