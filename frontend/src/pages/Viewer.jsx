@@ -57,7 +57,10 @@ export default function Viewer() {
     }
   };
 
+  const [paginaError, setPaginaError] = useState('');
+
   const cargarPagina = async (numero) => {
+    setPaginaError('');
     try {
       const res = await api.get(`/viewer/pagina/${id}/${numero}`, {
         responseType: 'blob'
@@ -77,6 +80,7 @@ export default function Viewer() {
           URL.revokeObjectURL(url);
         }
       };
+      img.onerror = () => setPaginaError('No se pudo cargar la imagen');
       img.src = url;
 
       // Guardar progreso
@@ -84,6 +88,7 @@ export default function Viewer() {
 
     } catch (err) {
       console.error('Error cargando página:', err);
+      setPaginaError(err.response?.data?.error || `Error ${err.response?.status || ''}: ${err.message}`);
     }
   };
 
@@ -204,13 +209,21 @@ export default function Viewer() {
       </div>
 
       {/* Canvas */}
-      <div 
+      <div
         className="flex-1 bg-gray-950 overflow-hidden relative cursor-grab active:cursor-grabbing"
         onMouseDown={handlePanStart}
         onMouseMove={handlePanMove}
         onMouseUp={handlePanEnd}
         onMouseLeave={handlePanEnd}
       >
+        {paginaError && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="bg-red-900/80 text-red-200 px-6 py-4 rounded-lg text-center max-w-sm">
+              <p className="font-bold mb-1">Error cargando página</p>
+              <p className="text-sm">{paginaError}</p>
+            </div>
+          </div>
+        )}
         <canvas
           ref={canvasRef}
           className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"

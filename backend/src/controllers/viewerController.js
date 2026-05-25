@@ -7,6 +7,7 @@ exports.getPagina = async (req, res) => {
   try {
     const { patronId, paginaNum } = req.params;
     const userId = req.userId;
+    console.log(`[viewer] getPagina patronId=${patronId} num=${paginaNum} userId=${userId}`);
 
     // Verificar acceso del usuario
     const patron = await new Promise((resolve, reject) => {
@@ -76,12 +77,15 @@ exports.getPagina = async (req, res) => {
     });
 
     if (!pagina) {
+      console.error(`[viewer] Página no encontrada en DB: patronId=${patronId} num=${paginaNum}`);
       return res.status(404).json({ error: 'Página no encontrada' });
     }
 
     const filePath = path.join(__dirname, '../../uploads', pagina.archivo_path);
+    console.log(`[viewer] Sirviendo archivo: ${filePath}`);
 
     if (!fs.existsSync(filePath)) {
+      console.error(`[viewer] Archivo no existe en disco: ${filePath}`);
       return res.status(404).json({ error: 'Archivo no encontrado' });
     }
 
