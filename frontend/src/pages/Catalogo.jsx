@@ -10,13 +10,17 @@ const POR_PAGINA = 24;
 function PatronCardGrid({ patron }) {
   return (
     <Link to={`/patron/${patron.id}`} className="group">
-      <div className="relative aspect-[3/4] rounded-lg overflow-hidden bg-gray-800">
+      <div className="relative aspect-[3/4] rounded-lg overflow-hidden bg-gray-800 flex items-center justify-center">
         <img
-          src={patron.thumbnail_path || '/placeholder-patron.jpg'}
+          src={patron.thumbnail_path || ''}
           alt={patron.titulo}
           className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
           loading="lazy"
+          onError={e => { e.currentTarget.style.display = 'none'; }}
         />
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <span className="text-gray-600 text-3xl">🧶</span>
+        </div>
         <div className="absolute top-2 left-2 flex gap-1">
           {patron.es_preview === 1 && (
             <span className="bg-green-600 text-xs px-2 py-0.5 rounded font-bold">GRATIS</span>
