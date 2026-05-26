@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
-import { Upload, Trash2, Eye, EyeOff, Plus, FileText, Image, Loader, LogOut, Download, Sparkles, Star, Flame } from 'lucide-react';
+import { Upload, Trash2, Eye, EyeOff, Plus, FileText, Image, Loader, LogOut, Download, Sparkles, Star, Flame, Search, X } from 'lucide-react';
 
 const CATEGORIAS = ['amigurumi', 'ropa', 'accesorios', 'decoracion', 'hogar', 'otro'];
 const SUBCATEGORIAS_AMIGURUMI = ['animales', 'personas y muñecos', 'comida', 'plantas y flores', 'personajes y fantasía', 'navidad', 'otro'];
@@ -13,6 +13,8 @@ export default function Admin() {
   const [mostrando, setMostrando] = useState('lista'); // 'lista' | 'nuevo'
   const [cargando, setCargando] = useState(false);
   const [mensaje, setMensaje] = useState(null); // { tipo: 'ok'|'error', texto }
+  const [busquedaAdmin, setBusquedaAdmin] = useState('');
+  const [filtroAdmin, setFiltroAdmin] = useState('todos'); // todos|hero|tendencia|ocultos|gratis
 
   const [form, setForm] = useState({
     titulo: '', descripcion: '', autor: '', diseñadora: '',
@@ -406,13 +408,62 @@ export default function Admin() {
       {/* Lista de patrones */}
       {mostrando === 'lista' && (
         <div className="space-y-3">
-          {patrones.length === 0 ? (
-            <div className="text-center py-16 text-gray-500">
-              <p>No hay patrones todavía.</p>
-              <button onClick={() => setMostrando('nuevo')} className="btn-primary mt-4">Subir el primero</button>
+          {/* Buscador y filtros */}
+          <div className="flex flex-col gap-2 mb-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                value={busquedaAdmin}
+                onChange={e => setBusquedaAdmin(e.target.value)}
+                placeholder="Buscar por título, diseñadora..."
+                className="w-full bg-gray-800 border border-gray-700 rounded-full px-10 py-2 text-sm focus:outline-none focus:border-crochet-primary"
+              />
+              {busquedaAdmin && (
+                <button onClick={() => setBusquedaAdmin('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
-          ) : (
-            patrones.map(p => (
+            <div className="flex gap-2 flex-wrap text-xs">
+              {[
+                { key: 'todos', label: 'Todos' },
+                { key: 'hero', label: '⭐ Hero' },
+                { key: 'tendencia', label: '🔥 Tendencia' },
+                { key: 'gratis', label: '🎁 Gratis' },
+                { key: 'ocultos', label: '🙈 Ocultos' },
+              ].map(f => (
+                <button key={f.key} onClick={() => setFiltroAdmin(f.key)}
+                  className={`px-3 py-1.5 rounded-full font-medium transition ${filtroAdmin === f.key ? 'bg-crochet-primary text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}>
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {(() => {
+            const q = busquedaAdmin.toLowerCase();
+            const filtrados = patrones.filter(p => {
+              const matchBusqueda = !q || p.titulo?.toLowerCase().includes(q) || p.diseñadora?.toLowerCase().includes(q) || p.autor?.toLowerCase().includes(q);
+              const matchFiltro =
+                filtroAdmin === 'todos' ? true :
+                filtroAdmin === 'hero' ? p.destacado === 1 :
+                filtroAdmin === 'tendencia' ? p.tendencia === 1 :
+                filtroAdmin === 'gratis' ? p.es_preview === 1 :
+                filtroAdmin === 'ocultos' ? !p.activo : true;
+              return matchBusqueda && matchFiltro;
+            });
+
+            if (filtrados.length === 0) return (
+              <div className="text-center py-12 text-gray-500">
+                <p>No hay patrones con ese filtro.</p>
+              </div>
+            );
+
+            return (
+              <>
+                <p className="text-xs text-gray-500 mb-2">{filtrados.length} de {patrones.length} patrones</p>
+                {filtrados.map(p => (
               <div key={p.id} className={`bg-gray-800 rounded-lg p-4 flex items-center gap-4 ${!p.activo ? 'opacity-50' : ''}`}>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -445,8 +496,10 @@ export default function Admin() {
                   </button>
                 </div>
               </div>
-            ))
-          )}
+            ))}
+              </>
+            );
+          })()}
         </div>
       )}
     </div>

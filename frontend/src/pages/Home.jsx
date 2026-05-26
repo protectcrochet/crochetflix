@@ -9,6 +9,7 @@ import { Link } from 'react-router-dom';
 export default function Home() {
   const { user } = useAuth();
   const [patrones, setPatrones] = useState([]);
+  const [totalPatrones, setTotalPatrones] = useState(0);
   const [destacado, setDestacado] = useState(null);
   const [patronesTendencia, setPatronesTendencia] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -31,6 +32,7 @@ export default function Home() {
       const dest = resDestacados.data.patrones || [];
       const trend = resTendencia.data.patrones || [];
       setPatrones(data);
+      setTotalPatrones(resAll.data.total || data.length);
       setDestacado(dest[0] || data[0] || null);
       setPatronesTendencia(trend.length > 0 ? trend : [...data].sort(() => Math.random() - 0.5).slice(0, 10));
     } catch (err) {
@@ -183,7 +185,7 @@ export default function Home() {
         <section className="px-4 py-8">
           <div className="max-w-2xl mx-auto text-center bg-gradient-to-r from-crochet-primary/20 to-purple-900/20 rounded-2xl p-8">
             <h2 className="text-2xl font-bold mb-2">Desbloquea todo el catálogo</h2>
-            <p className="text-gray-400 mb-4">Más de {patrones.length} patrones profesionales por solo $100 MXN/mes</p>
+            <p className="text-gray-400 mb-4">Más de {totalPatrones.toLocaleString()} patrones profesionales por solo $100 MXN/mes</p>
             <ul className="text-left text-sm text-gray-300 mb-6 space-y-2 max-w-md mx-auto">
               <li>✓ Acceso ilimitado a todos los patrones</li>
               <li>✓ Descarga hasta 5 patrones para ver offline</li>
