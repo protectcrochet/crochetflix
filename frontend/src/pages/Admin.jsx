@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../services/api';
-import { Upload, Trash2, Eye, EyeOff, Plus, FileText, Image, Loader, LogOut, Download, Sparkles, Star, Flame, Search, X } from 'lucide-react';
+import { Upload, Trash2, Eye, EyeOff, Plus, FileText, Image, Loader, LogOut, Download, Sparkles, Star, Flame, Search, X, ExternalLink } from 'lucide-react';
 
 const CATEGORIAS = ['amigurumi', 'ropa', 'accesorios', 'decoracion', 'hogar', 'otro'];
 const SUBCATEGORIAS_AMIGURUMI = ['animales', 'personas y muñecos', 'comida', 'plantas y flores', 'personajes y fantasía', 'navidad', 'otro'];
@@ -544,18 +545,26 @@ export default function Admin() {
           <div className="flex-1 bg-black/60" onClick={() => setPatronEditando(null)} />
           <div className="w-full max-w-sm bg-gray-900 border-l border-gray-700 flex flex-col overflow-y-auto">
             {/* Thumbnail */}
-            <div className="relative h-52 bg-gray-800 shrink-0 flex items-center justify-center">
+            <div className="relative bg-gray-800 shrink-0 flex items-center justify-center" style={{ minHeight: '13rem' }}>
               <img
                 src={patronEditando.thumbnail_path || ''}
                 alt={patronEditando.titulo}
-                className="h-full w-full object-cover"
+                className="w-full object-contain max-h-72"
                 onError={e => { e.currentTarget.style.display = 'none'; }}
               />
-              <span className="absolute text-5xl text-gray-600 pointer-events-none">🧶</span>
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none gap-2">
+                <span className="text-4xl text-gray-700">📄</span>
+                <span className="text-xs text-gray-600">Sin imagen aún</span>
+              </div>
               <button onClick={() => setPatronEditando(null)}
                 className="absolute top-3 right-3 bg-black/60 rounded-full p-1.5 text-gray-300 hover:text-white">
                 <X className="w-4 h-4" />
               </button>
+              <Link to={`/patron/${patronEditando.id}`} target="_blank"
+                className="absolute top-3 left-3 bg-black/60 rounded-full p-1.5 text-gray-300 hover:text-white"
+                title="Ver patrón completo">
+                <ExternalLink className="w-4 h-4" />
+              </Link>
               {patronEditando.verificado === 1 && (
                 <div className="absolute bottom-3 left-3 flex items-center gap-1.5 bg-blue-600/90 px-2 py-1 rounded-full text-xs font-bold text-white">
                   ✔ Verificado
