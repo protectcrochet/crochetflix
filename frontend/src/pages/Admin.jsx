@@ -76,7 +76,43 @@ export default function Admin() {
     URL.revokeObjectURL(url);
   };
 
-  const [progresoIA, setProgresoIA] = useState(null); // { actualizados, restantes }
+  const [progresoIA, setProgresoIA] = useState(null);
+  const [progresoMeta, setProgresoMeta] = useState(null);
+
+  const normalizarCategorias = async () => {
+    setCargando(true);
+    try {
+      const res = await api.post('/admin/patrones/normalizar-categorias', {}, { headers: authHeader });
+      setMensaje({ tipo: 'ok', texto: res.data.message });
+      cargarPatrones();
+    } catch (err) {
+      setMensaje({ tipo: 'error', texto: err.response?.data?.error || 'Error normalizando' });
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  const extraerMetadatos = async () => {
+    setCargando(true);
+    setMensaje(null);
+    setProgresoMeta(null);
+    let totalActualizados = 0;
+    try {
+      while (true) {
+        const res = await api.post('/admin/patrones/extraer-metadatos', {}, { headers: authHeader, timeout: 120000 });
+        totalActualizados += res.data.actualizados || 0;
+        setProgresoMeta({ actualizados: totalActualizados, restantes: res.data.restantes });
+        if (!res.data.restantes || res.data.restantes === 0) break;
+      }
+      setMensaje({ tipo: 'ok', texto: `✅ ${totalActualizados} patrones actualizados con título, diseñadora e idioma` });
+      cargarPatrones();
+    } catch (err) {
+      setMensaje({ tipo: 'error', texto: err.response?.data?.error || 'Error extrayendo metadatos' });
+    } finally {
+      setCargando(false);
+      setProgresoMeta(null);
+    }
+  };
 
   const categorizarConIA = async () => {
     setCargando(true);
@@ -293,10 +329,19 @@ export default function Admin() {
             <Upload className="w-4 h-4" /> Importar
             <input type="file" accept=".csv" onChange={importarCSV} className="hidden" />
           </label>
-          <button onClick={categorizarConIA} disabled={cargando} title="Categorizar patrones automáticamente con IA (lotes de 50)"
+          <button onClick={extraerMetadatos} disabled={cargando} title="Extrae título, diseñadora e idioma leyendo el PDF con IA"
+            className="flex items-center gap-1.5 px-3 py-2 bg-indigo-700 hover:bg-indigo-600 rounded text-sm text-white transition disabled:opacity-50">
+            {cargando ? <Loader className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            Extraer datos PDF
+          </button>
+          <button onClick={categorizarConIA} disabled={cargando} title="Categorizar patrones automáticamente con IA"
             className="flex items-center gap-1.5 px-3 py-2 bg-purple-700 hover:bg-purple-600 rounded text-sm text-white transition disabled:opacity-50">
             {cargando ? <Loader className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
             Categorizar IA
+          </button>
+          <button onClick={normalizarCategorias} disabled={cargando} title="Corrige mayúsculas en categorías"
+            className="flex items-center gap-1.5 px-3 py-2 bg-gray-600 hover:bg-gray-500 rounded text-sm text-white transition disabled:opacity-50">
+            Fix categorías
           </button>
           <button onClick={sincronizarPDFs} disabled={cargando} title="Procesar PDFs nuevos subidos por el bot"
             className="flex items-center gap-1.5 px-3 py-2 bg-blue-700 hover:bg-blue-600 rounded text-sm text-white transition disabled:opacity-50">
@@ -308,6 +353,19 @@ export default function Admin() {
           </button>
         </div>
       </div>
+
+      {progresoMeta && (
+        <div className="mb-4 px-4 py-3 rounded text-sm bg-indigo-900/40 border border-indigo-500 text-indigo-200">
+          <div className="flex items-center gap-2 mb-2">
+            <Loader className="w-4 h-4 animate-spin" />
+            <span className="font-semibold">Extrayendo datos del PDF...</span>
+          </div>
+          <div className="flex gap-6 text-xs">
+            <span>✅ Actualizados: <strong>{progresoMeta.actualizados}</strong></span>
+            <span>⏳ Pendientes: <strong>{progresoMeta.restantes ?? '...'}</strong></span>
+          </div>
+        </div>
+      )}
 
       {progresoIA && (
         <div className="mb-4 px-4 py-3 rounded text-sm bg-purple-900/40 border border-purple-500 text-purple-200">

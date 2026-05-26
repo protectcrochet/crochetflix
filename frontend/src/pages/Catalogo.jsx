@@ -5,6 +5,7 @@ import { Search, X, ChevronLeft } from 'lucide-react';
 
 const CATEGORIAS = ['todas', 'amigurumi', 'ropa', 'accesorios', 'decoracion', 'hogar', 'navidad', 'halloween', 'animales', 'general', 'otro'];
 const DIFICULTADES = ['todas', 'principiante', 'intermedio', 'avanzado'];
+const IDIOMAS = [{ v: '', l: 'Todos' }, { v: 'es', l: '🇪🇸 Español' }, { v: 'en', l: '🇺🇸 Inglés' }, { v: 'pt', l: '🇧🇷 Portugués' }, { v: 'fr', l: '🇫🇷 Francés' }, { v: 'de', l: '🇩🇪 Alemán' }, { v: 'it', l: '🇮🇹 Italiano' }];
 const POR_PAGINA = 24;
 
 function PatronCardGrid({ patron }) {
@@ -51,12 +52,13 @@ export default function Catalogo() {
   const [busqueda, setBusqueda] = useState('');
   const [categoria, setCategoria] = useState('todas');
   const [dificultad, setDificultad] = useState('todas');
+  const [idioma, setIdioma] = useState('');
 
   useEffect(() => {
     setPatrones([]);
     setPage(1);
     cargar(1, true);
-  }, [busqueda, categoria, dificultad]);
+  }, [busqueda, categoria, dificultad, idioma]);
 
   const cargar = async (pagina, resetear = false) => {
     if (pagina === 1) setLoading(true); else setCargandoMas(true);
@@ -65,6 +67,7 @@ export default function Catalogo() {
       if (busqueda) params.search = busqueda;
       if (categoria !== 'todas') params.categoria = categoria;
       if (dificultad !== 'todas') params.dificultad = dificultad;
+      if (idioma) params.idioma = idioma;
 
       const res = await api.get('/patrones', { params });
       const nuevos = res.data.patrones || [];
@@ -126,6 +129,16 @@ export default function Catalogo() {
         >
           {DIFICULTADES.map(d => (
             <option key={d} value={d}>{d === 'todas' ? 'Dificultad' : d}</option>
+          ))}
+        </select>
+        {/* Idioma */}
+        <select
+          value={idioma}
+          onChange={e => setIdioma(e.target.value)}
+          className="bg-gray-800 border border-gray-700 rounded-full px-4 py-1.5 text-sm focus:outline-none focus:border-crochet-primary"
+        >
+          {IDIOMAS.map(i => (
+            <option key={i.v} value={i.v}>{i.l}</option>
           ))}
         </select>
 

@@ -449,6 +449,147 @@ ${JSON.stringify(lote.map(p => ({ id: p.id, titulo: p.titulo })), null, 2)}`
   }
 };
 
+exports.normalizarCategorias = async (req, res) => {
+  try {
+    const changes = await new Promise((resolve, reject) => {
+      db.run(
+        `UPDATE patrones SET categoria = LOWER(TRIM(categoria)) WHERE categoria != LOWER(TRIM(categoria))`,
+        [],
+        function(err) { if (err) reject(err); else resolve(this.changes); }
+      );
+    });
+    res.json({ message: `${changes} categorías normalizadas` });
+  } catch (err) {
+    res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+// Extrae texto de las primeras 2 páginas de un PDF
+function extraerTextoPDF(pdfPath) {
+  try {
+    const texto = execSync(`pdftotext -f 1 -l 2 "${pdfPath}" -`, { timeout: 15000 }).toString();
+    return texto.slice(0, 1500).trim();
+  } catch {
+    return '';
+  }
+}
+
+// Localiza el PDF de un patrón en el filesystem
+function localizarPDF(patronId, archivosFlat) {
+  const patronDir = path.join(UPLOADS_DIR, patronId);
+  if (fs.existsSync(patronDir)) {
+    const pdf = fs.readdirSync(patronDir).find(f => f.endsWith('.pdf'));
+    if (pdf) return path.join(patronDir, pdf);
+  }
+  const shortId = patronId.replace('patron-', '');
+  const flat = archivosFlat.find(f => f.startsWith(shortId) && f.endsWith('.pdf'));
+  return flat ? path.join(UPLOADS_DIR, flat) : null;
+}
+
+exports.extraerDiseñadoras = async (req, res) => {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return res.status(503).json({ error: 'Falta ANTHROPIC_API_KEY en .env' });
+
+  try {
+    // Patrones sin diseñadora real (N/A, vacío, o null)
+    const pendientes = await new Promise((resolve, reject) => {
+      db.all(
+        `SELECT id, titulo FROM patrones
+         WHERE autor = 'Telegram' AND (diseñadora IS NULL OR diseñadora = '' OR diseñadora = 'N/A')
+         LIMIT 30`,
+        [],
+        (err, rows) => { if (err) reject(err); else resolve(rows); }
+      );
+    });
+
+    if (pendientes.length === 0) {
+      return res.json({ message: 'Todos tienen diseñadora', actualizados: 0, restantes: 0 });
+    }
+
+    const archivosFlat = fs.readdirSync(UPLOADS_DIR);
+    const anthropic = new Anthropic({ apiKey });
+    const LOTE = 10;
+    let actualizados = 0;
+
+    for (let i = 0; i < pendientes.length; i += LOTE) {
+      const lote = pendientes.slice(i, i + LOTE);
+
+      // Extraer texto PDF de cada patrón del lote
+      const datos = lote.map(p => {
+        const pdfPath = localizarPDF(p.id, archivosFlat);
+        const texto = pdfPath ? extraerTextoPDF(pdfPath) : '';
+        return { id: p.id, titulo: p.titulo, texto };
+      });
+
+      const msg = await anthropic.messages.create({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1500,
+        messages: [{
+          role: 'user',
+          content: `Analiza estos patrones de crochet. Extrae el nombre real del patrón y el nombre de la diseñadora/diseñador leyendo el contenido del PDF.
+
+Responde SOLO con un JSON array válido, sin texto adicional:
+[{"id": "...", "titulo_limpio": "Nombre real del patrón", "diseñadora": "Nombre o null", "idioma": "es|en|pt|fr|de|it|otro"}]
+
+Reglas para título:
+- Usa el nombre oficial del patrón tal como aparece en el PDF (primera página)
+- Si no hay título claro en el texto, mejora el título actual quitando guiones bajos, hashes y sufijos "_pdf"
+- Máximo 80 caracteres
+
+Reglas para diseñadora:
+- Si aparece claramente un nombre de persona, marca, tienda, blog o usuario → ponlo
+- Si no hay ninguna pista → null
+- No pongas "Desconocida", "Unknown" ni descripciones
+
+Reglas para idioma:
+- Detecta el idioma principal del texto del PDF
+- Usa: es (español), en (inglés), pt (portugués), fr (francés), de (alemán), it (italiano), otro
+- Si el PDF está vacío o no hay texto claro → es (por defecto)
+
+Patrones:
+${JSON.stringify(datos.map(d => ({ id: d.id, titulo_actual: d.titulo, texto_pdf: d.texto.slice(0, 900) })), null, 2)}`
+        }]
+      });
+
+      let resultados;
+      try {
+        const texto = msg.content[0].text.trim();
+        const jsonStr = texto.startsWith('[') ? texto : texto.match(/\[[\s\S]*\]/)?.[0];
+        resultados = JSON.parse(jsonStr);
+      } catch {
+        continue;
+      }
+
+      for (const r of resultados) {
+        if (!r.id) continue;
+        const diseñadora = r.diseñadora && r.diseñadora !== 'null' ? r.diseñadora : 'N/A';
+        const titulo = r.titulo_limpio?.trim() || null;
+        const idioma = r.idioma || 'es';
+        await new Promise((resolve, reject) => {
+          db.run(
+            `UPDATE patrones SET diseñadora = ?, titulo = COALESCE(NULLIF(?, ''), titulo), idioma = ? WHERE id = ?`,
+            [diseñadora, titulo, idioma, r.id],
+            function(err) { if (err) reject(err); else { actualizados += this.changes; resolve(); } }
+          );
+        });
+      }
+    }
+
+    const restantes = await new Promise((resolve, reject) => {
+      db.get(
+        `SELECT COUNT(*) as total FROM patrones WHERE autor = 'Telegram' AND (diseñadora IS NULL OR diseñadora = '' OR diseñadora = 'N/A')`,
+        [],
+        (err, row) => { if (err) reject(err); else resolve(row.total); }
+      );
+    });
+
+    res.json({ message: `${actualizados} diseñadoras extraídas`, actualizados, restantes });
+  } catch (err) {
+    console.error('Error extraer diseñadoras:', err);
+    res.status(500).json({ error: 'Error: ' + err.message });
+  }
+};
+
 exports.stats = async (req, res) => {
   try {
     const [totalRow, convertidosRow, verificadosRow, heroRow, tendenciaRow] = await Promise.all([

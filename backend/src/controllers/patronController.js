@@ -37,6 +37,10 @@ exports.listar = async (req, res) => {
     if (req.query.tendencia === '1') {
       sql += ' AND p.tendencia = 1';
     }
+    if (req.query.idioma) {
+      sql += ' AND p.idioma = ?';
+      params.push(req.query.idioma);
+    }
 
     sql += ' ORDER BY p.created_at DESC';
 

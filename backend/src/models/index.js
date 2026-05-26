@@ -48,6 +48,7 @@ function initTables() {
     db.run(`ALTER TABLE patrones ADD COLUMN destacado INTEGER DEFAULT 0`, () => {});
     db.run(`ALTER TABLE patrones ADD COLUMN tendencia INTEGER DEFAULT 0`, () => {});
     db.run(`ALTER TABLE patrones ADD COLUMN verificado INTEGER DEFAULT 0`, () => {});
+    db.run(`ALTER TABLE patrones ADD COLUMN idioma TEXT DEFAULT 'es'`, () => {});
 
     // Páginas de patrones
     db.run(`CREATE TABLE IF NOT EXISTS paginas (
