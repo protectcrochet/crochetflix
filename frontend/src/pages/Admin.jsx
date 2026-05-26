@@ -59,6 +59,19 @@ export default function Admin() {
     }
   };
 
+  const cargarStats = async () => {
+    try {
+      const res = await api.get('/admin/stats', { headers: authHeader });
+      setStats(res.data);
+    } catch {}
+  };
+
+  useEffect(() => {
+    if (!autenticado) return;
+    const intervalo = setInterval(cargarStats, 10000);
+    return () => clearInterval(intervalo);
+  }, [autenticado]);
+
   const cerrarSesion = () => {
     localStorage.removeItem('admin_secret');
     setAutenticado(false);
