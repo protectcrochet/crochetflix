@@ -16,9 +16,10 @@ export default function Admin() {
   const [mensaje, setMensaje] = useState(null); // { tipo: 'ok'|'error', texto }
   const [busquedaAdmin, setBusquedaAdmin] = useState('');
   const [filtroAdmin, setFiltroAdmin] = useState('todos'); // todos|hero|tendencia|ocultos|gratis
-  const [patronEditando, setPatronEditando] = useState(null); // patrón abierto en panel lateral
+  const [patronEditando, setPatronEditando] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [guardando, setGuardando] = useState(false);
+  const [stats, setStats] = useState(null);
 
   const [form, setForm] = useState({
     titulo: '', descripcion: '', autor: '', diseñadora: '',
@@ -47,8 +48,12 @@ export default function Admin() {
 
   const cargarPatrones = async () => {
     try {
-      const res = await api.get('/admin/patrones', { headers: authHeader });
-      setPatrones(res.data.patrones);
+      const [resP, resS] = await Promise.all([
+        api.get('/admin/patrones', { headers: authHeader }),
+        api.get('/admin/stats', { headers: authHeader }),
+      ]);
+      setPatrones(resP.data.patrones);
+      setStats(resS.data);
     } catch {
       setMensaje({ tipo: 'error', texto: 'Error cargando patrones' });
     }
@@ -320,6 +325,48 @@ export default function Admin() {
       {mensaje && (
         <div className={`mb-4 px-4 py-3 rounded text-sm ${mensaje.tipo === 'ok' ? 'bg-green-900/50 border border-green-500 text-green-300' : 'bg-red-900/50 border border-red-500 text-red-300'}`}>
           {mensaje.texto}
+        </div>
+      )}
+
+      {/* Panel de estadísticas */}
+      {stats && mostrando === 'lista' && (
+        <div className="mb-6 bg-gray-800 rounded-xl p-4">
+          <h2 className="text-sm font-semibold text-gray-300 mb-3">📊 Estado de descargas y conversión</h2>
+
+          {/* Barra de progreso conversión */}
+          <div className="mb-3">
+            <div className="flex justify-between text-xs text-gray-400 mb-1">
+              <span>PDFs convertidos a imágenes</span>
+              <span className="font-semibold text-white">{stats.convertidos.toLocaleString()} / {stats.total.toLocaleString()}</span>
+            </div>
+            <div className="w-full bg-gray-700 rounded-full h-2">
+              <div
+                className="bg-crochet-primary h-2 rounded-full transition-all"
+                style={{ width: `${stats.total > 0 ? Math.round((stats.convertidos / stats.total) * 100) : 0}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-xs mt-1">
+              <span className="text-gray-500">{stats.pendientes.toLocaleString()} pendientes de convertir</span>
+              <span className="text-crochet-primary font-semibold">{stats.total > 0 ? Math.round((stats.convertidos / stats.total) * 100) : 0}%</span>
+            </div>
+          </div>
+
+          {/* Chips de resumen */}
+          <div className="flex flex-wrap gap-2 text-xs mb-3">
+            <span className="bg-gray-700 px-2 py-1 rounded">📥 {stats.archivosBot.toLocaleString()} PDFs en disco</span>
+            <span className="bg-gray-700 px-2 py-1 rounded">✔ {stats.verificados.toLocaleString()} verificados</span>
+            <span className="bg-gray-700 px-2 py-1 rounded">⭐ {stats.heroes}/10 hero</span>
+            <span className="bg-gray-700 px-2 py-1 rounded">🔥 {stats.tendencia} en tendencia</span>
+          </div>
+
+          {/* Por categoría */}
+          <div className="flex flex-wrap gap-1.5">
+            {stats.porCategoria.map(c => (
+              <span key={c.categoria} className="bg-gray-700/60 text-gray-300 text-xs px-2 py-0.5 rounded capitalize">
+                {c.categoria} <strong>{c.n}</strong>
+              </span>
+            ))}
+          </div>
         </div>
       )}
 

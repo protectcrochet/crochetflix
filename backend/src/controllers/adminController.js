@@ -449,6 +449,43 @@ ${JSON.stringify(lote.map(p => ({ id: p.id, titulo: p.titulo })), null, 2)}`
   }
 };
 
+exports.stats = async (req, res) => {
+  try {
+    const [totalRow, convertidosRow, verificadosRow, heroRow, tendenciaRow] = await Promise.all([
+      new Promise((r, j) => db.get('SELECT COUNT(*) as n FROM patrones WHERE activo = 1', [], (e, row) => e ? j(e) : r(row))),
+      new Promise((r, j) => db.get('SELECT COUNT(DISTINCT patron_id) as n FROM paginas', [], (e, row) => e ? j(e) : r(row))),
+      new Promise((r, j) => db.get('SELECT COUNT(*) as n FROM patrones WHERE verificado = 1', [], (e, row) => e ? j(e) : r(row))),
+      new Promise((r, j) => db.get('SELECT COUNT(*) as n FROM patrones WHERE destacado = 1', [], (e, row) => e ? j(e) : r(row))),
+      new Promise((r, j) => db.get('SELECT COUNT(*) as n FROM patrones WHERE tendencia = 1', [], (e, row) => e ? j(e) : r(row))),
+    ]);
+
+    const total = totalRow.n;
+    const convertidos = convertidosRow.n;
+    const pendientes = total - convertidos;
+
+    // Contar PDFs del bot en disco
+    let archivosBot = 0;
+    try {
+      archivosBot = fs.readdirSync(UPLOADS_DIR).filter(f => /^[0-9a-f]{16}_.*\.pdf$/i.test(f)).length;
+    } catch {}
+
+    // Desglose por categoría
+    const porCategoria = await new Promise((r, j) => {
+      db.all('SELECT categoria, COUNT(*) as n FROM patrones WHERE activo = 1 GROUP BY categoria ORDER BY n DESC', [], (e, rows) => e ? j(e) : r(rows));
+    });
+
+    res.json({
+      total, convertidos, pendientes, archivosBot,
+      verificados: verificadosRow.n,
+      heroes: heroRow.n,
+      tendencia: tendenciaRow.n,
+      porCategoria,
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Error interno' });
+  }
+};
+
 exports.editarPatron = async (req, res) => {
   try {
     const { id } = req.params;
