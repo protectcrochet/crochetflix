@@ -34,6 +34,9 @@ exports.listar = async (req, res) => {
     if (destacado === '1') {
       sql += ' AND p.destacado = 1';
     }
+    if (req.query.tendencia === '1') {
+      sql += ' AND p.tendencia = 1';
+    }
 
     sql += ' ORDER BY p.created_at DESC';
 

@@ -10,6 +10,7 @@ export default function Home() {
   const { user } = useAuth();
   const [patrones, setPatrones] = useState([]);
   const [destacado, setDestacado] = useState(null);
+  const [patronesTendencia, setPatronesTendencia] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState('');
   const [resultados, setResultados] = useState(null);
@@ -21,14 +22,17 @@ export default function Home() {
 
   const cargarPatrones = async () => {
     try {
-      const [resAll, resDestacados] = await Promise.all([
+      const [resAll, resDestacados, resTendencia] = await Promise.all([
         api.get('/patrones'),
         api.get('/patrones', { params: { destacado: '1', limit: 5 } }),
+        api.get('/patrones', { params: { tendencia: '1', limit: 20 } }),
       ]);
       const data = resAll.data.patrones || [];
       const dest = resDestacados.data.patrones || [];
+      const trend = resTendencia.data.patrones || [];
       setPatrones(data);
       setDestacado(dest[0] || data[0] || null);
+      setPatronesTendencia(trend.length > 0 ? trend : [...data].sort(() => Math.random() - 0.5).slice(0, 10));
     } catch (err) {
       console.error('Error cargando patrones:', err);
     } finally {
@@ -64,7 +68,6 @@ export default function Home() {
 
   const patronesNuevos = patrones.filter(p => p.es_preview === 0).slice(0, 10);
   const patronesPreview = patrones.filter(p => p.es_preview === 1);
-  const patronesPopulares = [...patrones].sort(() => Math.random() - 0.5).slice(0, 10);
 
   if (loading) {
     return (
@@ -171,7 +174,7 @@ export default function Home() {
       )}
 
       {/* Carruseles */}
-      <Carrusel titulo="🔥 Tendencia" patrones={patronesPopulares} />
+      <Carrusel titulo="🔥 Tendencia" patrones={patronesTendencia} />
       <Carrusel titulo="🆕 Nuevos patrones" patrones={patronesNuevos} />
       <Carrusel titulo="🎁 Gratis este mes" patrones={patronesPreview} />
 
