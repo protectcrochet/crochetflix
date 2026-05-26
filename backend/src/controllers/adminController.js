@@ -449,6 +449,51 @@ ${JSON.stringify(lote.map(p => ({ id: p.id, titulo: p.titulo })), null, 2)}`
   }
 };
 
+exports.editarPatron = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { titulo, diseñadora, categoria, subcategoria, dificultad, descripcion } = req.body;
+    await new Promise((resolve, reject) => {
+      db.run(
+        `UPDATE patrones SET
+          titulo     = COALESCE(NULLIF(?, ''), titulo),
+          diseñadora = ?,
+          categoria  = COALESCE(NULLIF(?, ''), categoria),
+          subcategoria = ?,
+          dificultad = COALESCE(NULLIF(?, ''), dificultad),
+          descripcion = COALESCE(NULLIF(?, ''), descripcion)
+         WHERE id = ?`,
+        [titulo, diseñadora ?? '', categoria, subcategoria ?? null, dificultad, descripcion ?? '', id],
+        function(err) { if (err) reject(err); else resolve(this.changes); }
+      );
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+exports.toggleVerificado = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const patron = await new Promise((resolve, reject) => {
+      db.get('SELECT verificado FROM patrones WHERE id = ?', [id], (err, row) => {
+        if (err) reject(err); else resolve(row);
+      });
+    });
+    if (!patron) return res.status(404).json({ error: 'Patrón no encontrado' });
+    const nuevoEstado = patron.verificado ? 0 : 1;
+    await new Promise((resolve, reject) => {
+      db.run('UPDATE patrones SET verificado = ? WHERE id = ?', [nuevoEstado, id],
+        function(err) { if (err) reject(err); else resolve(); }
+      );
+    });
+    res.json({ verificado: nuevoEstado === 1 });
+  } catch (err) {
+    res.status(500).json({ error: 'Error interno' });
+  }
+};
+
 exports.toggleTendencia = async (req, res) => {
   try {
     const { id } = req.params;

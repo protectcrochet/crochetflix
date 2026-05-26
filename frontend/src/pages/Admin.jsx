@@ -15,6 +15,9 @@ export default function Admin() {
   const [mensaje, setMensaje] = useState(null); // { tipo: 'ok'|'error', texto }
   const [busquedaAdmin, setBusquedaAdmin] = useState('');
   const [filtroAdmin, setFiltroAdmin] = useState('todos'); // todos|hero|tendencia|ocultos|gratis
+  const [patronEditando, setPatronEditando] = useState(null); // patrón abierto en panel lateral
+  const [editForm, setEditForm] = useState({});
+  const [guardando, setGuardando] = useState(false);
 
   const [form, setForm] = useState({
     titulo: '', descripcion: '', autor: '', diseñadora: '',
@@ -144,6 +147,37 @@ export default function Admin() {
     cargarPatrones();
   };
 
+  const abrirEditor = (p) => {
+    setPatronEditando(p);
+    setEditForm({
+      titulo: p.titulo || '',
+      diseñadora: p.diseñadora || '',
+      categoria: p.categoria || 'amigurumi',
+      subcategoria: p.subcategoria || '',
+      dificultad: p.dificultad || 'principiante',
+      descripcion: p.descripcion || '',
+    });
+  };
+
+  const guardarEdicion = async () => {
+    setGuardando(true);
+    try {
+      await api.patch(`/admin/patrones/${patronEditando.id}`, editForm, { headers: authHeader });
+      await cargarPatrones();
+      setPatronEditando(prev => ({ ...prev, ...editForm }));
+    } catch {
+      alert('Error guardando');
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const handleVerificar = async (id) => {
+    const res = await api.patch(`/admin/patrones/${id}/verificar`, {}, { headers: authHeader });
+    cargarPatrones();
+    if (patronEditando?.id === id) setPatronEditando(prev => ({ ...prev, verificado: res.data.verificado ? 1 : 0 }));
+  };
+
   const handleEliminar = async (id, titulo) => {
     if (!confirm(`¿Eliminar "${titulo}"? Esta acción no se puede deshacer.`)) return;
     await api.delete(`/admin/patrones/${id}`, { headers: authHeader });
@@ -224,7 +258,7 @@ export default function Admin() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 px-4 py-6 max-w-4xl mx-auto">
+    <div className="min-h-screen bg-gray-950 px-4 py-6 max-w-4xl mx-auto relative">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">Panel Admin</h1>
@@ -464,10 +498,11 @@ export default function Admin() {
               <>
                 <p className="text-xs text-gray-500 mb-2">{filtrados.length} de {patrones.length} patrones</p>
                 {filtrados.map(p => (
-              <div key={p.id} className={`bg-gray-800 rounded-lg p-4 flex items-center gap-4 ${!p.activo ? 'opacity-50' : ''}`}>
+              <div key={p.id} onClick={() => abrirEditor(p)} className={`bg-gray-800 rounded-lg p-4 flex items-center gap-4 cursor-pointer hover:bg-gray-750 transition ${!p.activo ? 'opacity-50' : ''}`}>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-sm truncate">{p.titulo}</span>
+                    {p.verificado === 1 && <span title="Verificado" className="text-blue-400">✔</span>}
                     {p.destacado === 1 && <span className="bg-yellow-600 text-xs px-1.5 py-0.5 rounded">HERO</span>}
                     {p.tendencia === 1 && <span className="bg-orange-600 text-xs px-1.5 py-0.5 rounded">TREND</span>}
                     {p.es_preview === 1 && <span className="bg-green-700 text-xs px-1.5 py-0.5 rounded">GRATIS</span>}
@@ -477,7 +512,7 @@ export default function Admin() {
                     {p.diseñadora || p.autor || '—'} · {p.categoria}{p.subcategoria ? ` / ${p.subcategoria}` : ''} · {p.dificultad} · {p.paginas} págs.
                   </p>
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
                   <button onClick={() => handleDestacar(p.id)} title={p.destacado ? 'Quitar del hero' : 'Poner en hero'}
                     className={`p-2 transition ${p.destacado ? 'text-yellow-400 hover:text-yellow-200' : 'text-gray-400 hover:text-yellow-400'}`}>
                     <Star className="w-4 h-4" fill={p.destacado ? 'currentColor' : 'none'} />
@@ -500,6 +535,88 @@ export default function Admin() {
               </>
             );
           })()}
+        </div>
+      )}
+
+      {/* Panel lateral de edición */}
+      {patronEditando && (
+        <div className="fixed inset-0 z-50 flex">
+          <div className="flex-1 bg-black/60" onClick={() => setPatronEditando(null)} />
+          <div className="w-full max-w-sm bg-gray-900 border-l border-gray-700 flex flex-col overflow-y-auto">
+            {/* Thumbnail */}
+            <div className="relative h-52 bg-gray-800 shrink-0 flex items-center justify-center">
+              <img
+                src={patronEditando.thumbnail_path || ''}
+                alt={patronEditando.titulo}
+                className="h-full w-full object-cover"
+                onError={e => { e.currentTarget.style.display = 'none'; }}
+              />
+              <span className="absolute text-5xl text-gray-600 pointer-events-none">🧶</span>
+              <button onClick={() => setPatronEditando(null)}
+                className="absolute top-3 right-3 bg-black/60 rounded-full p-1.5 text-gray-300 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+              {patronEditando.verificado === 1 && (
+                <div className="absolute bottom-3 left-3 flex items-center gap-1.5 bg-blue-600/90 px-2 py-1 rounded-full text-xs font-bold text-white">
+                  ✔ Verificado
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 flex flex-col gap-4 flex-1">
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Título</label>
+                <input value={editForm.titulo} onChange={e => setEditForm(f => ({ ...f, titulo: e.target.value }))}
+                  className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-crochet-primary" />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Diseñadora</label>
+                <input value={editForm.diseñadora} onChange={e => setEditForm(f => ({ ...f, diseñadora: e.target.value }))}
+                  className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-crochet-primary" />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Categoría</label>
+                <select value={editForm.categoria} onChange={e => setEditForm(f => ({ ...f, categoria: e.target.value, subcategoria: '' }))}
+                  className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-crochet-primary">
+                  {CATEGORIAS.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              {editForm.categoria === 'amigurumi' && (
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Subcategoría</label>
+                  <select value={editForm.subcategoria} onChange={e => setEditForm(f => ({ ...f, subcategoria: e.target.value }))}
+                    className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-crochet-primary">
+                    <option value="">— ninguna —</option>
+                    {SUBCATEGORIAS_AMIGURUMI.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              )}
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Dificultad</label>
+                <select value={editForm.dificultad} onChange={e => setEditForm(f => ({ ...f, dificultad: e.target.value }))}
+                  className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-crochet-primary">
+                  {DIFICULTADES.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Descripción</label>
+                <textarea value={editForm.descripcion} onChange={e => setEditForm(f => ({ ...f, descripcion: e.target.value }))}
+                  rows={3} className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-crochet-primary resize-none" />
+              </div>
+
+              <div className="flex gap-2 mt-auto pt-2">
+                <button onClick={guardarEdicion} disabled={guardando}
+                  className="flex-1 btn-primary py-2 text-sm flex items-center justify-center gap-2 disabled:opacity-50">
+                  {guardando ? <Loader className="w-4 h-4 animate-spin" /> : null}
+                  {guardando ? 'Guardando...' : 'Guardar'}
+                </button>
+                <button onClick={() => handleVerificar(patronEditando.id)}
+                  className={`px-4 py-2 rounded text-sm font-semibold transition flex items-center gap-1.5 ${patronEditando.verificado ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-gray-700 hover:bg-blue-700 text-gray-200'}`}>
+                  ✔ {patronEditando.verificado ? 'Verificado' : 'Verificar'}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

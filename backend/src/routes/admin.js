@@ -65,9 +65,11 @@ router.post('/patrones', (req, res, next) => {
     next();
   });
 }, adminController.crearPatron);
+router.patch('/patrones/:id', adminController.editarPatron);
 router.patch('/patrones/:id/toggle', adminController.toggleActivo);
 router.patch('/patrones/:id/destacar', adminController.toggleDestacado);
 router.patch('/patrones/:id/tendencia', adminController.toggleTendencia);
+router.patch('/patrones/:id/verificar', adminController.toggleVerificado);
 router.delete('/patrones/:id', adminController.eliminarPatron);
 
 module.exports = router;
