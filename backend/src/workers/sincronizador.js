@@ -1,7 +1,7 @@
 const db = require('../models');
 const path = require('path');
 const fs = require('fs');
-const { execSync } = require('child_process');
+const { execSync, exec } = require('child_process');
 const { v4: uuidv4 } = require('uuid');
 
 const UPLOADS_DIR = path.join(__dirname, '../../../uploads/patrones');
@@ -12,17 +12,21 @@ const CONCURRENCIA = 4;                  // conversiones en paralelo
 
 function convertirPDF(pdfPath, outputDir) {
   const prefix = path.join(outputDir, 'pagina');
-  execSync(`pdftoppm -jpeg -r 150 "${pdfPath}" "${prefix}"`, { timeout: 120000 });
-  const archivos = fs.readdirSync(outputDir)
-    .filter(f => f.startsWith('pagina') && f.endsWith('.jpg'))
-    .sort();
-  const renombrados = [];
-  archivos.forEach((archivo, i) => {
-    const nuevoNombre = `pagina_${i + 1}.jpg`;
-    fs.renameSync(path.join(outputDir, archivo), path.join(outputDir, nuevoNombre));
-    renombrados.push(nuevoNombre);
+  return new Promise((resolve, reject) => {
+    exec(`pdftoppm -jpeg -r 150 "${pdfPath}" "${prefix}"`, { timeout: 120000 }, (err) => {
+      if (err) return reject(err);
+      const archivos = fs.readdirSync(outputDir)
+        .filter(f => f.startsWith('pagina') && f.endsWith('.jpg'))
+        .sort();
+      const renombrados = [];
+      archivos.forEach((archivo, i) => {
+        const nuevoNombre = `pagina_${i + 1}.jpg`;
+        fs.renameSync(path.join(outputDir, archivo), path.join(outputDir, nuevoNombre));
+        renombrados.push(nuevoNombre);
+      });
+      resolve(renombrados);
+    });
   });
-  return renombrados;
 }
 
 function extractTitle(filename) {
