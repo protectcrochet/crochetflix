@@ -139,8 +139,13 @@ export default function Admin() {
   };
 
   const handleDestacar = async (id) => {
-    await api.patch(`/admin/patrones/${id}/destacar`, {}, { headers: authHeader });
-    cargarPatrones();
+    try {
+      await api.patch(`/admin/patrones/${id}/destacar`, {}, { headers: authHeader });
+      cargarPatrones();
+    } catch (err) {
+      setMensaje({ tipo: 'error', texto: err.response?.data?.error || 'Error' });
+      setTimeout(() => setMensaje(null), 3000);
+    }
   };
 
   const handleTendencia = async (id) => {
@@ -460,6 +465,16 @@ export default function Admin() {
                 </button>
               )}
             </div>
+            <div className="flex items-center gap-3 flex-wrap text-xs">
+              {(() => {
+                const heroCount = patrones.filter(p => p.destacado === 1).length;
+                return heroCount > 0 && (
+                  <span className={`px-2 py-1 rounded font-semibold ${heroCount >= 10 ? 'bg-yellow-600 text-white' : 'bg-gray-700 text-yellow-400'}`}>
+                    ⭐ {heroCount}/10 hero{heroCount >= 10 ? ' — límite alcanzado' : ''}
+                  </span>
+                );
+              })()}
+            </div>
             <div className="flex gap-2 flex-wrap text-xs">
               {[
                 { key: 'todos', label: 'Todos' },
@@ -514,10 +529,17 @@ export default function Admin() {
                   </p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
-                  <button onClick={() => handleDestacar(p.id)} title={p.destacado ? 'Quitar del hero' : 'Poner en hero'}
-                    className={`p-2 transition ${p.destacado ? 'text-yellow-400 hover:text-yellow-200' : 'text-gray-400 hover:text-yellow-400'}`}>
-                    <Star className="w-4 h-4" fill={p.destacado ? 'currentColor' : 'none'} />
-                  </button>
+                  {(() => {
+                    const heroCount = patrones.filter(x => x.destacado === 1).length;
+                    const bloqueado = !p.destacado && heroCount >= 10;
+                    return (
+                      <button onClick={() => !bloqueado && handleDestacar(p.id)}
+                        title={bloqueado ? 'Límite de 10 heroes alcanzado' : p.destacado ? 'Quitar del hero' : 'Poner en hero'}
+                        className={`p-2 transition ${p.destacado ? 'text-yellow-400 hover:text-yellow-200' : bloqueado ? 'text-gray-600 cursor-not-allowed' : 'text-gray-400 hover:text-yellow-400'}`}>
+                        <Star className="w-4 h-4" fill={p.destacado ? 'currentColor' : 'none'} />
+                      </button>
+                    );
+                  })()}
                   <button onClick={() => handleTendencia(p.id)} title={p.tendencia ? 'Quitar de tendencia' : 'Poner en tendencia'}
                     className={`p-2 transition ${p.tendencia ? 'text-orange-400 hover:text-orange-200' : 'text-gray-400 hover:text-orange-400'}`}>
                     <Flame className="w-4 h-4" fill={p.tendencia ? 'currentColor' : 'none'} />

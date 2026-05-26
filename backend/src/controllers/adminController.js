@@ -525,6 +525,14 @@ exports.toggleDestacado = async (req, res) => {
     });
     if (!patron) return res.status(404).json({ error: 'Patrón no encontrado' });
     const nuevoEstado = patron.destacado ? 0 : 1;
+    if (nuevoEstado === 1) {
+      const { total } = await new Promise((resolve, reject) => {
+        db.get('SELECT COUNT(*) as total FROM patrones WHERE destacado = 1', [], (err, row) => {
+          if (err) reject(err); else resolve(row);
+        });
+      });
+      if (total >= 10) return res.status(400).json({ error: 'Máximo 10 patrones en el hero' });
+    }
     await new Promise((resolve, reject) => {
       db.run('UPDATE patrones SET destacado = ? WHERE id = ?', [nuevoEstado, id],
         function(err) { if (err) reject(err); else resolve(); }
