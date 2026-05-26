@@ -116,6 +116,8 @@ async function ciclo() {
       );
     });
 
+    console.log(`[worker] Ciclo — PDFs bot: ${pdfsBot.length}, nuevos: ${registrados}, pendientes: ${pendientes.length}`);
+
     // 3. Convertir en paralelo (CONCURRENCIA a la vez)
     let convertidos = 0;
     for (let i = 0; i < pendientes.length; i += CONCURRENCIA) {
