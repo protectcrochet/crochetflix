@@ -52,7 +52,7 @@ async function convertirPatron(patronId, archivosFlat) {
     if (!pdfPath) return false;
 
     fs.mkdirSync(patronDir, { recursive: true });
-    const paginas = convertirPDF(pdfPath, patronDir);
+    const paginas = await convertirPDF(pdfPath, patronDir);
     if (paginas.length === 0) return false;
 
     await new Promise((resolve, reject) => {
