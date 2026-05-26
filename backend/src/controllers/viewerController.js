@@ -26,7 +26,7 @@ function convertirPDFLazy(patronId) {
   if (!pdfPath) return 0;
 
   console.log(`[viewer] Convirtiendo PDF lazy: ${pdfPath}`);
-  execSync(`pdftoppm -jpeg -r 120 "${pdfPath}" "${path.join(outDir, 'pagina')}"`, { timeout: 300000 });
+  execSync(`pdftoppm -jpeg -r 120 "${pdfPath}" "${path.join(outDir, 'pagina')}"`, { timeout: 300000, stdio: 'pipe' });
 
   const imgs = fs.readdirSync(outDir)
     .filter(f => /^pagina.*\.(jpg|jpeg|ppm)$/i.test(f)).sort();

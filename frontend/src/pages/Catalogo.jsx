@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { Search, X, ChevronLeft } from 'lucide-react';
@@ -6,6 +6,7 @@ import { Search, X, ChevronLeft } from 'lucide-react';
 const CATEGORIAS = ['todas', 'amigurumi', 'ropa', 'accesorios', 'decoracion', 'hogar', 'navidad', 'halloween', 'animales', 'general', 'otro'];
 const DIFICULTADES = ['todas', 'principiante', 'intermedio', 'avanzado'];
 const IDIOMAS = [{ v: '', l: 'Todos' }, { v: 'es', l: '🇪🇸 Español' }, { v: 'en', l: '🇺🇸 Inglés' }, { v: 'pt', l: '🇧🇷 Portugués' }, { v: 'fr', l: '🇫🇷 Francés' }, { v: 'de', l: '🇩🇪 Alemán' }, { v: 'it', l: '🇮🇹 Italiano' }];
+const ORDENES = [{ v: 'recientes', l: 'Más recientes' }, { v: 'az', l: 'A–Z' }, { v: 'paginas', l: 'Más páginas' }];
 const POR_PAGINA = 24;
 
 function PatronCardGrid({ patron }) {
@@ -22,11 +23,11 @@ function PatronCardGrid({ patron }) {
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <span className="text-gray-600 text-3xl">🧶</span>
         </div>
-        <div className="absolute top-2 left-2 flex gap-1">
-          {patron.es_preview === 1 && (
+        {patron.es_preview === 1 && (
+          <div className="absolute top-2 left-2">
             <span className="bg-green-600 text-xs px-2 py-0.5 rounded font-bold">GRATIS</span>
-          )}
-        </div>
+          </div>
+        )}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
       </div>
       <div className="mt-2 px-0.5">
@@ -42,6 +43,19 @@ function PatronCardGrid({ patron }) {
   );
 }
 
+function PatronCardSkeleton() {
+  return (
+    <div className="animate-pulse">
+      <div className="aspect-[3/4] rounded-lg bg-gray-800" />
+      <div className="mt-2 space-y-1.5 px-0.5">
+        <div className="h-3 bg-gray-800 rounded w-3/4" />
+        <div className="h-3 bg-gray-800 rounded w-1/2" />
+        <div className="h-3 bg-gray-800 rounded w-1/3" />
+      </div>
+    </div>
+  );
+}
+
 export default function Catalogo() {
   const [patrones, setPatrones] = useState([]);
   const [total, setTotal] = useState(0);
@@ -49,25 +63,37 @@ export default function Catalogo() {
   const [totalPaginas, setTotalPaginas] = useState(1);
   const [loading, setLoading] = useState(true);
   const [cargandoMas, setCargandoMas] = useState(false);
+
   const [busqueda, setBusqueda] = useState('');
+  const [busquedaFiltro, setBusquedaFiltro] = useState('');
+  const debounceRef = useRef(null);
+
   const [categoria, setCategoria] = useState('todas');
   const [dificultad, setDificultad] = useState('todas');
   const [idioma, setIdioma] = useState('');
+  const [orden, setOrden] = useState('recientes');
+
+  const handleBusqueda = (valor) => {
+    setBusqueda(valor);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setBusquedaFiltro(valor), 300);
+  };
 
   useEffect(() => {
     setPatrones([]);
     setPage(1);
     cargar(1, true);
-  }, [busqueda, categoria, dificultad, idioma]);
+  }, [busquedaFiltro, categoria, dificultad, idioma, orden]);
 
   const cargar = async (pagina, resetear = false) => {
     if (pagina === 1) setLoading(true); else setCargandoMas(true);
     try {
       const params = { page: pagina, limit: POR_PAGINA };
-      if (busqueda) params.search = busqueda;
+      if (busquedaFiltro) params.search = busquedaFiltro;
       if (categoria !== 'todas') params.categoria = categoria;
       if (dificultad !== 'todas') params.dificultad = dificultad;
       if (idioma) params.idioma = idioma;
+      if (orden !== 'recientes') params.orden = orden;
 
       const res = await api.get('/patrones', { params });
       const nuevos = res.data.patrones || [];
@@ -108,52 +134,35 @@ export default function Catalogo() {
         <input
           type="text"
           value={busqueda}
-          onChange={e => setBusqueda(e.target.value)}
+          onChange={e => handleBusqueda(e.target.value)}
           placeholder="Buscar por título, diseñadora..."
           className="w-full bg-gray-800 border border-gray-700 rounded-full px-10 py-2.5 text-sm focus:outline-none focus:border-crochet-primary"
         />
         {busqueda && (
-          <button onClick={() => setBusqueda('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
+          <button onClick={() => handleBusqueda('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
             <X className="w-4 h-4" />
           </button>
         )}
       </div>
 
       {/* Filtros */}
-      <div className="flex gap-3 mb-6 flex-wrap">
-        {/* Dificultad */}
-        <select
-          value={dificultad}
-          onChange={e => setDificultad(e.target.value)}
-          className="bg-gray-800 border border-gray-700 rounded-full px-4 py-1.5 text-sm focus:outline-none focus:border-crochet-primary capitalize"
-        >
-          {DIFICULTADES.map(d => (
-            <option key={d} value={d}>{d === 'todas' ? 'Dificultad' : d}</option>
-          ))}
+      <div className="flex gap-3 mb-6 flex-wrap items-center">
+        <select value={orden} onChange={e => setOrden(e.target.value)}
+          className="bg-gray-800 border border-gray-700 rounded-full px-4 py-1.5 text-sm focus:outline-none focus:border-crochet-primary">
+          {ORDENES.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
         </select>
-        {/* Idioma */}
-        <select
-          value={idioma}
-          onChange={e => setIdioma(e.target.value)}
-          className="bg-gray-800 border border-gray-700 rounded-full px-4 py-1.5 text-sm focus:outline-none focus:border-crochet-primary"
-        >
-          {IDIOMAS.map(i => (
-            <option key={i.v} value={i.v}>{i.l}</option>
-          ))}
+        <select value={dificultad} onChange={e => setDificultad(e.target.value)}
+          className="bg-gray-800 border border-gray-700 rounded-full px-4 py-1.5 text-sm focus:outline-none focus:border-crochet-primary capitalize">
+          {DIFICULTADES.map(d => <option key={d} value={d}>{d === 'todas' ? 'Dificultad' : d}</option>)}
         </select>
-
-        {/* Categorías */}
+        <select value={idioma} onChange={e => setIdioma(e.target.value)}
+          className="bg-gray-800 border border-gray-700 rounded-full px-4 py-1.5 text-sm focus:outline-none focus:border-crochet-primary">
+          {IDIOMAS.map(i => <option key={i.v} value={i.v}>{i.l}</option>)}
+        </select>
         <div className="flex gap-2 flex-wrap">
           {CATEGORIAS.map(cat => (
-            <button
-              key={cat}
-              onClick={() => setCategoria(cat)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition capitalize ${
-                categoria === cat
-                  ? 'bg-crochet-primary text-white'
-                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-              }`}
-            >
+            <button key={cat} onClick={() => setCategoria(cat)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition capitalize ${categoria === cat ? 'bg-crochet-primary text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}>
               {cat === 'todas' ? 'Todas' : cat}
             </button>
           ))}
@@ -162,8 +171,8 @@ export default function Catalogo() {
 
       {/* Grid */}
       {loading ? (
-        <div className="flex justify-center py-20">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-crochet-primary" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+          {Array.from({ length: POR_PAGINA }).map((_, i) => <PatronCardSkeleton key={i} />)}
         </div>
       ) : patrones.length === 0 ? (
         <div className="text-center py-20 text-gray-500">
@@ -175,19 +184,13 @@ export default function Catalogo() {
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
             {patrones.map(p => <PatronCardGrid key={p.id} patron={p} />)}
           </div>
-
           {page < totalPaginas && (
             <div className="flex justify-center mt-10">
-              <button
-                onClick={cargarMas}
-                disabled={cargandoMas}
-                className="btn-secondary px-8 py-3 flex items-center gap-2"
-              >
-                {cargandoMas ? (
-                  <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /> Cargando...</>
-                ) : (
-                  `Ver más (${total - patrones.length} restantes)`
-                )}
+              <button onClick={cargarMas} disabled={cargandoMas}
+                className="btn-secondary px-8 py-3 flex items-center gap-2">
+                {cargandoMas
+                  ? <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /> Cargando...</>
+                  : `Ver más (${total - patrones.length} restantes)`}
               </button>
             </div>
           )}

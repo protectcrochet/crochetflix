@@ -42,7 +42,11 @@ exports.listar = async (req, res) => {
       params.push(req.query.idioma);
     }
 
-    sql += ' ORDER BY p.created_at DESC';
+    switch (req.query.orden) {
+      case 'az': sql += ' ORDER BY p.titulo ASC'; break;
+      case 'paginas': sql += ' ORDER BY p.paginas DESC'; break;
+      default: sql += ' ORDER BY p.created_at DESC';
+    }
 
     // Paginación
     const page = Math.max(1, parseInt(req.query.page) || 1);
