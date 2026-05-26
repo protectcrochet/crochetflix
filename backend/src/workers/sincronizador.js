@@ -8,7 +8,7 @@ const UPLOADS_DIR = path.join(__dirname, '../../uploads/patrones');
 const INTERVALO_IDLE_MS = 5 * 60 * 1000;
 const INTERVALO_ACTIVO_MS = 2 * 1000;   // 2s entre lotes cuando hay pendientes
 const BATCH_SIZE = 60;                   // PDFs por ciclo
-const CONCURRENCIA = 4;                  // conversiones en paralelo
+const CONCURRENCIA = 8;                  // conversiones en paralelo
 
 function convertirPDF(pdfPath, outputDir) {
   const prefix = path.join(outputDir, 'pagina');
