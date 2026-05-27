@@ -363,7 +363,6 @@ export default function Viewer() {
       >
         DMCA
       </a>
-      </div>
     </div>
   );
 }
