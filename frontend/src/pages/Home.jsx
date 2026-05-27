@@ -44,7 +44,7 @@ function HeroPosters({ patrones }) {
     <section className="px-4 sm:px-6 pt-4 pb-2">
       <div
         className={`grid grid-cols-3 gap-3 transition-opacity duration-300 ${animando ? 'opacity-0' : 'opacity-100'}`}
-        style={{ height: '220px' }}
+        style={{ height: '440px' }}
       >
         {trio.map((p) => (
           <Link
