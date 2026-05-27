@@ -1039,16 +1039,20 @@ export default function Admin() {
                 {visorIdx !== null ? (
                   /* ── MODO VISOR: cuadrícula de miniaturas ── */
                   <>
+                    {filtrados.length > 200 && (
+                      <p className="text-xs text-yellow-500 mb-2">
+                        Mostrando los primeros 200 de {filtrados.length}. Usa el buscador para filtrar.
+                      </p>
+                    )}
                     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
-                      {filtrados.map((p, i) => (
+                      {filtrados.slice(0, 200).map((p, i) => (
                         <button
                           key={p.id}
                           onClick={() => setVisorIdx(i)}
-                          className={`relative aspect-[3/4] rounded overflow-hidden bg-gray-800 focus:outline-none ring-2 transition ${i === visorIdx ? 'ring-crochet-primary' : 'ring-transparent hover:ring-gray-500'}`}
+                          className={`relative w-full aspect-[3/4] rounded overflow-hidden bg-gray-800 focus:outline-none ring-2 transition ${i === visorIdx ? 'ring-crochet-primary' : 'ring-transparent hover:ring-gray-500'}`}
                         >
                           {p.thumbnail_path ? (
-                            <img src={p.thumbnail_path} alt={p.titulo} className="w-full h-full object-cover" loading="lazy"
-                              onError={e => { e.currentTarget.style.display = 'none'; }} />
+                            <img src={p.thumbnail_path} alt={p.titulo} className="absolute inset-0 w-full h-full object-cover" />
                           ) : (
                             <span className="absolute inset-0 flex items-center justify-center text-2xl text-gray-600">📄</span>
                           )}
