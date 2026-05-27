@@ -988,7 +988,7 @@ export default function Admin() {
                 );
               })()}
             </div>
-            <div className="flex gap-2 flex-wrap text-xs">
+            <div className="flex gap-2 flex-wrap items-center text-xs">
               {[
                 { key: 'todos', label: 'Todos' },
                 { key: 'hero', label: '⭐ Hero' },
@@ -1002,12 +1002,10 @@ export default function Admin() {
                   {f.label}
                 </button>
               ))}
-            </div>
-            <div className="flex justify-end">
               <button
                 onClick={() => setVisorIdx(visorIdx === null ? 0 : null)}
                 title="Modo visor: edita rápido mientras ves las imágenes"
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition ${visorIdx !== null ? 'bg-crochet-primary text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}>
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-medium transition ml-auto ${visorIdx !== null ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
                 <LayoutGrid className="w-3.5 h-3.5" />
                 Modo visor
               </button>
