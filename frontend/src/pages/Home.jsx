@@ -32,7 +32,7 @@ function HeroPosters({ patrones }) {
     if (totalGrupos <= 1) return;
     timerRef.current = setInterval(() => {
       setGrupo(g => (g + 1) % totalGrupos);
-    }, 5000);
+    }, 12000);
     return () => clearInterval(timerRef.current);
   }, [totalGrupos]);
 
@@ -50,12 +50,12 @@ function HeroPosters({ patrones }) {
           <Link
             key={p.id}
             to={`/patron/${p.id}`}
-            className="group relative rounded-xl overflow-hidden bg-gray-800 block h-full"
+            className="group relative rounded-xl overflow-hidden bg-gray-900 block h-full"
           >
             <img
               src={p.thumbnail_path || ''}
               alt={p.titulo}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
               onError={e => { e.currentTarget.style.display = 'none'; }}
             />
             {/* Gradiente inferior más pronunciado */}
