@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
-import { Upload, Trash2, Eye, EyeOff, Plus, FileText, Image, Loader, LogOut, Download, Sparkles, Star, Flame, Search, X, ExternalLink, LayoutGrid, List, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Upload, Trash2, Eye, EyeOff, Plus, FileText, Image, Loader, LogOut, Download, Sparkles, Star, Flame, Search, X, ExternalLink, LayoutGrid, List, ChevronLeft, ChevronRight, ShieldCheck } from 'lucide-react';
 
 const CATEGORIAS = ['amigurumi', 'ropa', 'accesorios', 'decoracion', 'hogar', 'otro'];
 const SUBCATEGORIAS_AMIGURUMI = ['animales', 'personas y muñecos', 'comida', 'plantas y flores', 'personajes y fantasía', 'navidad', 'otro'];
@@ -398,11 +398,73 @@ function VisorEditModal({ patron, idx, total, authHeader, onGuardado, onNext, on
   );
 }
 
+const STATUS_LABELS = { pending: 'Pendiente', reviewing: 'En revisión', resolved: 'Resuelto', rejected: 'Rechazado' };
+const STATUS_COLORS = { pending: 'bg-yellow-700', reviewing: 'bg-blue-700', resolved: 'bg-green-700', rejected: 'bg-gray-600' };
+
+function DmcaClaimCard({ claim, authHeader, onUpdate }) {
+  const [expanded, setExpanded] = useState(false);
+  const [notes, setNotes] = useState(claim.admin_notes || '');
+  const [saving, setSaving] = useState(false);
+
+  const update = async (status, restore_patron = false) => {
+    setSaving(true);
+    try {
+      await api.patch(`/admin/dmca/${claim.id}`, { status, admin_notes: notes, restore_patron }, { headers: authHeader });
+      onUpdate({ status, admin_notes: notes });
+    } catch { alert('Error'); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div className="bg-gray-800 rounded-lg p-4 space-y-2">
+      <div className="flex items-start justify-between gap-3 cursor-pointer" onClick={() => setExpanded(e => !e)}>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`text-xs px-2 py-0.5 rounded font-semibold ${STATUS_COLORS[claim.status] || 'bg-gray-600'}`}>
+              {STATUS_LABELS[claim.status] || claim.status}
+            </span>
+            <span className="font-semibold text-sm truncate">{claim.claimant_name}</span>
+            <span className="text-gray-400 text-xs">{claim.claimant_email}</span>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">{new Date(claim.created_at).toLocaleString('es-MX')}</p>
+        </div>
+        <span className="text-gray-400 text-xs mt-1">{expanded ? '▲' : '▼'}</span>
+      </div>
+
+      {expanded && (
+        <div className="space-y-3 pt-2 border-t border-gray-700 text-sm">
+          {claim.claimant_company && <p><span className="text-gray-400">Empresa:</span> {claim.claimant_company}</p>}
+          <div><p className="text-gray-400 text-xs mb-0.5">Obra reclamada:</p><p className="text-gray-200">{claim.work_description}</p></div>
+          <div><p className="text-gray-400 text-xs mb-0.5">URLs infractoras:</p><p className="font-mono text-xs text-gray-300 whitespace-pre-wrap">{claim.infringing_urls}</p></div>
+          {claim.patron_id && <p><span className="text-gray-400">Patrón ID:</span> <span className="font-mono text-xs">{claim.patron_id}</span></p>}
+          <p><span className="text-gray-400">IP:</span> {claim.ip_address}</p>
+          <p><span className="text-gray-400">Firma:</span> {claim.signature}</p>
+          <div>
+            <label className="text-xs text-gray-400 block mb-1">Notas internas</label>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
+              className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs focus:outline-none" />
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <button onClick={() => update('reviewing')} disabled={saving}
+              className="px-3 py-1.5 bg-blue-700 hover:bg-blue-600 rounded text-xs font-semibold disabled:opacity-50">En revisión</button>
+            <button onClick={() => update('resolved')} disabled={saving}
+              className="px-3 py-1.5 bg-green-700 hover:bg-green-600 rounded text-xs font-semibold disabled:opacity-50">Resuelto (retirar)</button>
+            <button onClick={() => update('rejected', true)} disabled={saving}
+              className="px-3 py-1.5 bg-gray-600 hover:bg-gray-500 rounded text-xs font-semibold disabled:opacity-50">Rechazar (restaurar patrón)</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Admin() {
   const [secret, setSecret] = useState(() => localStorage.getItem('admin_secret') || '');
   const [autenticado, setAutenticado] = useState(false);
   const [patrones, setPatrones] = useState([]);
-  const [mostrando, setMostrando] = useState('lista'); // 'lista' | 'nuevo'
+  const [mostrando, setMostrando] = useState('lista'); // 'lista' | 'nuevo' | 'dmca'
+  const [dmcaClaims, setDmcaClaims] = useState([]);
+  const [dmcaCargando, setDmcaCargando] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [mensaje, setMensaje] = useState(null); // { tipo: 'ok'|'error', texto }
   const [busquedaAdmin, setBusquedaAdmin] = useState('');
@@ -779,6 +841,22 @@ export default function Admin() {
             <LayoutGrid className="w-4 h-4" />
             Modo visor
           </button>
+          <button
+            onClick={async () => {
+              setMostrando('dmca');
+              if (dmcaClaims.length === 0) {
+                setDmcaCargando(true);
+                try {
+                  const res = await api.get('/admin/dmca', { headers: authHeader });
+                  setDmcaClaims(res.data);
+                } catch { }
+                finally { setDmcaCargando(false); }
+              }
+            }}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded text-sm font-medium transition ${mostrando === 'dmca' ? 'bg-red-700 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
+            <ShieldCheck className="w-4 h-4" />
+            DMCA
+          </button>
           <button onClick={cerrarSesion} className="text-gray-400 hover:text-white p-2">
             <LogOut className="w-5 h-5" />
           </button>
@@ -1151,6 +1229,30 @@ export default function Admin() {
               </>
             );
           })()}
+        </div>
+      )}
+
+      {/* Panel DMCA */}
+      {mostrando === 'dmca' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold flex items-center gap-2"><ShieldCheck className="w-5 h-5 text-red-400" /> Reclamaciones DMCA</h2>
+            <button onClick={async () => {
+              setDmcaCargando(true);
+              try { const res = await api.get('/admin/dmca', { headers: authHeader }); setDmcaClaims(res.data); }
+              catch { } finally { setDmcaCargando(false); }
+            }} className="text-xs text-gray-400 hover:text-white transition">↺ Actualizar</button>
+          </div>
+          {dmcaCargando ? (
+            <div className="flex justify-center py-12"><Loader className="w-8 h-8 animate-spin text-crochet-primary" /></div>
+          ) : dmcaClaims.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">No hay reclamaciones registradas.</div>
+          ) : (
+            dmcaClaims.map(c => (
+              <DmcaClaimCard key={c.id} claim={c} authHeader={authHeader}
+                onUpdate={updated => setDmcaClaims(prev => prev.map(x => x.id === c.id ? { ...x, ...updated } : x))} />
+            ))
+          )}
         </div>
       )}
 

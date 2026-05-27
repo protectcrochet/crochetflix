@@ -4,6 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const os = require('os');
 const adminController = require('../controllers/adminController');
+const dmcaController = require('../controllers/dmcaController');
 
 // Verificar ADMIN_SECRET en el header
 function adminAuth(req, res, next) {
@@ -80,5 +81,8 @@ router.patch('/patrones/:id/verificar', adminController.toggleVerificado);
 router.patch('/patrones/:id/corrupto', adminController.toggleCorrupto);
 router.patch('/patrones/:id/hero-position', adminController.guardarHeroPosition);
 router.delete('/patrones/:id', adminController.eliminarPatron);
+
+router.get('/dmca', dmcaController.listClaims);
+router.patch('/dmca/:id', dmcaController.updateClaim);
 
 module.exports = router;

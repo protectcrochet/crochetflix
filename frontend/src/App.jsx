@@ -11,6 +11,7 @@ import Descargas from './pages/Descargas';
 import Perfil from './pages/Perfil';
 import Admin from './pages/Admin';
 import Catalogo from './pages/Catalogo';
+import DMCA from './pages/DMCA';
 
 function App() {
   return (
@@ -27,6 +28,7 @@ function App() {
             <Route path="mi-lista" element={<MiLista />} />
             <Route path="descargas" element={<Descargas />} />
             <Route path="perfil" element={<Perfil />} />
+            <Route path="dmca" element={<DMCA />} />
           </Route>
         </Routes>
       </AdminModeProvider>

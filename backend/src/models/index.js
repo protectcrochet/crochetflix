@@ -107,6 +107,26 @@ function initTables() {
       FOREIGN KEY (patron_id) REFERENCES patrones(id)
     )`);
 
+    // Reclamaciones DMCA
+    db.run(`CREATE TABLE IF NOT EXISTS dmca_claims (
+      id TEXT PRIMARY KEY,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      claimant_name TEXT NOT NULL,
+      claimant_email TEXT NOT NULL,
+      claimant_company TEXT,
+      claimant_address TEXT,
+      work_description TEXT NOT NULL,
+      infringing_urls TEXT NOT NULL,
+      patron_id TEXT,
+      good_faith INTEGER NOT NULL DEFAULT 0,
+      accuracy INTEGER NOT NULL DEFAULT 0,
+      signature TEXT NOT NULL,
+      status TEXT DEFAULT 'pending',
+      admin_notes TEXT,
+      resolved_at TIMESTAMP,
+      ip_address TEXT
+    )`);
+
     console.log('✅ Tablas inicializadas');
   });
 }

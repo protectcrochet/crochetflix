@@ -8,6 +8,7 @@ const patronesRoutes = require('./routes/patrones');
 const viewerRoutes = require('./routes/viewer');
 const pagosRoutes = require('./routes/pagos');
 const adminRoutes = require('./routes/admin');
+const dmcaRoutes = require('./routes/dmca');
 const sincronizador = require('./workers/sincronizador');
 
 const app = express();
@@ -41,6 +42,7 @@ app.use('/api/viewer', viewerRoutes);
 app.use('/api/pagos', pagosRoutes);
 
 app.use('/api/admin', adminRoutes);
+app.use('/api/dmca', dmcaRoutes);
 
 // Worker automático de sincronización
 sincronizador.iniciar();
