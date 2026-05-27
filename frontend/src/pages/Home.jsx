@@ -1,59 +1,103 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
 import Carrusel from '../components/Carrusel';
 import PatronCard from '../components/PatronCard';
-import { Play, Crown, Search, X } from 'lucide-react';
+import { Crown, Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-function HeroBanners({ patrones }) {
-  const items = patrones.slice(0, 3);
-  if (items.length === 0) return null;
+function HeroPosters({ patrones }) {
+  const [grupo, setGrupo] = useState(0);
+  const [animando, setAnimando] = useState(false);
+  const timerRef = useRef(null);
+
+  const totalGrupos = Math.ceil(patrones.length / 3);
+
+  const irA = (g) => {
+    if (animando) return;
+    setAnimando(true);
+    setTimeout(() => {
+      setGrupo((g + totalGrupos) % totalGrupos);
+      setAnimando(false);
+    }, 300);
+  };
+
+  const reiniciarTimer = (g) => {
+    clearInterval(timerRef.current);
+    irA(g);
+    timerRef.current = setInterval(() => irA((grupo + 1) % totalGrupos), 5000);
+  };
+
+  useEffect(() => {
+    if (totalGrupos <= 1) return;
+    timerRef.current = setInterval(() => {
+      setGrupo(g => (g + 1) % totalGrupos);
+    }, 5000);
+    return () => clearInterval(timerRef.current);
+  }, [totalGrupos]);
+
+  if (patrones.length === 0) return null;
+
+  const trio = patrones.slice(grupo * 3, grupo * 3 + 3);
 
   return (
-    <section className="px-4 py-4 space-y-3">
-      {items.map((p) => (
-        <Link
-          key={p.id}
-          to={`/patron/${p.id}`}
-          className="flex gap-0 bg-gray-800/50 hover:bg-gray-800 rounded-xl overflow-hidden transition-colors group"
-        >
-          {/* Texto */}
-          <div className="flex-1 p-4 flex flex-col justify-between min-w-0">
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                {p.es_preview === 1 && (
-                  <span className="bg-green-600 text-xs font-bold px-2 py-0.5 rounded">GRATIS</span>
-                )}
-                {p.destacado === 1 && (
-                  <span className="bg-crochet-primary/80 text-xs px-2 py-0.5 rounded">DESTACADO</span>
-                )}
-              </div>
-              <h2 className="font-bold text-base sm:text-lg leading-tight line-clamp-2 mb-1">{p.titulo}</h2>
-              <p className="text-gray-400 text-xs mb-1">por {p.diseñadora || p.autor}</p>
-              <p className="text-gray-500 text-xs line-clamp-2 hidden sm:block">{p.descripcion}</p>
-            </div>
-            <div className="flex items-center gap-3 mt-3">
-              <span className="text-crochet-primary text-sm font-semibold flex items-center gap-1.5 group-hover:gap-2.5 transition-all duration-200">
-                <Play className="w-3.5 h-3.5 fill-current" /> Ver patrón
-              </span>
-              {p.paginas > 0 && (
-                <span className="text-gray-600 text-xs">{p.paginas} págs.</span>
-              )}
-            </div>
-          </div>
-          {/* Imagen */}
-          <div className="w-28 sm:w-36 flex-shrink-0 relative overflow-hidden">
+    <section className="px-4 pt-4 pb-2">
+      <div
+        className={`grid grid-cols-3 gap-3 transition-opacity duration-300 ${animando ? 'opacity-0' : 'opacity-100'}`}
+      >
+        {trio.map((p) => (
+          <Link
+            key={p.id}
+            to={`/patron/${p.id}`}
+            className="group relative rounded-xl overflow-hidden bg-gray-800 aspect-[2/3] block"
+          >
             <img
               src={p.thumbnail_path || ''}
               alt={p.titulo}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               onError={e => { e.currentTarget.style.display = 'none'; }}
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-gray-800/40 to-transparent pointer-events-none" />
+            {/* Gradiente inferior */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+            {/* Badge */}
+            {p.es_preview === 1 && (
+              <span className="absolute top-2 left-2 bg-green-600 text-xs font-bold px-2 py-0.5 rounded">GRATIS</span>
+            )}
+            {/* Info inferior */}
+            <div className="absolute bottom-0 left-0 right-0 p-2.5">
+              <h3 className="text-white font-semibold text-xs sm:text-sm leading-tight line-clamp-2">{p.titulo}</h3>
+              <p className="text-gray-400 text-xs mt-0.5 truncate hidden sm:block">{p.diseñadora || p.autor}</p>
+            </div>
+          </Link>
+        ))}
+      </div>
+
+      {/* Navegación: flechas + puntos */}
+      {totalGrupos > 1 && (
+        <div className="flex items-center justify-center gap-3 mt-3">
+          <button
+            onClick={() => reiniciarTimer(grupo - 1)}
+            className="p-1 text-gray-500 hover:text-white transition"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <div className="flex gap-1.5">
+            {Array.from({ length: totalGrupos }).map((_, i) => (
+              <button
+                key={i}
+                onClick={() => reiniciarTimer(i)}
+                className={`rounded-full transition-all duration-300 ${i === grupo ? 'w-5 h-2 bg-white' : 'w-2 h-2 bg-white/30 hover:bg-white/60'}`}
+              />
+            ))}
           </div>
-        </Link>
-      ))}
+          <button
+            onClick={() => reiniciarTimer(grupo + 1)}
+            className="p-1 text-gray-500 hover:text-white transition"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
     </section>
   );
 }
@@ -77,7 +121,7 @@ export default function Home() {
     try {
       const [resAll, resDestacados, resTendencia] = await Promise.all([
         api.get('/patrones'),
-        api.get('/patrones', { params: { destacado: '1', limit: 10 } }),
+        api.get('/patrones', { params: { destacado: '1', limit: 12 } }),
         api.get('/patrones', { params: { tendencia: '1', limit: 16 } }),
       ]);
       const data = resAll.data.patrones || [];
@@ -171,7 +215,7 @@ export default function Home() {
       {/* Contenido principal */}
       {!busqueda && (
         <>
-          {heroPatrones.length > 0 && <HeroBanners patrones={heroPatrones} />}
+          {heroPatrones.length > 0 && <HeroPosters patrones={heroPatrones} />}
 
           {patronesPreview.length > 0 && (
             <div className="px-4 py-2">

@@ -426,7 +426,7 @@ export default function Admin() {
           <div className="flex flex-wrap gap-2 text-xs mb-3">
             <span className="bg-gray-700 px-2 py-1 rounded">📥 {stats.archivosBot.toLocaleString()} PDFs en disco</span>
             <span className="bg-gray-700 px-2 py-1 rounded">✔ {stats.verificados.toLocaleString()} verificados</span>
-            <span className="bg-gray-700 px-2 py-1 rounded">⭐ {stats.heroes}/10 hero</span>
+            <span className="bg-gray-700 px-2 py-1 rounded">⭐ {stats.heroes}/12 hero</span>
             <span className="bg-gray-700 px-2 py-1 rounded">🔥 {stats.tendencia} en tendencia</span>
           </div>
 
@@ -587,8 +587,8 @@ export default function Admin() {
               {(() => {
                 const heroCount = patrones.filter(p => p.destacado === 1).length;
                 return heroCount > 0 && (
-                  <span className={`px-2 py-1 rounded font-semibold ${heroCount >= 10 ? 'bg-yellow-600 text-white' : 'bg-gray-700 text-yellow-400'}`}>
-                    ⭐ {heroCount}/10 hero{heroCount >= 10 ? ' — límite alcanzado' : ''}
+                  <span className={`px-2 py-1 rounded font-semibold ${heroCount >= 12 ? 'bg-yellow-600 text-white' : 'bg-gray-700 text-yellow-400'}`}>
+                    ⭐ {heroCount}/12 hero{heroCount >= 12 ? ' — límite alcanzado' : ''}
                   </span>
                 );
               })()}
@@ -649,10 +649,10 @@ export default function Admin() {
                 <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
                   {(() => {
                     const heroCount = patrones.filter(x => x.destacado === 1).length;
-                    const bloqueado = !p.destacado && heroCount >= 10;
+                    const bloqueado = !p.destacado && heroCount >= 12;
                     return (
                       <button onClick={() => !bloqueado && handleDestacar(p.id)}
-                        title={bloqueado ? 'Límite de 10 heroes alcanzado' : p.destacado ? 'Quitar del hero' : 'Poner en hero'}
+                        title={bloqueado ? 'Límite de 12 heroes alcanzado' : p.destacado ? 'Quitar del hero' : 'Poner en hero'}
                         className={`p-2 transition ${p.destacado ? 'text-yellow-400 hover:text-yellow-200' : bloqueado ? 'text-gray-600 cursor-not-allowed' : 'text-gray-400 hover:text-yellow-400'}`}>
                         <Star className="w-4 h-4" fill={p.destacado ? 'currentColor' : 'none'} />
                       </button>

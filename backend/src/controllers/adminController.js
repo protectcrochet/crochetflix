@@ -709,7 +709,7 @@ exports.toggleDestacado = async (req, res) => {
           if (err) reject(err); else resolve(row);
         });
       });
-      if (total >= 10) return res.status(400).json({ error: 'Máximo 10 patrones en el hero' });
+      if (total >= 12) return res.status(400).json({ error: 'Máximo 12 patrones en el hero' });
     }
     await new Promise((resolve, reject) => {
       db.run('UPDATE patrones SET destacado = ? WHERE id = ?', [nuevoEstado, id],
