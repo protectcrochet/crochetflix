@@ -57,13 +57,6 @@ export default function Layout() {
         </button>
       )}
 
-      {/* Footer */}
-      <footer className="hidden md:block border-t border-gray-800 py-4 text-center text-xs text-gray-600">
-        <Link to="/dmca" className="hover:text-gray-400 transition">Derechos de Autor / DMCA</Link>
-        <span className="mx-2">·</span>
-        <span>© {new Date().getFullYear()} CrochetFlix</span>
-      </footer>
-
       {/* Bottom Navigation (mobile) */}
       <nav className="fixed bottom-0 left-0 right-0 bg-crochet-dark/95 backdrop-blur border-t border-gray-800 md:hidden">
         <div className="flex justify-around py-2">
