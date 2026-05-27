@@ -1,10 +1,12 @@
 import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { Home, Bookmark, Download, User, LogOut, LayoutGrid } from 'lucide-react';
+import { useAdminMode } from '../context/AdminMode';
+import { Home, Bookmark, Download, User, LogOut, LayoutGrid, Pencil } from 'lucide-react';
 
 export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { adminMode, toggle: toggleAdmin, secret: adminSecret } = useAdminMode();
 
   const handleLogout = () => {
     logout();
@@ -43,6 +45,17 @@ export default function Layout() {
       <main className="pb-20">
         <Outlet />
       </main>
+
+      {/* Botón flotante modo admin */}
+      {adminSecret && (
+        <button
+          onClick={toggleAdmin}
+          title={adminMode ? 'Desactivar modo admin' : 'Activar modo admin'}
+          className={`fixed bottom-24 right-4 z-50 flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-bold shadow-lg transition md:bottom-6 ${adminMode ? 'bg-yellow-500 text-black' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
+          <Pencil className="w-3.5 h-3.5" />
+          {adminMode ? 'Admin ON' : 'Admin'}
+        </button>
+      )}
 
       {/* Bottom Navigation (mobile) */}
       <nav className="fixed bottom-0 left-0 right-0 bg-crochet-dark/95 backdrop-blur border-t border-gray-800 md:hidden">

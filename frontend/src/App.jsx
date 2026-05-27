@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './hooks/useAuth';
+import { AdminModeProvider } from './context/AdminMode';
 import Layout from './components/Layout';
 import Home from './pages/Home';
 import Login from './pages/Login';
@@ -14,19 +15,21 @@ import Catalogo from './pages/Catalogo';
 function App() {
   return (
     <AuthProvider>
-      <Routes>
-        <Route path="/admin" element={<Admin />} />
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Home />} />
-          <Route path="login" element={<Login />} />
-          <Route path="register" element={<Register />} />
-          <Route path="patron/:id" element={<Viewer />} />
-          <Route path="catalogo" element={<Catalogo />} />
-          <Route path="mi-lista" element={<MiLista />} />
-          <Route path="descargas" element={<Descargas />} />
-          <Route path="perfil" element={<Perfil />} />
-        </Route>
-      </Routes>
+      <AdminModeProvider>
+        <Routes>
+          <Route path="/admin" element={<Admin />} />
+          <Route path="/" element={<Layout />}>
+            <Route index element={<Home />} />
+            <Route path="login" element={<Login />} />
+            <Route path="register" element={<Register />} />
+            <Route path="patron/:id" element={<Viewer />} />
+            <Route path="catalogo" element={<Catalogo />} />
+            <Route path="mi-lista" element={<MiLista />} />
+            <Route path="descargas" element={<Descargas />} />
+            <Route path="perfil" element={<Perfil />} />
+          </Route>
+        </Routes>
+      </AdminModeProvider>
     </AuthProvider>
   );
 }
