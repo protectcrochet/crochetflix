@@ -1,84 +1,59 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
 import Carrusel from '../components/Carrusel';
 import PatronCard from '../components/PatronCard';
-import { Play, Crown, Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Play, Crown, Search, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-function HeroCarrusel({ patrones }) {
-  const [idx, setIdx] = useState(0);
-  const timerRef = useRef(null);
-
-  const ir = useCallback((i) => {
-    setIdx((i + patrones.length) % patrones.length);
-  }, [patrones.length]);
-
-  useEffect(() => {
-    if (patrones.length <= 1) return;
-    timerRef.current = setInterval(() => setIdx(p => (p + 1) % patrones.length), 5000);
-    return () => clearInterval(timerRef.current);
-  }, [patrones.length]);
-
-  const reiniciarTimer = (i) => {
-    clearInterval(timerRef.current);
-    ir(i);
-    timerRef.current = setInterval(() => setIdx(p => (p + 1) % patrones.length), 5000);
-  };
-
-  const actual = patrones[idx];
+function HeroBanners({ patrones }) {
+  const items = patrones.slice(0, 3);
+  if (items.length === 0) return null;
 
   return (
-    <section className="relative h-[50vh] sm:h-[60vh] overflow-hidden">
-      {/* Imágenes apiladas con transición */}
-      {patrones.map((p, i) => (
-        <div key={p.id} className={`absolute inset-0 transition-opacity duration-700 ${i === idx ? 'opacity-100' : 'opacity-0'}`}>
-          {/* Fondo desenfocado para rellenar el espacio en imágenes verticales */}
-          <img src={p.thumbnail_path || ''} alt="" className="absolute inset-0 w-full h-full object-cover scale-110 blur-md opacity-50" aria-hidden="true" />
-          {/* Imagen completa centrada sin recorte */}
-          <img src={p.thumbnail_path || ''} alt={p.titulo} className="absolute inset-0 w-full h-full object-contain" />
-        </div>
+    <section className="px-4 py-4 space-y-3">
+      {items.map((p) => (
+        <Link
+          key={p.id}
+          to={`/patron/${p.id}`}
+          className="flex gap-0 bg-gray-800/50 hover:bg-gray-800 rounded-xl overflow-hidden transition-colors group"
+        >
+          {/* Texto */}
+          <div className="flex-1 p-4 flex flex-col justify-between min-w-0">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                {p.es_preview === 1 && (
+                  <span className="bg-green-600 text-xs font-bold px-2 py-0.5 rounded">GRATIS</span>
+                )}
+                {p.destacado === 1 && (
+                  <span className="bg-crochet-primary/80 text-xs px-2 py-0.5 rounded">DESTACADO</span>
+                )}
+              </div>
+              <h2 className="font-bold text-base sm:text-lg leading-tight line-clamp-2 mb-1">{p.titulo}</h2>
+              <p className="text-gray-400 text-xs mb-1">por {p.diseñadora || p.autor}</p>
+              <p className="text-gray-500 text-xs line-clamp-2 hidden sm:block">{p.descripcion}</p>
+            </div>
+            <div className="flex items-center gap-3 mt-3">
+              <span className="text-crochet-primary text-sm font-semibold flex items-center gap-1.5 group-hover:gap-2.5 transition-all duration-200">
+                <Play className="w-3.5 h-3.5 fill-current" /> Ver patrón
+              </span>
+              {p.paginas > 0 && (
+                <span className="text-gray-600 text-xs">{p.paginas} págs.</span>
+              )}
+            </div>
+          </div>
+          {/* Imagen */}
+          <div className="w-28 sm:w-36 flex-shrink-0 relative overflow-hidden">
+            <img
+              src={p.thumbnail_path || ''}
+              alt={p.titulo}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              onError={e => { e.currentTarget.style.display = 'none'; }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-gray-800/40 to-transparent pointer-events-none" />
+          </div>
+        </Link>
       ))}
-      <div className="absolute inset-0 bg-gradient-to-t from-crochet-dark via-crochet-dark/50 to-transparent" />
-
-      {/* Info del patrón actual */}
-      <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-10">
-        <div className="max-w-2xl">
-          {actual.es_preview === 1 && (
-            <span className="bg-green-600 text-xs font-bold px-2 py-1 rounded mb-2 inline-block">GRATIS ESTE MES</span>
-          )}
-          <h1 className="text-2xl sm:text-4xl font-bold mb-1 line-clamp-2">{actual.titulo}</h1>
-          <p className="text-gray-300 text-sm mb-1">por {actual.diseñadora || actual.autor}</p>
-          <p className="text-gray-400 text-xs mb-4 line-clamp-1">{actual.descripcion}</p>
-          <Link to={`/patron/${actual.id}`} className="btn-primary flex items-center gap-2 w-fit">
-            <Play className="w-4 h-4" /> Ver patrón
-          </Link>
-        </div>
-      </div>
-
-      {/* Flechas */}
-      {patrones.length > 1 && (
-        <>
-          <button onClick={() => reiniciarTimer(idx - 1)}
-            className="absolute left-3 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/70 rounded-full p-2 transition">
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <button onClick={() => reiniciarTimer(idx + 1)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/70 rounded-full p-2 transition">
-            <ChevronRight className="w-5 h-5" />
-          </button>
-        </>
-      )}
-
-      {/* Puntos */}
-      {patrones.length > 1 && (
-        <div className="absolute bottom-4 right-6 flex gap-1.5">
-          {patrones.map((_, i) => (
-            <button key={i} onClick={() => reiniciarTimer(i)}
-              className={`rounded-full transition-all ${i === idx ? 'w-4 h-2 bg-white' : 'w-2 h-2 bg-white/40 hover:bg-white/70'}`} />
-          ))}
-        </div>
-      )}
     </section>
   );
 }
@@ -110,7 +85,7 @@ export default function Home() {
       const trend = resTendencia.data.patrones || [];
       setPatrones(data);
       setTotalPatrones(resAll.data.total || data.length);
-      setHeroPatrones(dest.length > 0 ? dest : data.slice(0, 1));
+      setHeroPatrones(dest.length > 0 ? dest : data.slice(0, 3));
       setPatronesTendencia(trend.length > 0 ? trend : [...data].sort(() => Math.random() - 0.5).slice(0, 10));
     } catch (err) {
       console.error('Error cargando patrones:', err);
@@ -196,7 +171,7 @@ export default function Home() {
       {/* Contenido principal */}
       {!busqueda && (
         <>
-          {heroPatrones.length > 0 && <HeroCarrusel patrones={heroPatrones} />}
+          {heroPatrones.length > 0 && <HeroBanners patrones={heroPatrones} />}
 
           {patronesPreview.length > 0 && (
             <div className="px-4 py-2">
@@ -210,7 +185,7 @@ export default function Home() {
             </div>
           )}
 
-          <Carrusel titulo="🔥 Tendencia" patrones={patronesTendencia} loop />
+          <Carrusel titulo="🔥 Tendencia" patrones={patronesTendencia} loop autoScroll />
           <Carrusel titulo="🆕 Nuevos patrones" patrones={patronesNuevos} />
           <Carrusel titulo="🎁 Gratis este mes" patrones={patronesPreview} />
 

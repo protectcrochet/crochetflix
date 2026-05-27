@@ -1,19 +1,32 @@
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import PatronCard from './PatronCard';
 
-export default function Carrusel({ titulo, patrones, loop = false }) {
+export default function Carrusel({ titulo, patrones, loop = false, autoScroll = false }) {
   const scrollRef = useRef(null);
+  const pausadoRef = useRef(false);
 
   const scroll = (direction) => {
-    if (scrollRef.current) {
-      const scrollAmount = 300;
-      scrollRef.current.scrollBy({
-        left: direction === 'left' ? -scrollAmount : scrollAmount,
-        behavior: 'smooth'
-      });
-    }
+    if (!scrollRef.current) return;
+    scrollRef.current.scrollBy({
+      left: direction === 'left' ? -300 : 300,
+      behavior: 'smooth',
+    });
   };
+
+  useEffect(() => {
+    if (!autoScroll) return;
+    const intervalo = setInterval(() => {
+      if (pausadoRef.current || !scrollRef.current) return;
+      const el = scrollRef.current;
+      if (el.scrollLeft + el.clientWidth >= el.scrollWidth - 10) {
+        el.scrollTo({ left: 0, behavior: 'smooth' });
+      } else {
+        el.scrollBy({ left: 300, behavior: 'smooth' });
+      }
+    }, 3000);
+    return () => clearInterval(intervalo);
+  }, [autoScroll]);
 
   if (!patrones || patrones.length === 0) return null;
 
@@ -33,7 +46,14 @@ export default function Carrusel({ titulo, patrones, loop = false }) {
         </div>
       </div>
 
-      <div ref={scrollRef} className="carrusel-container px-4">
+      <div
+        ref={scrollRef}
+        className="carrusel-container px-4"
+        onMouseEnter={() => { pausadoRef.current = true; }}
+        onMouseLeave={() => { pausadoRef.current = false; }}
+        onTouchStart={() => { pausadoRef.current = true; }}
+        onTouchEnd={() => { pausadoRef.current = false; }}
+      >
         {items.map((patron, i) => (
           <PatronCard key={`${patron.id}-${i}`} patron={patron} />
         ))}
