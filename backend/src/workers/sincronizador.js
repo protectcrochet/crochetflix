@@ -13,7 +13,7 @@ const CONCURRENCIA = 8;                  // conversiones en paralelo
 function convertirPDF(pdfPath, outputDir) {
   const prefix = path.join(outputDir, 'pagina');
   return new Promise((resolve, reject) => {
-    exec(`pdftoppm -jpeg -r 150 "${pdfPath}" "${prefix}"`, { timeout: 120000 }, (err) => {
+    exec(`pdftoppm -jpeg -r 150 "${pdfPath}" "${prefix}" 2>/dev/null`, { timeout: 120000 }, (err) => {
       if (err) return reject(err);
       const archivos = fs.readdirSync(outputDir)
         .filter(f => f.startsWith('pagina') && f.endsWith('.jpg'))
