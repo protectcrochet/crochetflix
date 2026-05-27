@@ -124,80 +124,115 @@ function HeroCropModal({ patron, authHeader, onClose }) {
 
   return (
     <div className="fixed inset-0 bg-black/90 z-50 flex flex-col" style={{ touchAction: 'none' }}>
-      <div className="flex items-center justify-between px-4 py-2 bg-gray-900 border-b border-gray-800 shrink-0">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-2 bg-gray-900 border-b border-gray-700 shrink-0">
         <div>
           <p className="font-bold text-sm">Encuadrar en el hero</p>
-          <p className="text-gray-400 text-xs">Arrastra el interior para mover · Arrastra los bordes/esquinas para redimensionar</p>
+          <p className="text-gray-400 text-xs">Arrastra el recuadro · usa los handles de esquina para redimensionar</p>
         </div>
         <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl w-10 h-10 flex items-center justify-center">✕</button>
       </div>
 
-      <div className="flex-1 overflow-y-auto overflow-x-hidden">
-        <div className="relative select-none">
-          <img
-            ref={imgRef}
-            src={patron.thumbnail_path || ''}
-            alt={patron.titulo}
-            className="w-full h-auto block"
-            onLoad={onImgLoad}
-            draggable={false}
-          />
-          <div className="absolute inset-0 bg-black/50 pointer-events-none" />
-          {dims.w > 0 && (
-            <div
-              className="absolute border-2 border-white cursor-move"
-              style={{
-                left: crop.x, top: crop.y, width: crop.w, height: crop.h,
-                boxShadow: '0 0 0 9999px rgba(0,0,0,0.55)',
-                touchAction: 'none',
-              }}
-              onMouseDown={startDrag('move')}
-              onTouchStart={startDrag('move')}
-            >
-              <div className="absolute inset-0 pointer-events-none">
-                <div className="absolute left-1/3 top-0 bottom-0 border-l border-white/20" />
-                <div className="absolute left-2/3 top-0 bottom-0 border-l border-white/20" />
-                <div className="absolute top-1/3 left-0 right-0 border-t border-white/20" />
-                <div className="absolute top-2/3 left-0 right-0 border-t border-white/20" />
+      {/* Dos paneles */}
+      <div className="flex-1 flex flex-col lg:flex-row min-h-0">
+
+        {/* Panel izquierdo — imagen con crop handles (scrollable) */}
+        <div className="h-[52vh] lg:h-auto lg:flex-1 overflow-y-auto overflow-x-hidden">
+          <div className="relative select-none">
+            <img
+              ref={imgRef}
+              src={patron.thumbnail_path || ''}
+              alt={patron.titulo}
+              className="w-full h-auto block"
+              onLoad={onImgLoad}
+              draggable={false}
+            />
+            <div className="absolute inset-0 bg-black/50 pointer-events-none" />
+            {dims.w > 0 && (
+              <div
+                className="absolute border-2 border-white cursor-move"
+                style={{
+                  left: crop.x, top: crop.y, width: crop.w, height: crop.h,
+                  boxShadow: '0 0 0 9999px rgba(0,0,0,0.55)',
+                  touchAction: 'none',
+                }}
+                onMouseDown={startDrag('move')}
+                onTouchStart={startDrag('move')}
+              >
+                <div className="absolute inset-0 pointer-events-none">
+                  <div className="absolute left-1/3 top-0 bottom-0 border-l border-white/20" />
+                  <div className="absolute left-2/3 top-0 bottom-0 border-l border-white/20" />
+                  <div className="absolute top-1/3 left-0 right-0 border-t border-white/20" />
+                  <div className="absolute top-2/3 left-0 right-0 border-t border-white/20" />
+                </div>
+                {HANDLES.map(({ type, cursor, style }) => (
+                  <div
+                    key={type}
+                    className="absolute w-3 h-3 bg-white rounded-sm border border-gray-500 z-10"
+                    style={{ ...style, cursor, touchAction: 'none', position: 'absolute' }}
+                    onMouseDown={startDrag(type)}
+                    onTouchStart={startDrag(type)}
+                  />
+                ))}
               </div>
-              {HANDLES.map(({ type, cursor, style }) => (
-                <div
-                  key={type}
-                  className="absolute w-3 h-3 bg-white rounded-sm border border-gray-500 z-10"
-                  style={{ ...style, cursor, touchAction: 'none', position: 'absolute' }}
-                  onMouseDown={startDrag(type)}
-                  onTouchStart={startDrag(type)}
-                />
+            )}
+          </div>
+        </div>
+
+        {/* Panel derecho — preview + sliders + botones */}
+        <div className="flex-1 lg:flex-none lg:w-80 bg-gray-900 border-t lg:border-t-0 lg:border-l border-gray-700 flex flex-col gap-3 p-3 overflow-y-auto shrink-0">
+          <p className="text-xs font-semibold text-gray-300 shrink-0">Vista previa hero:</p>
+
+          {/* Preview */}
+          <div
+            className="relative rounded overflow-hidden bg-gray-800 shrink-0"
+            style={{
+              aspectRatio: '16/7',
+              backgroundImage: `url(${patron.thumbnail_path || ''})`,
+              backgroundSize: `${bsX}% ${bsY}%`,
+              backgroundPosition: `${bpX}% ${bpY}%`,
+              backgroundRepeat: 'no-repeat',
+            }}
+          >
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
+            <div className="absolute bottom-1.5 left-3 pointer-events-none">
+              <p className="font-bold text-white text-xs">{patron.titulo}</p>
+            </div>
+          </div>
+
+          {/* Sliders para ajuste fino */}
+          {dims.w > 0 && (
+            <div className="space-y-2 shrink-0">
+              <p className="text-xs text-gray-500">Ajuste fino:</p>
+              {[
+                { label: '← X →', min: 0, max: Math.max(1, dims.w - crop.w), val: crop.x, key: 'x' },
+                { label: '↑ Y ↓', min: 0, max: Math.max(1, dims.h - crop.h), val: crop.y, key: 'y' },
+                { label: '↔ Ancho', min: MIN, max: dims.w, val: crop.w, key: 'w' },
+                { label: '↕ Alto',  min: MIN, max: dims.h, val: crop.h, key: 'h' },
+              ].map(({ label, min, max, val, key }) => (
+                <div key={key} className="flex items-center gap-2">
+                  <span className="text-xs text-gray-400 w-14 shrink-0">{label}</span>
+                  <input
+                    type="range" min={min} max={max} step="1"
+                    value={Math.round(val)}
+                    onChange={e => setCrop(c => clamp({ ...c, [key]: +e.target.value }))}
+                    className="flex-1 accent-red-500"
+                  />
+                </div>
               ))}
             </div>
           )}
-        </div>
-      </div>
 
-      <div className="bg-gray-900 border-t border-gray-800 px-4 py-3 shrink-0 space-y-2">
-        <p className="text-xs text-gray-400">Vista previa del hero:</p>
-        <div
-          className="relative rounded overflow-hidden bg-gray-800"
-          style={{
-            aspectRatio: '16/7',
-            backgroundImage: `url(${patron.thumbnail_path || ''})`,
-            backgroundSize: `${bsX}% ${bsY}%`,
-            backgroundPosition: `${bpX}% ${bpY}%`,
-            backgroundRepeat: 'no-repeat',
-          }}
-        >
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
-          <div className="absolute bottom-1.5 left-3 pointer-events-none">
-            <p className="font-bold text-white text-xs">{patron.titulo}</p>
+          {/* Botones */}
+          <div className="flex gap-2 justify-end mt-auto shrink-0">
+            <button onClick={onClose} className="px-4 py-2 text-sm bg-gray-800 hover:bg-gray-700 rounded-lg transition">Cancelar</button>
+            <button onClick={guardar} disabled={guardando}
+              className="px-4 py-2 text-sm bg-red-600 hover:bg-red-500 rounded-lg transition font-semibold disabled:opacity-50">
+              {guardando ? 'Guardando…' : 'Guardar'}
+            </button>
           </div>
         </div>
-        <div className="flex gap-2 justify-end">
-          <button onClick={onClose} className="px-4 py-2 text-sm bg-gray-800 hover:bg-gray-700 rounded-lg transition">Cancelar</button>
-          <button onClick={guardar} disabled={guardando}
-            className="px-4 py-2 text-sm bg-red-600 hover:bg-red-500 rounded-lg transition font-semibold disabled:opacity-50">
-            {guardando ? 'Guardando…' : 'Guardar'}
-          </button>
-        </div>
+
       </div>
     </div>
   );
