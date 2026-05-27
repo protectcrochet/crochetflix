@@ -165,7 +165,7 @@ export default function Home() {
   return (
     <div>
       {/* Búsqueda */}
-      <div className="px-4 pt-4">
+      <div className="px-4 pt-6 pb-2">
         <div className="relative max-w-xl mx-auto">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input

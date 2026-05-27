@@ -39,7 +39,7 @@ export default function PatronCard({ patron }) {
       {/* Info */}
       <div className="mt-2">
         <h3 className="font-semibold text-sm line-clamp-1">{patron.titulo}</h3>
-        <p className="text-gray-400 text-xs">{patron.autor}</p>
+        <p className="text-gray-400 text-xs">{patron.diseñadora || patron.autor}</p>
         <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
           <span className="flex items-center gap-0.5">
             <Star className="w-3 h-3" /> 4.8

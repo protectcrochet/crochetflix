@@ -15,27 +15,27 @@ export default function Layout() {
     <div className="min-h-screen bg-crochet-dark">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-crochet-dark/95 backdrop-blur border-b border-gray-800">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <span className="text-2xl font-bold text-crochet-primary">🧶 CrochetFlix</span>
+        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-6">
+          <Link to="/" className="flex items-center">
+            <span className="text-2xl font-bold text-crochet-primary">CrochetFlix</span>
           </Link>
 
-          <div className="flex items-center gap-4">
-            <Link to="/catalogo" className="hidden sm:flex items-center gap-1.5 text-sm text-gray-300 hover:text-white transition">
-              <LayoutGrid className="w-4 h-4" /> Catálogo
-            </Link>
+          <Link to="/catalogo" className="hidden sm:flex items-center gap-1.5 text-sm text-gray-300 hover:text-white transition">
+            <LayoutGrid className="w-4 h-4" /> Catálogo
+          </Link>
 
-            {user ? (
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-gray-400 hidden sm:block">{user.email}</span>
-                <button onClick={handleLogout} className="p-2 hover:bg-gray-800 rounded-full">
-                  <LogOut className="w-5 h-5" />
-                </button>
-              </div>
-            ) : (
-              <Link to="/login" className="btn-primary text-sm">Iniciar sesión</Link>
-            )}
-          </div>
+          <div className="flex-1" />
+
+          {user ? (
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-gray-400 hidden sm:block">{user.email}</span>
+              <button onClick={handleLogout} className="p-2 hover:bg-gray-800 rounded-full">
+                <LogOut className="w-5 h-5" />
+              </button>
+            </div>
+          ) : (
+            <Link to="/login" className="btn-primary text-sm">Iniciar sesión</Link>
+          )}
         </div>
       </header>
 
