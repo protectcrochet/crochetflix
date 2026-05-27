@@ -124,7 +124,8 @@ function initTables() {
       status TEXT DEFAULT 'pending',
       admin_notes TEXT,
       resolved_at TIMESTAMP,
-      ip_address TEXT
+      ip_address TEXT,
+      proof_url TEXT
     )`);
 
     console.log('✅ Tablas inicializadas');

@@ -1,13 +1,19 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ShieldCheck, AlertTriangle, CheckCircle } from 'lucide-react';
 import api from '../services/api';
 
 const CAMPOS_REQUERIDOS = ['claimant_name','claimant_email','work_description','infringing_urls','signature'];
 
 export default function DMCA() {
+  const params = new URLSearchParams(window.location.search);
+  const patronIdParam = params.get('patron_id') || '';
+  const urlParam = params.get('url') || '';
+  const desdePatron = !!patronIdParam;
+
   const [form, setForm] = useState({
     claimant_name: '', claimant_email: '', claimant_company: '', claimant_address: '',
-    work_description: '', infringing_urls: '', patron_id: '',
+    work_description: '', infringing_urls: urlParam, patron_id: patronIdParam,
+    proof_url: '',
     good_faith: false, accuracy: false, signature: '',
   });
   const [enviando, setEnviando] = useState(false);
@@ -21,6 +27,9 @@ export default function DMCA() {
     setError('');
     for (const c of CAMPOS_REQUERIDOS) {
       if (!form[c]?.trim()) { setError('Por favor completa todos los campos obligatorios.'); return; }
+    }
+    if (desdePatron && !form.proof_url?.trim()) {
+      setError('Debes proporcionar una URL que compruebe que eres la autora original del diseño.'); return;
     }
     if (!form.good_faith || !form.accuracy) {
       setError('Debes aceptar ambas declaraciones juradas.'); return;
@@ -132,6 +141,28 @@ export default function DMCA() {
           <input value={form.patron_id} onChange={e => set('patron_id', e.target.value)}
             placeholder="patron-xxxxxxxx" className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-crochet-primary font-mono" />
         </div>
+
+        {desdePatron && (
+          <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-4">
+            <label className="block text-sm font-semibold text-blue-200 mb-1">
+              Comprobación de autoría *
+            </label>
+            <p className="text-xs text-blue-300 mb-2">
+              Para proteger a los creadores y evitar reclamaciones falsas, debes proporcionar una URL
+              donde hayas publicado originalmente este diseño <strong>antes</strong> de que aparezca en CrochetFlix
+              (tu tienda de Etsy, Ravelry, Instagram, página web, etc.).
+            </p>
+            <input
+              value={form.proof_url}
+              onChange={e => set('proof_url', e.target.value)}
+              placeholder="https://www.etsy.com/listing/... o https://www.ravelry.com/patterns/..."
+              className="w-full bg-gray-800 border border-blue-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Esta información es revisada manualmente por nuestro equipo antes de tomar cualquier acción.
+            </p>
+          </div>
+        )}
 
         {/* Declaraciones juradas */}
         <div className="space-y-3 bg-gray-800/50 rounded-lg p-4">

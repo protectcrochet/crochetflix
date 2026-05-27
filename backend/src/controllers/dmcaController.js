@@ -33,7 +33,7 @@ exports.submitClaim = async (req, res) => {
   const {
     claimant_name, claimant_email, claimant_company, claimant_address,
     work_description, infringing_urls, patron_id,
-    good_faith, accuracy, signature
+    good_faith, accuracy, signature, proof_url
   } = req.body;
 
   if (!claimant_name || !claimant_email || !work_description || !infringing_urls || !signature) {
@@ -49,10 +49,10 @@ exports.submitClaim = async (req, res) => {
   await new Promise((resolve, reject) => {
     db.run(
       `INSERT INTO dmca_claims (id, claimant_name, claimant_email, claimant_company, claimant_address,
-        work_description, infringing_urls, patron_id, good_faith, accuracy, signature, ip_address)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        work_description, infringing_urls, patron_id, good_faith, accuracy, signature, ip_address, proof_url)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [id, claimant_name, claimant_email, claimant_company || null, claimant_address || null,
-       work_description, infringing_urls, patron_id || null, 1, 1, signature, ip],
+       work_description, infringing_urls, patron_id || null, 1, 1, signature, ip, proof_url || null],
       function(err) { if (err) reject(err); else resolve(); }
     );
   });

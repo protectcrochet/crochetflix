@@ -437,6 +437,7 @@ function DmcaClaimCard({ claim, authHeader, onUpdate }) {
           <div><p className="text-gray-400 text-xs mb-0.5">Obra reclamada:</p><p className="text-gray-200">{claim.work_description}</p></div>
           <div><p className="text-gray-400 text-xs mb-0.5">URLs infractoras:</p><p className="font-mono text-xs text-gray-300 whitespace-pre-wrap">{claim.infringing_urls}</p></div>
           {claim.patron_id && <p><span className="text-gray-400">Patrón ID:</span> <span className="font-mono text-xs">{claim.patron_id}</span></p>}
+          {claim.proof_url && <div><p className="text-gray-400 text-xs mb-0.5">Prueba de autoría:</p><a href={claim.proof_url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline text-xs break-all">{claim.proof_url}</a></div>}
           <p><span className="text-gray-400">IP:</span> {claim.ip_address}</p>
           <p><span className="text-gray-400">Firma:</span> {claim.signature}</p>
           <div>

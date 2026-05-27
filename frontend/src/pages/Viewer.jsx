@@ -354,6 +354,16 @@ export default function Viewer() {
           )}
         </div>
       </div>
+
+      {/* Enlace DMCA discreto */}
+      <div className="text-center py-3">
+        <a
+          href={`/dmca?patron_id=${id}&url=${encodeURIComponent(window.location.href)}`}
+          className="text-[11px] text-gray-700 hover:text-gray-500 transition"
+        >
+          ¿Es tu diseño? Reclamar derechos de autor
+        </a>
+      </div>
     </div>
   );
 }
