@@ -6,6 +6,15 @@ import { Upload, Trash2, Eye, EyeOff, Plus, FileText, Image, Loader, LogOut, Dow
 const CATEGORIAS = ['amigurumi', 'ropa', 'accesorios', 'decoracion', 'hogar', 'otro'];
 const SUBCATEGORIAS_AMIGURUMI = ['animales', 'personas y muñecos', 'comida', 'plantas y flores', 'personajes y fantasía', 'navidad', 'otro'];
 const DIFICULTADES = ['principiante', 'intermedio', 'avanzado'];
+const IDIOMAS = [
+  { value: 'es', label: 'Español' },
+  { value: 'en', label: 'Inglés' },
+  { value: 'pt', label: 'Portugués' },
+  { value: 'fr', label: 'Francés' },
+  { value: 'de', label: 'Alemán' },
+  { value: 'it', label: 'Italiano' },
+  { value: 'otro', label: 'Otro' },
+];
 
 const HANDLES = [
   { type: 'NW', cursor: 'nw-resize', style: { top: -6, left: -6 } },
@@ -260,6 +269,7 @@ function VisorEditModal({ patron, idx, total, authHeader, onGuardado, onNext, on
     categoria: patron.categoria || 'amigurumi',
     subcategoria: patron.subcategoria || '',
     dificultad: patron.dificultad || 'principiante',
+    idioma: patron.idioma || 'es',
   });
   const [guardando, setGuardando] = useState(false);
 
@@ -271,6 +281,7 @@ function VisorEditModal({ patron, idx, total, authHeader, onGuardado, onNext, on
       categoria: patron.categoria || 'amigurumi',
       subcategoria: patron.subcategoria || '',
       dificultad: patron.dificultad || 'principiante',
+      idioma: patron.idioma || 'es',
     });
   }, [patron.id]);
 
@@ -278,7 +289,8 @@ function VisorEditModal({ patron, idx, total, authHeader, onGuardado, onNext, on
     form.diseñadora !== (patron.diseñadora || '') ||
     form.categoria !== (patron.categoria || 'amigurumi') ||
     form.subcategoria !== (patron.subcategoria || '') ||
-    form.dificultad !== (patron.dificultad || 'principiante');
+    form.dificultad !== (patron.dificultad || 'principiante') ||
+    form.idioma !== (patron.idioma || 'es');
 
   const guardar = useCallback(async (luego) => {
     if (hayCambios) {
@@ -372,6 +384,13 @@ function VisorEditModal({ patron, idx, total, authHeader, onGuardado, onNext, on
               <select value={form.dificultad} onChange={e => setForm(f => ({ ...f, dificultad: e.target.value }))}
                 className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm focus:outline-none">
                 {DIFICULTADES.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-gray-400 block mb-1">Idioma</label>
+              <select value={form.idioma} onChange={e => setForm(f => ({ ...f, idioma: e.target.value }))}
+                className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm focus:outline-none">
+                {IDIOMAS.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}
               </select>
             </div>
             <p className="text-xs text-gray-600 pt-1">Ctrl+S / → Guardar y siguiente · Esc Cerrar</p>
@@ -480,7 +499,7 @@ export default function Admin() {
   const [form, setForm] = useState({
     titulo: '', descripcion: '', autor: '', diseñadora: '',
     categoria: 'amigurumi', subcategoria: 'animales', dificultad: 'principiante',
-    tiempo_minutos: '', es_preview: false,
+    idioma: 'es', tiempo_minutos: '', es_preview: false,
   });
   const [archivoPDF, setArchivoPDF] = useState(null);
   const [imagenesFiles, setImagenesFiles] = useState([]);
@@ -649,6 +668,7 @@ export default function Admin() {
       categoria: p.categoria || 'amigurumi',
       subcategoria: p.subcategoria || '',
       dificultad: p.dificultad || 'principiante',
+      idioma: p.idioma || 'es',
       descripcion: p.descripcion || '',
     });
   };
@@ -716,7 +736,7 @@ export default function Admin() {
         timeout: 180000,
       });
       setMensaje({ tipo: 'ok', texto: `"${res.data.patron.titulo}" creado con ${res.data.patron.paginas} páginas` });
-      setForm({ titulo: '', descripcion: '', autor: '', categoria: 'amigurumi', dificultad: 'principiante', tiempo_minutos: '', es_preview: false });
+      setForm({ titulo: '', descripcion: '', autor: '', diseñadora: '', categoria: 'amigurumi', subcategoria: 'animales', dificultad: 'principiante', idioma: 'es', tiempo_minutos: '', es_preview: false });
       setArchivoPDF(null);
       setImagenesFiles([]);
       if (pdfRef.current) pdfRef.current.value = '';
@@ -973,7 +993,7 @@ export default function Admin() {
               rows={3} className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-crochet-primary resize-none" />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm text-gray-400 mb-1">Categoría</label>
               <select value={form.categoria}
@@ -987,6 +1007,13 @@ export default function Admin() {
               <select value={form.dificultad} onChange={e => setForm(f => ({ ...f, dificultad: e.target.value }))}
                 className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-crochet-primary">
                 {DIFICULTADES.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Idioma</label>
+              <select value={form.idioma} onChange={e => setForm(f => ({ ...f, idioma: e.target.value }))}
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-crochet-primary">
+                {IDIOMAS.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}
               </select>
             </div>
             <div>
@@ -1270,10 +1297,12 @@ export default function Admin() {
                 className="w-full object-contain max-h-72"
                 onError={e => { e.currentTarget.style.display = 'none'; }}
               />
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none gap-2">
-                <span className="text-4xl text-gray-700">📄</span>
-                <span className="text-xs text-gray-600">Sin imagen aún</span>
-              </div>
+              {!patronEditando.thumbnail_path && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none gap-2">
+                  <span className="text-4xl text-gray-700">📄</span>
+                  <span className="text-xs text-gray-600">Sin imagen aún</span>
+                </div>
+              )}
               <button onClick={() => setPatronEditando(null)}
                 className="absolute top-3 right-3 bg-black/60 rounded-full p-1.5 text-gray-300 hover:text-white">
                 <X className="w-4 h-4" />
@@ -1323,6 +1352,13 @@ export default function Admin() {
                 <select value={editForm.dificultad} onChange={e => setEditForm(f => ({ ...f, dificultad: e.target.value }))}
                   className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-crochet-primary">
                   {DIFICULTADES.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Idioma</label>
+                <select value={editForm.idioma || 'es'} onChange={e => setEditForm(f => ({ ...f, idioma: e.target.value }))}
+                  className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-crochet-primary">
+                  {IDIOMAS.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}
                 </select>
               </div>
               <div>
