@@ -41,15 +41,16 @@ function HeroPosters({ patrones }) {
   const trio = patrones.slice(grupo * 3, grupo * 3 + 3);
 
   return (
-    <section className="px-4 pt-4 pb-2">
+    <section className="px-4 sm:px-6 pt-4 pb-2">
       <div
         className={`grid grid-cols-3 gap-3 transition-opacity duration-300 ${animando ? 'opacity-0' : 'opacity-100'}`}
+        style={{ height: '220px' }}
       >
         {trio.map((p) => (
           <Link
             key={p.id}
             to={`/patron/${p.id}`}
-            className="group relative rounded-xl overflow-hidden bg-gray-800 aspect-[2/3] block"
+            className="group relative rounded-xl overflow-hidden bg-gray-800 block h-full"
           >
             <img
               src={p.thumbnail_path || ''}
@@ -57,16 +58,16 @@ function HeroPosters({ patrones }) {
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               onError={e => { e.currentTarget.style.display = 'none'; }}
             />
-            {/* Gradiente inferior */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+            {/* Gradiente inferior más pronunciado */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
             {/* Badge */}
             {p.es_preview === 1 && (
               <span className="absolute top-2 left-2 bg-green-600 text-xs font-bold px-2 py-0.5 rounded">GRATIS</span>
             )}
             {/* Info inferior */}
             <div className="absolute bottom-0 left-0 right-0 p-2.5">
-              <h3 className="text-white font-semibold text-xs sm:text-sm leading-tight line-clamp-2">{p.titulo}</h3>
-              <p className="text-gray-400 text-xs mt-0.5 truncate hidden sm:block">{p.diseñadora || p.autor}</p>
+              <h3 className="text-white font-bold text-sm sm:text-base leading-tight line-clamp-2">{p.titulo}</h3>
+              <p className="text-gray-300 text-xs mt-0.5 truncate">{p.diseñadora || p.autor}</p>
             </div>
           </Link>
         ))}
