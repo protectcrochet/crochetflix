@@ -253,7 +253,7 @@ function HeroCropModal({ patron, authHeader, onClose }) {
 }
 
 // ── Modo Visor: edición rápida ──────────────────────────────────────────────
-function VisorEditModal({ patron, idx, total, authHeader, onGuardado, onNext, onPrev, onClose }) {
+function VisorEditModal({ patron, idx, total, authHeader, onGuardado, onNext, onPrev, onJump, onClose }) {
   const [form, setForm] = useState({
     titulo: patron.titulo || '',
     diseñadora: patron.diseñadora || '',
@@ -311,10 +311,21 @@ function VisorEditModal({ patron, idx, total, authHeader, onGuardado, onNext, on
         style={{ maxHeight: '95vh' }}>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-2 border-b border-gray-700 shrink-0">
-          <span className="text-xs text-gray-400 font-mono">{idx + 1} / {total}</span>
-          <span className="text-xs text-gray-500 truncate max-w-xs">{patron.id}</span>
-          <button onClick={onClose} className="text-gray-400 hover:text-white ml-2">✕</button>
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-700 shrink-0">
+          <span className="text-xs text-gray-400 font-mono shrink-0">
+            <input
+              type="number" min={1} max={total}
+              value={idx + 1}
+              onChange={e => {
+                const n = parseInt(e.target.value) - 1;
+                if (!isNaN(n) && n >= 0 && n < total) onJump(n);
+              }}
+              className="w-14 bg-gray-800 border border-gray-600 rounded px-1 py-0.5 text-xs text-center focus:outline-none focus:border-crochet-primary"
+            />
+            <span className="ml-1">/ {total}</span>
+          </span>
+          <span className="text-xs text-gray-500 truncate flex-1 text-center">{patron.id}</span>
+          <button onClick={onClose} className="text-gray-400 hover:text-white shrink-0">✕</button>
         </div>
 
         {/* Imagen + Formulario */}
@@ -1083,6 +1094,7 @@ export default function Admin() {
                       onGuardado={(id, form) => setPatrones(prev => prev.map(p => p.id === id ? { ...p, ...form } : p))}
                       onNext={() => setVisorIdx(i => Math.min(filtrados.length - 1, i + 1))}
                       onPrev={() => setVisorIdx(i => Math.max(0, i - 1))}
+                      onJump={n => setVisorIdx(n)}
                       onClose={() => setVisorIdx(null)}
                     />
                   </>
