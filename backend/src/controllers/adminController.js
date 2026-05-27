@@ -188,7 +188,7 @@ exports.listarPatrones = async (req, res) => {
   try {
     const patrones = await new Promise((resolve, reject) => {
       db.all(
-        'SELECT id, titulo, autor, diseñadora, categoria, subcategoria, dificultad, paginas, es_preview, activo, destacado, tendencia, verificado, created_at FROM patrones ORDER BY created_at DESC',
+        'SELECT id, titulo, autor, diseñadora, categoria, subcategoria, dificultad, paginas, es_preview, activo, destacado, tendencia, verificado, thumbnail_path, hero_position, created_at FROM patrones ORDER BY created_at DESC',
         [],
         (err, rows) => { if (err) reject(err); else resolve(rows); }
       );
