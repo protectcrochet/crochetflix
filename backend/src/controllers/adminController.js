@@ -1053,3 +1053,21 @@ exports.repararThumbnails = async (req, res) => {
     res.status(500).json({ error: 'Error interno' });
   }
 };
+
+exports.fixAutorTelegram = async (req, res) => {
+  try {
+    const r1 = await new Promise((resolve, reject) => {
+      db.run(`UPDATE patrones SET autor = 'Diseñadora' WHERE autor = 'Telegram'`, [],
+        function(err) { if (err) reject(err); else resolve(this.changes); }
+      );
+    });
+    const r2 = await new Promise((resolve, reject) => {
+      db.run(`UPDATE patrones SET diseñadora = 'Diseñadora' WHERE diseñadora = 'N/A' OR diseñadora = ''`, [],
+        function(err) { if (err) reject(err); else resolve(this.changes); }
+      );
+    });
+    res.json({ message: `Listo: ${r1} autor(es) y ${r2} diseñadora(s) actualizadas` });
+  } catch (err) {
+    res.status(500).json({ error: 'Error interno' });
+  }
+};

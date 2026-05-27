@@ -54,6 +54,7 @@ router.get('/patrones', adminController.listarPatrones);
 router.get('/patrones/exportar', adminController.exportarCSV);
 router.post('/patrones/sincronizar', adminController.sincronizarPDFs);
 router.post('/patrones/reparar-thumbnails', adminController.repararThumbnails);
+router.post('/patrones/fix-autor', adminController.fixAutorTelegram);
 router.post('/patrones/extraer-metadatos-fondo', adminController.extraerMetadatosFondo);
 router.post('/patrones/categorizar-fondo', adminController.categorizarFondo);
 router.post('/patrones/categorizar', adminController.categorizarConIA);
