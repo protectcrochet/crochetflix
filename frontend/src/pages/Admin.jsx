@@ -274,17 +274,25 @@ function VisorEditModal({ patron, idx, total, authHeader, onGuardado, onNext, on
     });
   }, [patron.id]);
 
+  const hayCambios = form.titulo !== (patron.titulo || '') ||
+    form.diseñadora !== (patron.diseñadora || '') ||
+    form.categoria !== (patron.categoria || 'amigurumi') ||
+    form.subcategoria !== (patron.subcategoria || '') ||
+    form.dificultad !== (patron.dificultad || 'principiante');
+
   const guardar = useCallback(async (luego) => {
-    setGuardando(true);
-    try {
-      await api.patch(`/admin/patrones/${patron.id}`, form, { headers: authHeader });
-      onGuardado(patron.id, form);
-      if (luego === 'next') onNext();
-      else if (luego === 'prev') onPrev();
-      else onClose();
-    } catch { alert('Error guardando'); }
-    finally { setGuardando(false); }
-  }, [patron.id, form, authHeader, onGuardado, onNext, onPrev, onClose]);
+    if (hayCambios) {
+      setGuardando(true);
+      try {
+        await api.patch(`/admin/patrones/${patron.id}`, form, { headers: authHeader });
+        onGuardado(patron.id, form);
+      } catch { alert('Error guardando'); setGuardando(false); return; }
+      setGuardando(false);
+    }
+    if (luego === 'next') onNext();
+    else if (luego === 'prev') onPrev();
+    else onClose();
+  }, [patron.id, form, hayCambios, authHeader, onGuardado, onNext, onPrev, onClose]);
 
   useEffect(() => {
     const handler = (e) => {
