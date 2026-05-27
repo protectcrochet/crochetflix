@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
-import { Upload, Trash2, Eye, EyeOff, Plus, FileText, Image, Loader, LogOut, Download, Sparkles, Star, Flame, Search, X, ExternalLink } from 'lucide-react';
+import { Upload, Trash2, Eye, EyeOff, Plus, FileText, Image, Loader, LogOut, Download, Sparkles, Star, Flame, Search, X, ExternalLink, LayoutGrid, List, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const CATEGORIAS = ['amigurumi', 'ropa', 'accesorios', 'decoracion', 'hogar', 'otro'];
 const SUBCATEGORIAS_AMIGURUMI = ['animales', 'personas y muñecos', 'comida', 'plantas y flores', 'personajes y fantasía', 'navidad', 'otro'];
@@ -252,6 +252,133 @@ function HeroCropModal({ patron, authHeader, onClose }) {
   );
 }
 
+// ── Modo Visor: edición rápida ──────────────────────────────────────────────
+function VisorEditModal({ patron, idx, total, authHeader, onGuardado, onNext, onPrev, onClose }) {
+  const [form, setForm] = useState({
+    titulo: patron.titulo || '',
+    diseñadora: patron.diseñadora || '',
+    categoria: patron.categoria || 'amigurumi',
+    subcategoria: patron.subcategoria || '',
+    dificultad: patron.dificultad || 'principiante',
+  });
+  const [guardando, setGuardando] = useState(false);
+
+  // Sync form when patron changes (next/prev)
+  useEffect(() => {
+    setForm({
+      titulo: patron.titulo || '',
+      diseñadora: patron.diseñadora || '',
+      categoria: patron.categoria || 'amigurumi',
+      subcategoria: patron.subcategoria || '',
+      dificultad: patron.dificultad || 'principiante',
+    });
+  }, [patron.id]);
+
+  const guardar = useCallback(async (luego) => {
+    setGuardando(true);
+    try {
+      await api.patch(`/admin/patrones/${patron.id}`, form, { headers: authHeader });
+      onGuardado(patron.id, form);
+      if (luego === 'next') onNext();
+      else if (luego === 'prev') onPrev();
+      else onClose();
+    } catch { alert('Error guardando'); }
+    finally { setGuardando(false); }
+  }, [patron.id, form, authHeader, onGuardado, onNext, onPrev, onClose]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key === 'Escape') onClose();
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); guardar('next'); }
+      if (e.key === 'ArrowRight' && !e.target.matches('input,select,textarea')) guardar('next');
+      if (e.key === 'ArrowLeft'  && !e.target.matches('input,select,textarea')) guardar('prev');
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [guardar, onClose]);
+
+  return (
+    <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-3">
+      <div className="bg-gray-900 rounded-xl w-full max-w-2xl flex flex-col overflow-hidden shadow-2xl"
+        style={{ maxHeight: '95vh' }}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-2 border-b border-gray-700 shrink-0">
+          <span className="text-xs text-gray-400 font-mono">{idx + 1} / {total}</span>
+          <span className="text-xs text-gray-500 truncate max-w-xs">{patron.id}</span>
+          <button onClick={onClose} className="text-gray-400 hover:text-white ml-2">✕</button>
+        </div>
+
+        {/* Imagen + Formulario */}
+        <div className="flex flex-1 min-h-0">
+          {/* Imagen */}
+          <div className="w-1/2 bg-black flex items-center justify-center overflow-hidden shrink-0">
+            {patron.thumbnail_path
+              ? <img src={patron.thumbnail_path} alt="" className="max-w-full max-h-full object-contain" />
+              : <span className="text-gray-600 text-sm">Sin imagen</span>}
+          </div>
+
+          {/* Form */}
+          <div className="flex-1 p-4 overflow-y-auto space-y-3">
+            <div>
+              <label className="text-xs text-gray-400 block mb-1">Título</label>
+              <input value={form.titulo} onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))}
+                className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm focus:border-crochet-primary focus:outline-none" />
+            </div>
+            <div>
+              <label className="text-xs text-gray-400 block mb-1">Diseñadora</label>
+              <input value={form.diseñadora} onChange={e => setForm(f => ({ ...f, diseñadora: e.target.value }))}
+                placeholder="Diseñadora"
+                className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm focus:border-crochet-primary focus:outline-none" />
+            </div>
+            <div>
+              <label className="text-xs text-gray-400 block mb-1">Categoría</label>
+              <select value={form.categoria} onChange={e => setForm(f => ({ ...f, categoria: e.target.value, subcategoria: '' }))}
+                className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm focus:outline-none">
+                {CATEGORIAS.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            {form.categoria === 'amigurumi' && (
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">Subcategoría</label>
+                <select value={form.subcategoria} onChange={e => setForm(f => ({ ...f, subcategoria: e.target.value }))}
+                  className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm focus:outline-none">
+                  <option value="">— ninguna —</option>
+                  {SUBCATEGORIAS_AMIGURUMI.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+            )}
+            <div>
+              <label className="text-xs text-gray-400 block mb-1">Dificultad</label>
+              <select value={form.dificultad} onChange={e => setForm(f => ({ ...f, dificultad: e.target.value }))}
+                className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm focus:outline-none">
+                {DIFICULTADES.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+            <p className="text-xs text-gray-600 pt-1">Ctrl+S / → Guardar y siguiente · Esc Cerrar</p>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex gap-2 px-4 py-3 border-t border-gray-700 shrink-0">
+          <button onClick={() => guardar('prev')} disabled={guardando || idx === 0}
+            className="flex items-center gap-1 px-3 py-2 text-sm bg-gray-800 hover:bg-gray-700 rounded transition disabled:opacity-30">
+            <ChevronLeft className="w-4 h-4" /> Anterior
+          </button>
+          <button onClick={() => guardar(null)} disabled={guardando}
+            className="flex-1 py-2 text-sm bg-gray-700 hover:bg-gray-600 rounded transition">
+            {guardando ? 'Guardando…' : 'Guardar'}
+          </button>
+          <button onClick={() => guardar('next')} disabled={guardando || idx === total - 1}
+            className="flex items-center gap-1 px-3 py-2 text-sm bg-crochet-primary hover:opacity-90 rounded transition font-semibold disabled:opacity-30">
+            Siguiente <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Admin() {
   const [secret, setSecret] = useState(() => localStorage.getItem('admin_secret') || '');
   const [autenticado, setAutenticado] = useState(false);
@@ -266,6 +393,7 @@ export default function Admin() {
   const [guardando, setGuardando] = useState(false);
   const [stats, setStats] = useState(null);
   const [heroCropPatron, setHeroCropPatron] = useState(null);
+  const [visorIdx, setVisorIdx] = useState(null); // null = visor cerrado, number = índice abierto
 
   const [form, setForm] = useState({
     titulo: '', descripcion: '', autor: '', diseñadora: '',
@@ -607,6 +735,19 @@ export default function Admin() {
             className="flex items-center gap-1.5 px-3 py-2 bg-gray-600 hover:bg-gray-500 rounded text-sm text-white transition disabled:opacity-50">
             Fix categorías
           </button>
+          <button onClick={async () => {
+              setCargando(true);
+              try {
+                const res = await api.post('/admin/patrones/fix-autor', {}, { headers: authHeader });
+                setMensaje({ tipo: 'ok', texto: res.data.message });
+                cargarPatrones();
+              } catch (err) {
+                setMensaje({ tipo: 'error', texto: err.response?.data?.error || 'Error' });
+              } finally { setCargando(false); }
+            }} disabled={cargando} title='Cambia "Telegram" → "Diseñadora" y "N/A" → "Diseñadora"'
+            className="flex items-center gap-1.5 px-3 py-2 bg-gray-600 hover:bg-gray-500 rounded text-sm text-white transition disabled:opacity-50">
+            Fix autor
+          </button>
           <button onClick={sincronizarPDFs} disabled={cargando} title="Procesar PDFs nuevos subidos por el bot"
             className="flex items-center gap-1.5 px-3 py-2 bg-blue-700 hover:bg-blue-600 rounded text-sm text-white transition disabled:opacity-50">
             {cargando ? <Loader className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
@@ -862,6 +1003,15 @@ export default function Admin() {
                 </button>
               ))}
             </div>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setVisorIdx(visorIdx === null ? 0 : null)}
+                title="Modo visor: edita rápido mientras ves las imágenes"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition ${visorIdx !== null ? 'bg-crochet-primary text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}>
+                <LayoutGrid className="w-3.5 h-3.5" />
+                Modo visor
+              </button>
+            </div>
           </div>
 
           {(() => {
@@ -887,53 +1037,95 @@ export default function Admin() {
             return (
               <>
                 <p className="text-xs text-gray-500 mb-2">{filtrados.length} de {patrones.length} patrones</p>
-                {filtrados.map(p => (
-              <div key={p.id} onClick={() => abrirEditor(p)} className={`bg-gray-800 rounded-lg p-4 flex items-center gap-4 cursor-pointer hover:bg-gray-750 transition ${!p.activo ? 'opacity-50' : ''}`}>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-sm truncate">{p.titulo}</span>
-                    {p.verificado === 1 && <span title="Verificado" className="text-blue-400">✔</span>}
-                    {p.destacado === 1 && <span className="bg-yellow-600 text-xs px-1.5 py-0.5 rounded">HERO</span>}
-                    {p.tendencia === 1 && <span className="bg-orange-600 text-xs px-1.5 py-0.5 rounded">TREND</span>}
-                    {p.es_preview === 1 && <span className="bg-green-700 text-xs px-1.5 py-0.5 rounded">GRATIS</span>}
-                    {!p.activo && <span className="bg-gray-600 text-xs px-1.5 py-0.5 rounded">OCULTO</span>}
-                    {p.pdf_corrupto === 1 && p.paginas === 0 && <span className="bg-red-800 text-xs px-1.5 py-0.5 rounded" title={`${p.conversion_intentos} intentos fallidos`}>ERROR PDF</span>}
-                  </div>
-                  <p className="text-xs text-gray-400">
-                    {p.diseñadora || p.autor || '—'} · {p.categoria}{p.subcategoria ? ` / ${p.subcategoria}` : ''} · {p.dificultad} · {p.paginas} págs.
-                  </p>
-                </div>
-                <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
-                  {(() => {
-                    const heroCount = patrones.filter(x => x.destacado === 1).length;
-                    const bloqueado = !p.destacado && heroCount >= 12;
-                    return (
-                      <button onClick={() => !bloqueado && handleDestacar(p.id)}
-                        title={bloqueado ? 'Límite de 12 heroes alcanzado' : p.destacado ? 'Quitar del hero' : 'Poner en hero'}
-                        className={`p-2 transition ${p.destacado ? 'text-yellow-400 hover:text-yellow-200' : bloqueado ? 'text-gray-600 cursor-not-allowed' : 'text-gray-400 hover:text-yellow-400'}`}>
-                        <Star className="w-4 h-4" fill={p.destacado ? 'currentColor' : 'none'} />
-                      </button>
-                    );
-                  })()}
-                  <button onClick={() => handleTendencia(p.id)} title={p.tendencia ? 'Quitar de tendencia' : 'Poner en tendencia'}
-                    className={`p-2 transition ${p.tendencia ? 'text-orange-400 hover:text-orange-200' : 'text-gray-400 hover:text-orange-400'}`}>
-                    <Flame className="w-4 h-4" fill={p.tendencia ? 'currentColor' : 'none'} />
-                  </button>
-                  <button onClick={() => handleToggle(p.id)} title={p.activo ? 'Ocultar' : 'Publicar'}
-                    className="p-2 text-gray-400 hover:text-white transition">
-                    {p.activo ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                  </button>
-                  {p.pdf_corrupto === 1 && p.paginas === 0 && (
-                    <button onClick={() => handleCorrupto(p.id)} title="Reintentar conversión"
-                      className="p-2 text-red-400 hover:text-green-400 transition text-xs font-bold">↺</button>
-                  )}
-                  <button onClick={() => handleEliminar(p.id, p.titulo)} title="Eliminar"
-                    className="p-2 text-gray-400 hover:text-red-400 transition">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
+
+                {visorIdx !== null ? (
+                  /* ── MODO VISOR: cuadrícula de miniaturas ── */
+                  <>
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+                      {filtrados.map((p, i) => (
+                        <button
+                          key={p.id}
+                          onClick={() => setVisorIdx(i)}
+                          className={`relative aspect-[3/4] rounded overflow-hidden bg-gray-800 focus:outline-none ring-2 transition ${i === visorIdx ? 'ring-crochet-primary' : 'ring-transparent hover:ring-gray-500'}`}
+                        >
+                          {p.thumbnail_path ? (
+                            <img src={p.thumbnail_path} alt={p.titulo} className="w-full h-full object-cover" loading="lazy"
+                              onError={e => { e.currentTarget.style.display = 'none'; }} />
+                          ) : (
+                            <span className="absolute inset-0 flex items-center justify-center text-2xl text-gray-600">📄</span>
+                          )}
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-1">
+                            <p className="text-white text-[10px] leading-tight line-clamp-2">{p.titulo}</p>
+                          </div>
+                          {!p.activo && <div className="absolute inset-0 bg-black/50" />}
+                          {p.pdf_corrupto === 1 && p.paginas === 0 && (
+                            <span className="absolute top-1 right-1 bg-red-700 text-white text-[9px] px-1 rounded">ERR</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+
+                    <VisorEditModal
+                      patron={filtrados[Math.min(visorIdx, filtrados.length - 1)]}
+                      idx={Math.min(visorIdx, filtrados.length - 1)}
+                      total={filtrados.length}
+                      authHeader={{ 'x-admin-secret': adminSecret }}
+                      onGuardado={(id, form) => setPatrones(prev => prev.map(p => p.id === id ? { ...p, ...form } : p))}
+                      onNext={() => setVisorIdx(i => Math.min(filtrados.length - 1, i + 1))}
+                      onPrev={() => setVisorIdx(i => Math.max(0, i - 1))}
+                      onClose={() => setVisorIdx(null)}
+                    />
+                  </>
+                ) : (
+                  /* ── MODO LISTA: vista normal ── */
+                  filtrados.map(p => (
+                    <div key={p.id} onClick={() => abrirEditor(p)} className={`bg-gray-800 rounded-lg p-4 flex items-center gap-4 cursor-pointer hover:bg-gray-750 transition ${!p.activo ? 'opacity-50' : ''}`}>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-sm truncate">{p.titulo}</span>
+                          {p.verificado === 1 && <span title="Verificado" className="text-blue-400">✔</span>}
+                          {p.destacado === 1 && <span className="bg-yellow-600 text-xs px-1.5 py-0.5 rounded">HERO</span>}
+                          {p.tendencia === 1 && <span className="bg-orange-600 text-xs px-1.5 py-0.5 rounded">TREND</span>}
+                          {p.es_preview === 1 && <span className="bg-green-700 text-xs px-1.5 py-0.5 rounded">GRATIS</span>}
+                          {!p.activo && <span className="bg-gray-600 text-xs px-1.5 py-0.5 rounded">OCULTO</span>}
+                          {p.pdf_corrupto === 1 && p.paginas === 0 && <span className="bg-red-800 text-xs px-1.5 py-0.5 rounded" title={`${p.conversion_intentos} intentos fallidos`}>ERROR PDF</span>}
+                        </div>
+                        <p className="text-xs text-gray-400">
+                          {p.diseñadora || p.autor || '—'} · {p.categoria}{p.subcategoria ? ` / ${p.subcategoria}` : ''} · {p.dificultad} · {p.paginas} págs.
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+                        {(() => {
+                          const heroCount = patrones.filter(x => x.destacado === 1).length;
+                          const bloqueado = !p.destacado && heroCount >= 12;
+                          return (
+                            <button onClick={() => !bloqueado && handleDestacar(p.id)}
+                              title={bloqueado ? 'Límite de 12 heroes alcanzado' : p.destacado ? 'Quitar del hero' : 'Poner en hero'}
+                              className={`p-2 transition ${p.destacado ? 'text-yellow-400 hover:text-yellow-200' : bloqueado ? 'text-gray-600 cursor-not-allowed' : 'text-gray-400 hover:text-yellow-400'}`}>
+                              <Star className="w-4 h-4" fill={p.destacado ? 'currentColor' : 'none'} />
+                            </button>
+                          );
+                        })()}
+                        <button onClick={() => handleTendencia(p.id)} title={p.tendencia ? 'Quitar de tendencia' : 'Poner en tendencia'}
+                          className={`p-2 transition ${p.tendencia ? 'text-orange-400 hover:text-orange-200' : 'text-gray-400 hover:text-orange-400'}`}>
+                          <Flame className="w-4 h-4" fill={p.tendencia ? 'currentColor' : 'none'} />
+                        </button>
+                        <button onClick={() => handleToggle(p.id)} title={p.activo ? 'Ocultar' : 'Publicar'}
+                          className="p-2 text-gray-400 hover:text-white transition">
+                          {p.activo ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                        </button>
+                        {p.pdf_corrupto === 1 && p.paginas === 0 && (
+                          <button onClick={() => handleCorrupto(p.id)} title="Reintentar conversión"
+                            className="p-2 text-red-400 hover:text-green-400 transition text-xs font-bold">↺</button>
+                        )}
+                        <button onClick={() => handleEliminar(p.id, p.titulo)} title="Eliminar"
+                          className="p-2 text-gray-400 hover:text-red-400 transition">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
               </>
             );
           })()}
