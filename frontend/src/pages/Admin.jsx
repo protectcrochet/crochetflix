@@ -137,7 +137,7 @@ function HeroCropModal({ patron, authHeader, onClose }) {
       <div className="flex-1 flex flex-col lg:flex-row min-h-0">
 
         {/* Panel izquierdo — imagen con crop handles (scrollable) */}
-        <div className="h-[52vh] lg:h-auto lg:flex-1 overflow-y-auto overflow-x-hidden">
+        <div className="h-[55vh] lg:h-auto lg:flex-1 overflow-y-auto overflow-x-hidden bg-black">
           <div className="relative select-none">
             <img
               ref={imgRef}
@@ -147,29 +147,43 @@ function HeroCropModal({ patron, authHeader, onClose }) {
               onLoad={onImgLoad}
               draggable={false}
             />
-            <div className="absolute inset-0 bg-black/50 pointer-events-none" />
+
+            {/* Overlay exterior al crop (4 barras) — no sangra fuera del panel */}
+            {dims.w > 0 && (
+              <>
+                <div className="absolute pointer-events-none bg-black/55"
+                  style={{ left: 0, top: 0, right: 0, height: crop.y }} />
+                <div className="absolute pointer-events-none bg-black/55"
+                  style={{ left: 0, top: crop.y + crop.h, right: 0, bottom: 0 }} />
+                <div className="absolute pointer-events-none bg-black/55"
+                  style={{ left: 0, top: crop.y, width: crop.x, height: crop.h }} />
+                <div className="absolute pointer-events-none bg-black/55"
+                  style={{ left: crop.x + crop.w, top: crop.y, right: 0, height: crop.h }} />
+              </>
+            )}
+
+            {/* Recuadro de crop */}
             {dims.w > 0 && (
               <div
                 className="absolute border-2 border-white cursor-move"
-                style={{
-                  left: crop.x, top: crop.y, width: crop.w, height: crop.h,
-                  boxShadow: '0 0 0 9999px rgba(0,0,0,0.55)',
-                  touchAction: 'none',
-                }}
+                style={{ left: crop.x, top: crop.y, width: crop.w, height: crop.h, touchAction: 'none' }}
                 onMouseDown={startDrag('move')}
                 onTouchStart={startDrag('move')}
               >
+                {/* Guías de tercios */}
                 <div className="absolute inset-0 pointer-events-none">
-                  <div className="absolute left-1/3 top-0 bottom-0 border-l border-white/20" />
-                  <div className="absolute left-2/3 top-0 bottom-0 border-l border-white/20" />
-                  <div className="absolute top-1/3 left-0 right-0 border-t border-white/20" />
-                  <div className="absolute top-2/3 left-0 right-0 border-t border-white/20" />
+                  <div className="absolute left-1/3 top-0 bottom-0 border-l border-white/25" />
+                  <div className="absolute left-2/3 top-0 bottom-0 border-l border-white/25" />
+                  <div className="absolute top-1/3 left-0 right-0 border-t border-white/25" />
+                  <div className="absolute top-2/3 left-0 right-0 border-t border-white/25" />
                 </div>
+                {/* Handles */}
                 {HANDLES.map(({ type, cursor, style }) => (
                   <div
                     key={type}
-                    className="absolute w-3 h-3 bg-white rounded-sm border border-gray-500 z-10"
-                    style={{ ...style, cursor, touchAction: 'none', position: 'absolute' }}
+                    className="absolute w-4 h-4 bg-white rounded-sm z-10"
+                    style={{ ...style, cursor, touchAction: 'none', position: 'absolute',
+                      boxShadow: '0 0 0 1px rgba(0,0,0,0.5)' }}
                     onMouseDown={startDrag(type)}
                     onTouchStart={startDrag(type)}
                   />
