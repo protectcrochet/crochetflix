@@ -6,12 +6,15 @@ export default function PatronCard({ patron }) {
     <Link to={`/patron/${patron.id}`} className="card-hover flex-shrink-0 w-40 sm:w-48">
       <div className="relative aspect-[3/4] rounded-lg overflow-hidden bg-gray-800">
         {/* Thumbnail */}
-        <img 
-          src={patron.thumbnail_path || '/placeholder-patron.jpg'} 
-          alt={patron.titulo}
-          className="w-full h-full object-cover"
-          loading="lazy"
-        />
+        {patron.thumbnail_path ? (
+          <img
+            src={patron.thumbnail_path}
+            alt={patron.titulo}
+            className="w-full h-full object-cover"
+            loading="lazy"
+            onError={e => { e.currentTarget.style.display = 'none'; }}
+          />
+        ) : null}
 
         {/* Badges */}
         <div className="absolute top-2 left-2 flex gap-1">

@@ -589,6 +589,20 @@ export default function Admin() {
             {stats?.categoriasRunning ? <Loader className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
             {stats?.categoriasRunning ? 'Categorizando…' : 'Categorizar IA'}
           </button>
+          <button onClick={async () => {
+              setCargando(true);
+              try {
+                const res = await api.post('/admin/patrones/reparar-thumbnails', {}, { headers: authHeader });
+                setMensaje({ tipo: 'ok', texto: res.data.message });
+                cargarPatrones();
+              } catch (err) {
+                setMensaje({ tipo: 'error', texto: err.response?.data?.error || 'Error' });
+              } finally { setCargando(false); }
+            }} disabled={cargando} title="Busca thumbnails rotos y los repara automáticamente"
+            className="flex items-center gap-1.5 px-3 py-2 bg-orange-700 hover:bg-orange-600 rounded text-sm text-white transition disabled:opacity-50">
+            {cargando ? <Loader className="w-4 h-4 animate-spin" /> : <Image className="w-4 h-4" />}
+            Reparar imágenes
+          </button>
           <button onClick={normalizarCategorias} disabled={cargando} title="Corrige mayúsculas en categorías"
             className="flex items-center gap-1.5 px-3 py-2 bg-gray-600 hover:bg-gray-500 rounded text-sm text-white transition disabled:opacity-50">
             Fix categorías

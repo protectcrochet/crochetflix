@@ -997,3 +997,59 @@ exports.eliminarPatron = async (req, res) => {
     res.status(500).json({ error: 'Error interno' });
   }
 };
+
+exports.repararThumbnails = async (req, res) => {
+  try {
+    const patrones = await new Promise((resolve, reject) => {
+      db.all('SELECT id, thumbnail_path FROM patrones WHERE activo = 1', [],
+        (err, rows) => { if (err) reject(err); else resolve(rows); }
+      );
+    });
+
+    let reparados = 0, rotos = 0, sinImagen = 0;
+
+    for (const p of patrones) {
+      const patronDir = path.join(UPLOADS_DIR, p.id);
+
+      // Si no tiene thumbnail_path asignado
+      if (!p.thumbnail_path) {
+        sinImagen++;
+        // Intentar asignar la primera imagen disponible
+        if (fs.existsSync(patronDir)) {
+          const imgs = fs.readdirSync(patronDir).filter(f => f.endsWith('.jpg')).sort();
+          if (imgs.length > 0) {
+            const nuevaRuta = `/uploads/patrones/${p.id}/${imgs[0]}`;
+            await new Promise(r => db.run('UPDATE patrones SET thumbnail_path = ? WHERE id = ?', [nuevaRuta, p.id], r));
+            reparados++;
+            sinImagen--;
+          }
+        }
+        continue;
+      }
+
+      // Verificar que el archivo existe
+      const rutaAbsoluta = path.join(__dirname, '../../', p.thumbnail_path.replace(/^\//, ''));
+      if (!fs.existsSync(rutaAbsoluta)) {
+        rotos++;
+        // Buscar cualquier jpg en el directorio del patrón
+        if (fs.existsSync(patronDir)) {
+          const imgs = fs.readdirSync(patronDir).filter(f => f.endsWith('.jpg')).sort();
+          if (imgs.length > 0) {
+            const nuevaRuta = `/uploads/patrones/${p.id}/${imgs[0]}`;
+            await new Promise(r => db.run('UPDATE patrones SET thumbnail_path = ? WHERE id = ?', [nuevaRuta, p.id], r));
+            reparados++;
+            rotos--;
+          }
+        }
+      }
+    }
+
+    res.json({
+      message: `${reparados} thumbnails reparados · ${rotos} siguen rotos (sin imágenes) · ${sinImagen} sin imagen`,
+      reparados, rotos, sinImagen,
+    });
+  } catch (err) {
+    console.error('Error reparando thumbnails:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+};
