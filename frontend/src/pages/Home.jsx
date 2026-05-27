@@ -33,7 +33,10 @@ function HeroCarrusel({ patrones }) {
       {/* Imágenes apiladas con transición */}
       {patrones.map((p, i) => (
         <div key={p.id} className={`absolute inset-0 transition-opacity duration-700 ${i === idx ? 'opacity-100' : 'opacity-0'}`}>
-          <img src={p.thumbnail_path || ''} alt={p.titulo} className="w-full h-full object-cover" />
+          {/* Fondo desenfocado para rellenar el espacio en imágenes verticales */}
+          <img src={p.thumbnail_path || ''} alt="" className="absolute inset-0 w-full h-full object-cover scale-110 blur-md opacity-50" aria-hidden="true" />
+          {/* Imagen completa centrada sin recorte */}
+          <img src={p.thumbnail_path || ''} alt={p.titulo} className="absolute inset-0 w-full h-full object-contain" />
         </div>
       ))}
       <div className="absolute inset-0 bg-gradient-to-t from-crochet-dark via-crochet-dark/50 to-transparent" />
@@ -100,7 +103,7 @@ export default function Home() {
       const [resAll, resDestacados, resTendencia] = await Promise.all([
         api.get('/patrones'),
         api.get('/patrones', { params: { destacado: '1', limit: 10 } }),
-        api.get('/patrones', { params: { tendencia: '1', limit: 20 } }),
+        api.get('/patrones', { params: { tendencia: '1', limit: 16 } }),
       ]);
       const data = resAll.data.patrones || [];
       const dest = resDestacados.data.patrones || [];
@@ -207,7 +210,7 @@ export default function Home() {
             </div>
           )}
 
-          <Carrusel titulo="🔥 Tendencia" patrones={patronesTendencia} />
+          <Carrusel titulo="🔥 Tendencia" patrones={patronesTendencia} loop />
           <Carrusel titulo="🆕 Nuevos patrones" patrones={patronesNuevos} />
           <Carrusel titulo="🎁 Gratis este mes" patrones={patronesPreview} />
 

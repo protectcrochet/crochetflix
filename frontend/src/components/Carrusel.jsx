@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import PatronCard from './PatronCard';
 
-export default function Carrusel({ titulo, patrones }) {
+export default function Carrusel({ titulo, patrones, loop = false }) {
   const scrollRef = useRef(null);
 
   const scroll = (direction) => {
@@ -16,6 +16,8 @@ export default function Carrusel({ titulo, patrones }) {
   };
 
   if (!patrones || patrones.length === 0) return null;
+
+  const items = loop ? [...patrones, ...patrones] : patrones;
 
   return (
     <section className="py-4">
@@ -32,8 +34,8 @@ export default function Carrusel({ titulo, patrones }) {
       </div>
 
       <div ref={scrollRef} className="carrusel-container px-4">
-        {patrones.map(patron => (
-          <PatronCard key={patron.id} patron={patron} />
+        {items.map((patron, i) => (
+          <PatronCard key={`${patron.id}-${i}`} patron={patron} />
         ))}
       </div>
     </section>
