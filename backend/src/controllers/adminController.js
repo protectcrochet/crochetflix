@@ -525,6 +525,10 @@ ${JSON.stringify(datos.map(d => ({ id: d.id, titulo_actual: d.titulo, texto_pdf:
         }
       } catch (e) {
         console.error('[meta] Error en lote:', e.message);
+        if (e.status === 400 || e.status === 429 || (e.message && e.message.includes('credit'))) {
+          console.log('[meta] Créditos agotados — deteniendo extracción.');
+          return;
+        }
       }
     }
 
@@ -600,6 +604,10 @@ ${JSON.stringify(lote.map(p => ({ id: p.id, titulo: p.titulo })), null, 2)}` }]
         }
       } catch (e) {
         console.error('[cat] Error en lote:', e.message);
+        if (e.status === 400 || e.status === 429 || (e.message && e.message.includes('credit'))) {
+          console.log('[cat] Créditos agotados — deteniendo categorización.');
+          return;
+        }
       }
     }
 
