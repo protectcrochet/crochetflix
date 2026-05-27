@@ -358,7 +358,7 @@ export default function Viewer() {
       {/* Enlace DMCA flotante derecho */}
       <a
         href={`/dmca?patron_id=${id}&url=${encodeURIComponent(window.location.href)}`}
-        className="fixed bottom-32 right-4 z-40 text-[10px] text-gray-700 hover:text-gray-500 transition md:bottom-14"
+        className="fixed bottom-32 right-4 z-40 text-[10px] text-gray-500 hover:text-gray-300 transition md:bottom-14"
         title="Reclamar derechos de autor"
       >
         DMCA
