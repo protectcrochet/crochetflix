@@ -753,6 +753,13 @@ export default function Admin() {
             {cargando ? <Loader className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
             Sincronizar
           </button>
+          <button
+            onClick={() => { setMostrando('lista'); setVisorIdx(v => v === null ? 0 : null); }}
+            title="Modo visor: edita rápido mientras ves las imágenes"
+            className={`flex items-center gap-1.5 px-3 py-2 rounded text-sm font-medium transition ${visorIdx !== null ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
+            <LayoutGrid className="w-4 h-4" />
+            Modo visor
+          </button>
           <button onClick={cerrarSesion} className="text-gray-400 hover:text-white p-2">
             <LogOut className="w-5 h-5" />
           </button>
@@ -988,7 +995,7 @@ export default function Admin() {
                 );
               })()}
             </div>
-            <div className="flex gap-2 flex-wrap items-center text-xs">
+            <div className="flex gap-2 flex-wrap text-xs">
               {[
                 { key: 'todos', label: 'Todos' },
                 { key: 'hero', label: '⭐ Hero' },
@@ -1002,13 +1009,6 @@ export default function Admin() {
                   {f.label}
                 </button>
               ))}
-              <button
-                onClick={() => setVisorIdx(visorIdx === null ? 0 : null)}
-                title="Modo visor: edita rápido mientras ves las imágenes"
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-medium transition ml-auto ${visorIdx !== null ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
-                <LayoutGrid className="w-3.5 h-3.5" />
-                Modo visor
-              </button>
             </div>
           </div>
 
