@@ -352,48 +352,22 @@ export default function Admin() {
   };
 
   const extraerMetadatos = async () => {
-    setCargando(true);
-    setMensaje(null);
-    setProgresoMeta(null);
-    let totalActualizados = 0;
     try {
-      while (true) {
-        const res = await api.post('/admin/patrones/extraer-metadatos', {}, { headers: authHeader, timeout: 120000 });
-        totalActualizados += res.data.actualizados || 0;
-        setProgresoMeta({ actualizados: totalActualizados, restantes: res.data.restantes });
-        if (!res.data.restantes || res.data.restantes === 0) break;
-      }
-      setMensaje({ tipo: 'ok', texto: `✅ ${totalActualizados} patrones actualizados con título, diseñadora e idioma` });
-      cargarPatrones();
+      const res = await api.post('/admin/patrones/extraer-metadatos-fondo', {}, { headers: authHeader });
+      setMensaje({ tipo: 'ok', texto: res.data.message });
+      setTimeout(() => setMensaje(null), 4000);
     } catch (err) {
-      setMensaje({ tipo: 'error', texto: err.response?.data?.error || 'Error extrayendo metadatos' });
-    } finally {
-      setCargando(false);
-      setProgresoMeta(null);
+      setMensaje({ tipo: 'error', texto: err.response?.data?.error || 'Error' });
     }
   };
 
   const categorizarConIA = async () => {
-    setCargando(true);
-    setMensaje(null);
-    setProgresoIA(null);
-    let totalActualizados = 0;
-
     try {
-      while (true) {
-        const res = await api.post('/admin/patrones/categorizar', {}, { headers: authHeader, timeout: 120000 });
-        totalActualizados += res.data.actualizados || 0;
-        setProgresoIA({ actualizados: totalActualizados, restantes: res.data.restantes });
-
-        if (!res.data.restantes || res.data.restantes === 0) break;
-      }
-      setMensaje({ tipo: 'ok', texto: `✅ ${totalActualizados} patrones categorizados con IA` });
-      cargarPatrones();
+      const res = await api.post('/admin/patrones/categorizar-fondo', {}, { headers: authHeader });
+      setMensaje({ tipo: 'ok', texto: res.data.message });
+      setTimeout(() => setMensaje(null), 4000);
     } catch (err) {
-      setMensaje({ tipo: 'error', texto: err.response?.data?.error || 'Error categorizando' });
-    } finally {
-      setCargando(false);
-      setProgresoIA(null);
+      setMensaje({ tipo: 'error', texto: err.response?.data?.error || 'Error' });
     }
   };
 
@@ -605,15 +579,15 @@ export default function Admin() {
             <Upload className="w-4 h-4" /> Importar
             <input type="file" accept=".csv" onChange={importarCSV} className="hidden" />
           </label>
-          <button onClick={extraerMetadatos} disabled={cargando} title="Extrae título, diseñadora e idioma leyendo el PDF con IA"
+          <button onClick={extraerMetadatos} disabled={stats?.metadatosRunning} title="Extrae título, diseñadora e idioma con IA (corre en el servidor)"
             className="flex items-center gap-1.5 px-3 py-2 bg-indigo-700 hover:bg-indigo-600 rounded text-sm text-white transition disabled:opacity-50">
-            {cargando ? <Loader className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            Extraer datos PDF
+            {stats?.metadatosRunning ? <Loader className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            {stats?.metadatosRunning ? 'Extrayendo…' : 'Extraer datos PDF'}
           </button>
-          <button onClick={categorizarConIA} disabled={cargando} title="Categorizar patrones automáticamente con IA"
+          <button onClick={categorizarConIA} disabled={stats?.categoriasRunning} title="Categorizar patrones con IA (corre en el servidor)"
             className="flex items-center gap-1.5 px-3 py-2 bg-purple-700 hover:bg-purple-600 rounded text-sm text-white transition disabled:opacity-50">
-            {cargando ? <Loader className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            Categorizar IA
+            {stats?.categoriasRunning ? <Loader className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            {stats?.categoriasRunning ? 'Categorizando…' : 'Categorizar IA'}
           </button>
           <button onClick={normalizarCategorias} disabled={cargando} title="Corrige mayúsculas en categorías"
             className="flex items-center gap-1.5 px-3 py-2 bg-gray-600 hover:bg-gray-500 rounded text-sm text-white transition disabled:opacity-50">
@@ -630,28 +604,28 @@ export default function Admin() {
         </div>
       </div>
 
-      {progresoMeta && (
+      {stats?.metadatosRunning && (
         <div className="mb-4 px-4 py-3 rounded text-sm bg-indigo-900/40 border border-indigo-500 text-indigo-200">
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-1">
             <Loader className="w-4 h-4 animate-spin" />
-            <span className="font-semibold">Extrayendo datos del PDF...</span>
+            <span className="font-semibold">Extrayendo datos PDF en el servidor…</span>
           </div>
           <div className="flex gap-6 text-xs">
-            <span>✅ Actualizados: <strong>{progresoMeta.actualizados}</strong></span>
-            <span>⏳ Pendientes: <strong>{progresoMeta.restantes ?? '...'}</strong></span>
+            <span>✅ Actualizados: <strong>{stats.metadatosProgreso?.actualizados ?? 0}</strong></span>
+            <span>⏳ Pendientes: <strong>{stats.metadatosProgreso?.restantes ?? '...'}</strong></span>
           </div>
         </div>
       )}
 
-      {progresoIA && (
+      {stats?.categoriasRunning && (
         <div className="mb-4 px-4 py-3 rounded text-sm bg-purple-900/40 border border-purple-500 text-purple-200">
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-1">
             <Loader className="w-4 h-4 animate-spin" />
-            <span className="font-semibold">Categorizando con IA...</span>
+            <span className="font-semibold">Categorizando con IA en el servidor…</span>
           </div>
           <div className="flex gap-6 text-xs">
-            <span>✅ Categorizados: <strong>{progresoIA.actualizados}</strong></span>
-            <span>⏳ Pendientes: <strong>{progresoIA.restantes ?? '...'}</strong></span>
+            <span>✅ Categorizados: <strong>{stats.categoriasProgreso?.actualizados ?? 0}</strong></span>
+            <span>⏳ Pendientes: <strong>{stats.categoriasProgreso?.restantes ?? '...'}</strong></span>
           </div>
         </div>
       )}

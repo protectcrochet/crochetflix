@@ -7,6 +7,12 @@ const Anthropic = require('@anthropic-ai/sdk');
 
 const UPLOADS_DIR = path.join(__dirname, '../../uploads/patrones');
 
+// Estado de jobs en segundo plano
+let metadatosRunning = false;
+let categoriasRunning = false;
+let metadatosProgreso = { actualizados: 0, restantes: null };
+let categoriasProgreso = { actualizados: 0, restantes: null };
+
 // Convertir PDF a imágenes usando pdftoppm (poppler-utils)
 function convertirPDF(pdfPath, outputDir) {
   const prefix = path.join(outputDir, 'pagina');
@@ -449,6 +455,180 @@ ${JSON.stringify(lote.map(p => ({ id: p.id, titulo: p.titulo })), null, 2)}`
   }
 };
 
+// ── Job en segundo plano: extracción de metadatos ──────────────────────────
+async function _runExtraccionMetadatos(apiKey) {
+  const anthropic = new Anthropic({ apiKey });
+  const LOTE = 10;
+  let totalActualizados = 0;
+
+  while (true) {
+    const pendientes = await new Promise((resolve, reject) => {
+      db.all(
+        `SELECT id, titulo FROM patrones
+         WHERE autor = 'Telegram' AND (diseñadora IS NULL OR diseñadora = '' OR diseñadora = 'N/A')
+         LIMIT 30`,
+        [], (err, rows) => { if (err) reject(err); else resolve(rows); }
+      );
+    });
+    if (pendientes.length === 0) break;
+
+    const archivosFlat = fs.readdirSync(UPLOADS_DIR);
+
+    for (let i = 0; i < pendientes.length; i += LOTE) {
+      const lote = pendientes.slice(i, i + LOTE);
+      const datos = lote.map(p => {
+        const pdfPath = localizarPDF(p.id, archivosFlat);
+        const texto = pdfPath ? extraerTextoPDF(pdfPath) : '';
+        return { id: p.id, titulo: p.titulo, texto };
+      });
+
+      try {
+        const msg = await anthropic.messages.create({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 1500,
+          messages: [{ role: 'user', content: `Analiza estos patrones de crochet. Extrae el nombre real del patrón y el nombre de la diseñadora/diseñador leyendo el contenido del PDF.
+
+Responde SOLO con un JSON array válido, sin texto adicional:
+[{"id": "...", "titulo_limpio": "Nombre real del patrón", "diseñadora": "Nombre o null", "idioma": "es|en|pt|fr|de|it|otro"}]
+
+Reglas para título:
+- Usa el nombre oficial del patrón tal como aparece en el PDF (primera página)
+- Si no hay título claro en el texto, mejora el título actual quitando guiones bajos, hashes y sufijos "_pdf"
+- Máximo 80 caracteres
+
+Reglas para diseñadora:
+- Si aparece claramente un nombre de persona, marca, tienda, blog o usuario → ponlo
+- Si no hay ninguna pista → null
+- No pongas "Desconocida", "Unknown" ni descripciones
+
+Reglas para idioma:
+- Detecta el idioma principal del texto del PDF
+- Usa: es (español), en (inglés), pt (portugués), fr (francés), de (alemán), it (italiano), otro
+- Si el PDF está vacío o no hay texto claro → es (por defecto)
+
+Patrones:
+${JSON.stringify(datos.map(d => ({ id: d.id, titulo_actual: d.titulo, texto_pdf: d.texto.slice(0, 900) })), null, 2)}` }]
+        });
+        const texto = msg.content[0].text.trim();
+        const jsonStr = texto.startsWith('[') ? texto : texto.match(/\[[\s\S]*\]/)?.[0];
+        const resultados = JSON.parse(jsonStr);
+        for (const r of resultados) {
+          if (!r.id) continue;
+          const diseñadora = r.diseñadora && r.diseñadora !== 'null' ? r.diseñadora : 'N/A';
+          await new Promise((resolve, reject) => {
+            db.run(
+              `UPDATE patrones SET diseñadora = ?, titulo = COALESCE(NULLIF(?, ''), titulo), idioma = ? WHERE id = ?`,
+              [diseñadora, r.titulo_limpio?.trim() || null, r.idioma || 'es', r.id],
+              function(err) { if (err) reject(err); else { totalActualizados += this.changes; resolve(); } }
+            );
+          });
+        }
+      } catch (e) {
+        console.error('[meta] Error en lote:', e.message);
+      }
+    }
+
+    const restantes = await new Promise(r => {
+      db.get(`SELECT COUNT(*) as n FROM patrones WHERE autor='Telegram' AND (diseñadora IS NULL OR diseñadora='' OR diseñadora='N/A')`,
+        [], (_, row) => r(row?.n || 0));
+    });
+    metadatosProgreso = { actualizados: totalActualizados, restantes };
+    console.log(`[meta] Ciclo completado — actualizados: ${totalActualizados}, restantes: ${restantes}`);
+  }
+
+  console.log(`[meta] Finalizado — ${totalActualizados} patrones actualizados`);
+  metadatosProgreso = { actualizados: totalActualizados, restantes: 0 };
+}
+
+exports.extraerMetadatosFondo = async (req, res) => {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return res.status(503).json({ error: 'Falta ANTHROPIC_API_KEY en .env' });
+  if (metadatosRunning) return res.json({ message: 'Ya está corriendo en el servidor', running: true, progreso: metadatosProgreso });
+
+  metadatosRunning = true;
+  metadatosProgreso = { actualizados: 0, restantes: null };
+  res.json({ message: 'Extracción iniciada en el servidor. Puedes cerrar la laptop.', running: true });
+
+  _runExtraccionMetadatos(apiKey)
+    .catch(err => console.error('[meta] Error fatal:', err.message))
+    .finally(() => { metadatosRunning = false; });
+};
+
+// ── Job en segundo plano: categorización con IA ─────────────────────────────
+async function _runCategorizacion(apiKey) {
+  const anthropic = new Anthropic({ apiKey });
+  const LOTE = 20;
+  let totalActualizados = 0;
+
+  while (true) {
+    const pendientes = await new Promise((resolve, reject) => {
+      db.all(
+        `SELECT id, titulo FROM patrones WHERE autor = 'Telegram' AND (diseñadora = '' OR diseñadora IS NULL) LIMIT 50`,
+        [], (err, rows) => { if (err) reject(err); else resolve(rows); }
+      );
+    });
+    if (pendientes.length === 0) break;
+
+    for (let i = 0; i < pendientes.length; i += LOTE) {
+      const lote = pendientes.slice(i, i + LOTE);
+      try {
+        const msg = await anthropic.messages.create({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 2048,
+          messages: [{ role: 'user', content: `Clasifica estos patrones de crochet. Responde SOLO con un JSON array válido, sin texto adicional.
+
+Formato de cada elemento:
+{"id":"...","titulo_limpio":"...","diseñadora":"...o null","categoria":"amigurumi|ropa|accesorios|decoracion|hogar|navidad|halloween|otro","subcategoria":"animales|personas y muñecos|comida|plantas y flores|personajes y fantasía|navidad|otro (solo si amigurumi, sino null)","dificultad":"principiante|intermedio|avanzado"}
+
+Reglas: amigurumi=muñecos 3D, ropa=prendas, accesorios=bolsos/gorros, decoracion=adornos, hogar=tapetes/cojines, navidad/halloween=temáticos. Sin pistas de dificultad→principiante.
+
+Patrones:
+${JSON.stringify(lote.map(p => ({ id: p.id, titulo: p.titulo })), null, 2)}` }]
+        });
+        const texto = msg.content[0].text.trim();
+        const jsonStr = texto.startsWith('[') ? texto : texto.match(/\[[\s\S]*\]/)?.[0];
+        const resultados = JSON.parse(jsonStr);
+        for (const r of resultados) {
+          if (!r.id) continue;
+          await new Promise((resolve, reject) => {
+            db.run(
+              `UPDATE patrones SET titulo=COALESCE(NULLIF(?,''),titulo), diseñadora=?, categoria=COALESCE(NULLIF(?,''),categoria), subcategoria=?, dificultad=COALESCE(NULLIF(?,''),dificultad) WHERE id=?`,
+              [r.titulo_limpio, r.diseñadora||'N/A', r.categoria, r.subcategoria||null, r.dificultad, r.id],
+              function(err) { if (err) reject(err); else { totalActualizados += this.changes; resolve(); } }
+            );
+          });
+        }
+      } catch (e) {
+        console.error('[cat] Error en lote:', e.message);
+      }
+    }
+
+    const restantes = await new Promise(r => {
+      db.get(`SELECT COUNT(*) as n FROM patrones WHERE autor='Telegram' AND (diseñadora='' OR diseñadora IS NULL)`,
+        [], (_, row) => r(row?.n || 0));
+    });
+    categoriasProgreso = { actualizados: totalActualizados, restantes };
+    console.log(`[cat] Ciclo completado — actualizados: ${totalActualizados}, restantes: ${restantes}`);
+  }
+
+  console.log(`[cat] Finalizado — ${totalActualizados} patrones categorizados`);
+  categoriasProgreso = { actualizados: totalActualizados, restantes: 0 };
+}
+
+exports.categorizarFondo = async (req, res) => {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return res.status(503).json({ error: 'Falta ANTHROPIC_API_KEY en .env' });
+  if (categoriasRunning) return res.json({ message: 'Ya está corriendo en el servidor', running: true, progreso: categoriasProgreso });
+
+  categoriasRunning = true;
+  categoriasProgreso = { actualizados: 0, restantes: null };
+  res.json({ message: 'Categorización iniciada en el servidor. Puedes cerrar la laptop.', running: true });
+
+  _runCategorizacion(apiKey)
+    .catch(err => console.error('[cat] Error fatal:', err.message))
+    .finally(() => { categoriasRunning = false; });
+};
+
 exports.normalizarCategorias = async (req, res) => {
   try {
     const changes = await new Promise((resolve, reject) => {
@@ -630,6 +810,10 @@ exports.stats = async (req, res) => {
       heroes: heroRow.n,
       tendencia: tendenciaRow.n,
       porCategoria,
+      metadatosRunning,
+      categoriasRunning,
+      metadatosProgreso,
+      categoriasProgreso,
     });
   } catch (err) {
     res.status(500).json({ error: 'Error interno' });
