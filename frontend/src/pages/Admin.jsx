@@ -7,165 +7,145 @@ const CATEGORIAS = ['amigurumi', 'ropa', 'accesorios', 'decoracion', 'hogar', 'o
 const SUBCATEGORIAS_AMIGURUMI = ['animales', 'personas y muñecos', 'comida', 'plantas y flores', 'personajes y fantasía', 'navidad', 'otro'];
 const DIFICULTADES = ['principiante', 'intermedio', 'avanzado'];
 
-// Relación de aspecto del hero: 16:7
-const HERO_W = 16, HERO_H = 7;
-
 function HeroCropModal({ patron, authHeader, onClose }) {
-  const imgRef = useRef(null);
   const containerRef = useRef(null);
   const dragRef = useRef(null);
-
-  // rectPos: posición del rectángulo de crop (esquina superior izquierda) en % de la imagen
   const partes = (patron.hero_position || '50% 30% 1').split(' ');
-  const initX = parseFloat(partes[0]) || 50;
-  const initY = parseFloat(partes[1]) || 30;
-  const initZoom = parseFloat(partes[2]) || 1;
-
-  // El rectángulo en % de la imagen: ancho=60%, alto=60%*(7/16)
-  const [rectPct, setRectPct] = useState({ x: Math.max(0, initX - 30), y: Math.max(0, initY - 15) });
-  const [zoom, setZoom] = useState(initZoom);
+  const [cropPx, setCropPx] = useState({ x: 0, y: 0 });
+  const [dims, setDims] = useState({ w: 0, h: 0 });
+  const [zoom, setZoom] = useState(() => parseFloat(partes[2]) || 1);
   const [guardando, setGuardando] = useState(false);
-  const [imgSize, setImgSize] = useState({ w: 0, h: 0 });
 
-  // Tamaño del rectángulo de crop como % de la imagen mostrada
-  // Queremos que el rect tenga relación 16:7 y un tamaño razonable
-  const getRectSize = () => {
-    if (!imgSize.w || !imgSize.h) return { w: 60, h: 60 * HERO_H / HERO_W };
-    const imgRatio = imgSize.w / imgSize.h;
-    const heroRatio = HERO_W / HERO_H;
-    // Rect width in % of image display width: 80%
-    const rw = 80;
-    const rh = rw / heroRatio / imgRatio * 100; // convert to % of image height
-    return { w: rw, h: Math.min(rh, 90) };
-  };
+  const RATIO = 16 / 7;
+  const cropW = dims.w * 0.88;
+  const cropH = cropW / RATIO;
 
-  const clampRect = (x, y, rw, rh) => ({
-    x: Math.max(0, Math.min(100 - rw, x)),
-    y: Math.max(0, Math.min(100 - rh, y)),
-  });
+  const clamp = useCallback((x, y) => ({
+    x: Math.max(0, Math.min(Math.max(0, dims.w - cropW), x)),
+    y: Math.max(0, Math.min(Math.max(0, dims.h - cropH), y)),
+  }), [dims, cropW, cropH]);
 
-  const onImgLoad = (e) => {
-    setImgSize({ w: e.target.naturalWidth, h: e.target.naturalHeight });
+  const onImgLoad = () => {
+    if (!containerRef.current) return;
+    const { width, height } = containerRef.current.getBoundingClientRect();
+    const cW = width * 0.88, cH = cW / RATIO;
+    const initX = (parseFloat(partes[0]) || 50) / 100 * Math.max(0, width - cW);
+    const initY = (parseFloat(partes[1]) || 30) / 100 * Math.max(0, height - cH);
+    setDims({ w: width, h: height });
+    setCropPx({ x: initX, y: initY });
   };
 
   const startDrag = (e) => {
     e.preventDefault();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    dragRef.current = { startX: clientX, startY: clientY, rectX: rectPct.x, rectY: rectPct.y };
+    e.stopPropagation();
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy = e.touches ? e.touches[0].clientY : e.clientY;
+    dragRef.current = { sx: cx, sy: cy, rx: cropPx.x, ry: cropPx.y };
   };
 
-  const onDrag = useCallback((e) => {
-    if (!dragRef.current || !containerRef.current) return;
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    const { width, height } = containerRef.current.getBoundingClientRect();
-    const dx = ((clientX - dragRef.current.startX) / width) * 100;
-    const dy = ((clientY - dragRef.current.startY) / height) * 100;
-    const { w, h } = getRectSize();
-    setRectPct(clampRect(dragRef.current.rectX + dx, dragRef.current.rectY + dy, w, h));
-  }, [imgSize]);
+  const onMove = useCallback((e) => {
+    if (!dragRef.current) return;
+    if (e.cancelable) e.preventDefault();
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy = e.touches ? e.touches[0].clientY : e.clientY;
+    setCropPx(clamp(dragRef.current.rx + cx - dragRef.current.sx, dragRef.current.ry + cy - dragRef.current.sy));
+  }, [clamp]);
 
   const stopDrag = () => { dragRef.current = null; };
 
   useEffect(() => {
-    window.addEventListener('mousemove', onDrag);
+    window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', stopDrag);
-    window.addEventListener('touchmove', onDrag, { passive: false });
+    window.addEventListener('touchmove', onMove, { passive: false });
     window.addEventListener('touchend', stopDrag);
     return () => {
-      window.removeEventListener('mousemove', onDrag);
+      window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', stopDrag);
-      window.removeEventListener('touchmove', onDrag);
+      window.removeEventListener('touchmove', onMove);
       window.removeEventListener('touchend', stopDrag);
     };
-  }, [onDrag]);
+  }, [onMove]);
 
-  // Calcular objectPosition a partir del rectángulo
-  const { w: rw, h: rh } = getRectSize();
-  const objX = rw >= 100 ? 50 : Math.round(rectPct.x / (100 - rw) * 100);
-  const objY = rh >= 100 ? 50 : Math.round(rectPct.y / (100 - rh) * 100);
+  const rangeX = dims.w - cropW;
+  const rangeY = dims.h - cropH;
+  const objX = rangeX > 0 ? Math.round(cropPx.x / rangeX * 100) : 50;
+  const objY = rangeY > 0 ? Math.round(cropPx.y / rangeY * 100) : 50;
 
   const guardar = async () => {
     setGuardando(true);
     try {
       await api.patch(`/admin/patrones/${patron.id}/hero-position`,
-        { hero_position: `${objX}% ${objY}% ${zoom}` },
-        { headers: authHeader }
-      );
+        { hero_position: `${objX}% ${objY}% ${zoom}` }, { headers: authHeader });
       onClose();
     } catch { setGuardando(false); }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-3">
-      <div className="bg-gray-900 rounded-xl p-4 w-full max-w-xl flex flex-col gap-3">
+    <div className="fixed inset-0 bg-black/90 z-50 flex flex-col" style={{ touchAction: 'none' }}>
+      {/* Header fijo */}
+      <div className="flex items-center justify-between px-4 py-2 bg-gray-900 border-b border-gray-800 shrink-0">
         <div>
-          <h3 className="font-bold text-base">Encuadrar en el hero</h3>
-          <p className="text-gray-400 text-xs">Arrastra el rectángulo para seleccionar qué parte se verá. Ajusta el zoom si necesitas.</p>
+          <p className="font-bold text-sm">Encuadrar en el hero</p>
+          <p className="text-gray-400 text-xs">Arrastra el rectángulo blanco a la zona que quieres mostrar</p>
         </div>
+        <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl w-10 h-10 flex items-center justify-center">✕</button>
+      </div>
 
-        {/* Imagen completa con rectángulo de crop arrastrable */}
-        <div ref={containerRef} className="relative rounded-lg overflow-hidden bg-gray-800 select-none" style={{ touchAction: 'none' }}>
+      {/* Imagen — área scrolleable */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden">
+        <div ref={containerRef} className="relative select-none">
           <img
-            ref={imgRef}
             src={patron.thumbnail_path || ''}
             alt={patron.titulo}
             className="w-full h-auto block"
             onLoad={onImgLoad}
             draggable={false}
           />
-          {/* Overlay oscuro fuera del crop rect */}
           <div className="absolute inset-0 bg-black/50 pointer-events-none" />
-          {/* Rectángulo de crop */}
-          <div
-            className="absolute border-2 border-white cursor-move"
-            style={{
-              left: `${rectPct.x}%`,
-              top: `${rectPct.y}%`,
-              width: `${rw}%`,
-              paddingTop: `${rw * HERO_H / HERO_W}%`,
-              boxShadow: '0 0 0 9999px rgba(0,0,0,0.55)',
-              touchAction: 'none',
-            }}
-            onMouseDown={startDrag}
-            onTouchStart={startDrag}
-          >
-            {/* Líneas guía */}
-            <div className="absolute inset-0 pointer-events-none">
-              <div className="absolute left-1/3 top-0 bottom-0 border-l border-white/30" />
-              <div className="absolute left-2/3 top-0 bottom-0 border-l border-white/30" />
-              <div className="absolute top-1/3 left-0 right-0 border-t border-white/30" />
-              <div className="absolute top-2/3 left-0 right-0 border-t border-white/30" />
+          {dims.w > 0 && (
+            <div
+              className="absolute border-2 border-white cursor-move"
+              style={{
+                left: cropPx.x,
+                top: cropPx.y,
+                width: cropW,
+                height: cropH,
+                boxShadow: '0 0 0 9999px rgba(0,0,0,0.55)',
+                touchAction: 'none',
+              }}
+              onMouseDown={startDrag}
+              onTouchStart={startDrag}
+            >
+              <div className="absolute inset-0 pointer-events-none">
+                <div className="absolute left-1/3 top-0 bottom-0 border-l border-white/25" />
+                <div className="absolute left-2/3 top-0 bottom-0 border-l border-white/25" />
+                <div className="absolute top-1/3 left-0 right-0 border-t border-white/25" />
+                <div className="absolute top-2/3 left-0 right-0 border-t border-white/25" />
+              </div>
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <span className="text-white/40 text-xs bg-black/20 px-2 py-0.5 rounded">↔ arrastra</span>
+              </div>
             </div>
-            <div className="absolute bottom-1 left-1/2 -translate-x-1/2 text-white/60 text-xs whitespace-nowrap select-none pointer-events-none">
-              ↔ arrastra
-            </div>
-          </div>
+          )}
         </div>
+      </div>
 
-        {/* Zoom + preview */}
-        <div className="flex gap-3 items-center">
-          <span className="text-xs text-gray-400 shrink-0">🔍 Zoom</span>
+      {/* Footer fijo — siempre visible */}
+      <div className="bg-gray-900 border-t border-gray-800 px-4 py-3 shrink-0 space-y-2">
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-gray-400 w-14 shrink-0">🔍 Zoom</span>
           <input type="range" min="0.5" max="2.5" step="0.05" value={zoom}
             onChange={e => setZoom(+e.target.value)} className="flex-1 accent-red-500" />
-          <span className="text-xs text-gray-400 w-10 text-right">{Math.round(zoom * 100)}%</span>
+          <span className="text-xs text-gray-400 w-10 text-right shrink-0">{Math.round(zoom * 100)}%</span>
         </div>
-
-        {/* Preview del resultado */}
-        <div>
-          <p className="text-xs text-gray-500 mb-1">Preview final:</p>
-          <div className="relative rounded overflow-hidden bg-gray-800" style={{ aspectRatio: '16/7' }}>
-            <img src={patron.thumbnail_path || ''} alt="" className="w-full h-full object-cover"
-              style={{ objectPosition: `${objX}% ${objY}%`, transform: `scale(${zoom})`, transformOrigin: `${objX}% ${objY}%` }} />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
-            <div className="absolute bottom-2 left-3 pointer-events-none">
-              <p className="font-bold text-white text-sm leading-tight">{patron.titulo}</p>
-              <p className="text-gray-300 text-xs">{patron.diseñadora || patron.autor}</p>
-            </div>
+        <div className="relative rounded overflow-hidden bg-gray-800" style={{ aspectRatio: '16/7' }}>
+          <img src={patron.thumbnail_path || ''} alt="" className="w-full h-full object-cover"
+            style={{ objectPosition: `${objX}% ${objY}%`, transform: `scale(${zoom})`, transformOrigin: `${objX}% ${objY}%` }} />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
+          <div className="absolute bottom-1.5 left-3 pointer-events-none">
+            <p className="font-bold text-white text-xs">{patron.titulo}</p>
           </div>
         </div>
-
         <div className="flex gap-2 justify-end">
           <button onClick={onClose} className="px-4 py-2 text-sm bg-gray-800 hover:bg-gray-700 rounded-lg transition">Cancelar</button>
           <button onClick={guardar} disabled={guardando}
