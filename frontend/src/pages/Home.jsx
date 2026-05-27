@@ -29,8 +29,24 @@ function HeroCarrusel({ patrones }) {
       {patrones.map((p, i) => (
         <div key={p.id} className={`absolute inset-0 transition-opacity duration-700 ${i === idx ? 'opacity-100' : 'opacity-0'}`}>
           {(() => {
-            const partes = (p.hero_position || '50% 30% 1').split(' ');
-            const pos = `${partes[0]} ${partes[1]}`;
+            const partes = (p.hero_position || '').split(' ');
+            if (partes.length >= 4) {
+              const xP = parseFloat(partes[0]) || 0, yP = parseFloat(partes[1]) || 0;
+              const wP = parseFloat(partes[2]) || 100, hP = parseFloat(partes[3]) || 100;
+              const bsX = wP > 0 ? 100 / wP * 100 : 100;
+              const bsY = hP > 0 ? 100 / hP * 100 : 100;
+              const bpX = wP < 100 ? xP / (100 - wP) * 100 : 0;
+              const bpY = hP < 100 ? yP / (100 - hP) * 100 : 0;
+              return (
+                <div className="w-full h-full" style={{
+                  backgroundImage: `url(${p.thumbnail_path || ''})`,
+                  backgroundSize: `${bsX}% ${bsY}%`,
+                  backgroundPosition: `${bpX}% ${bpY}%`,
+                  backgroundRepeat: 'no-repeat',
+                }} />
+              );
+            }
+            const pos = partes.length >= 2 ? `${partes[0]} ${partes[1]}` : '50% 30%';
             const zoom = parseFloat(partes[2]) || 1;
             return (
               <img
