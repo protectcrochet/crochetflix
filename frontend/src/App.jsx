@@ -12,6 +12,7 @@ import Perfil from './pages/Perfil';
 import Admin from './pages/Admin';
 import Catalogo from './pages/Catalogo';
 import DMCA from './pages/DMCA';
+import DerechosDeAutor from './pages/DerechosDeAutor';
 
 function App() {
   return (
@@ -29,6 +30,7 @@ function App() {
             <Route path="descargas" element={<Descargas />} />
             <Route path="perfil" element={<Perfil />} />
             <Route path="dmca" element={<DMCA />} />
+            <Route path="derechos-de-autor" element={<DerechosDeAutor />} />
           </Route>
         </Routes>
       </AdminModeProvider>

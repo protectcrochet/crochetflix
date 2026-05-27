@@ -57,16 +57,11 @@ exports.submitClaim = async (req, res) => {
     );
   });
 
-  // Deshabilitar patrón automáticamente si se identificó
-  if (patron_id) {
-    db.run(`UPDATE patrones SET activo = 0 WHERE id = ?`, [patron_id], () => {});
-  }
-
   const claim = { claimant_name, claimant_email, claimant_company, work_description, infringing_urls, signature, ip_address: ip };
   enviarEmailAdmin(claim);
   console.log(`[dmca] Nueva reclamación de ${claimant_email} — ID: ${id}`);
 
-  res.json({ ok: true, id, message: 'Reclamación recibida. Procesaremos tu solicitud en un plazo de 3-5 días hábiles.' });
+  res.json({ ok: true, id, message: 'Reclamación recibida. Tu solicitud será canalizada al área especializada para su revisión en un plazo de 3-5 días hábiles.' });
 };
 
 exports.listClaims = (req, res) => {

@@ -48,12 +48,12 @@ export default function DMCA() {
       <CheckCircle className="w-16 h-16 text-green-400 mx-auto mb-4" />
       <h1 className="text-2xl font-bold mb-2">Reclamación recibida</h1>
       <p className="text-gray-400 mb-4">
-        Hemos recibido tu notificación DMCA. Procesaremos tu solicitud en un plazo de <strong>3–5 días hábiles</strong>.
-        Recibirás una respuesta en el correo proporcionado.
+        Hemos recibido tu notificación. Tu solicitud será <strong>canalizada al área especializada</strong> para
+        su revisión en un plazo de <strong>3–5 días hábiles</strong>. Recibirás una respuesta en el correo proporcionado.
       </p>
       <p className="text-sm text-gray-500">
-        Si el contenido fue desactivado automáticamente y la reclamación no es válida, el titular del contenido
-        puede enviar una contra-notificación al mismo correo.
+        Ningún contenido es modificado ni retirado de forma automática. Cada reclamación es evaluada
+        manualmente por nuestro equipo antes de tomar cualquier acción.
       </p>
     </div>
   );
@@ -80,7 +80,8 @@ export default function DMCA() {
         <p>
           Si eres titular de derechos de autor y crees que algún contenido en esta plataforma infringe tus
           derechos, puedes enviar una notificación formal completando el formulario a continuación.
-          <strong> El contenido identificado será desactivado de inmediato</strong> mientras se evalúa la reclamación.
+          Tu solicitud será <strong>canalizada al área especializada de revisión</strong>, quien evaluará cada caso
+          de forma individual antes de tomar cualquier acción.
         </p>
         <div className="bg-yellow-900/40 border border-yellow-700 rounded-lg p-3 flex gap-2">
           <AlertTriangle className="w-4 h-4 text-yellow-400 shrink-0 mt-0.5" />
@@ -91,6 +92,8 @@ export default function DMCA() {
         </div>
         <p className="text-xs text-gray-500">
           <strong>Agente de DMCA:</strong> CrochetFlix — contacto: <a href="mailto:dmca@crochetflix.app" className="text-crochet-primary hover:underline">dmca@crochetflix.app</a>
+          {' · '}
+          <a href="/derechos-de-autor" className="text-crochet-primary hover:underline">Consultar política completa de derechos de autor</a>
         </p>
       </div>
 
