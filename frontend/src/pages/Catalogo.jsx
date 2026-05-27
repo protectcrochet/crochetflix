@@ -20,9 +20,6 @@ function PatronCardGrid({ patron }) {
           loading="lazy"
           onError={e => { e.currentTarget.style.display = 'none'; }}
         />
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <span className="text-gray-600 text-3xl">🧶</span>
-        </div>
         {patron.es_preview === 1 && (
           <div className="absolute top-2 left-2">
             <span className="bg-green-600 text-xs px-2 py-0.5 rounded font-bold">GRATIS</span>
