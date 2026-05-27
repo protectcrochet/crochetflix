@@ -52,20 +52,28 @@ function HeroPosters({ patrones }) {
             to={`/patron/${p.id}`}
             className="group relative rounded-xl overflow-hidden bg-gray-900 block h-full"
           >
+            {/* Fondo desenfocado — misma imagen estirada y oscurecida */}
+            <img
+              src={p.thumbnail_path || ''}
+              alt=""
+              aria-hidden="true"
+              className="absolute inset-0 w-full h-full object-cover scale-110 blur-lg opacity-60"
+            />
+            {/* Imagen completa centrada sin recorte */}
             <img
               src={p.thumbnail_path || ''}
               alt={p.titulo}
-              className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
+              className="relative w-full h-full object-contain group-hover:scale-105 transition-transform duration-300 z-10"
               onError={e => { e.currentTarget.style.display = 'none'; }}
             />
-            {/* Gradiente inferior más pronunciado */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+            {/* Gradiente inferior */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent z-20" />
             {/* Badge */}
             {p.es_preview === 1 && (
-              <span className="absolute top-2 left-2 bg-green-600 text-xs font-bold px-2 py-0.5 rounded">GRATIS</span>
+              <span className="absolute top-2 left-2 bg-green-600 text-xs font-bold px-2 py-0.5 rounded z-30">GRATIS</span>
             )}
             {/* Info inferior */}
-            <div className="absolute bottom-0 left-0 right-0 p-2.5">
+            <div className="absolute bottom-0 left-0 right-0 p-2.5 z-30">
               <h3 className="text-white font-bold text-sm sm:text-base leading-tight line-clamp-2">{p.titulo}</h3>
               <p className="text-gray-300 text-xs mt-0.5 truncate">{p.diseñadora || p.autor}</p>
             </div>
