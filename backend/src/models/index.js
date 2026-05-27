@@ -51,6 +51,7 @@ function initTables() {
     db.run(`ALTER TABLE patrones ADD COLUMN idioma TEXT DEFAULT 'es'`, () => {});
     db.run(`ALTER TABLE patrones ADD COLUMN conversion_intentos INTEGER DEFAULT 0`, () => {});
     db.run(`ALTER TABLE patrones ADD COLUMN pdf_corrupto INTEGER DEFAULT 0`, () => {});
+    db.run(`ALTER TABLE patrones ADD COLUMN hero_position TEXT DEFAULT '50% 30%'`, () => {});
 
     // Páginas de patrones
     db.run(`CREATE TABLE IF NOT EXISTS paginas (

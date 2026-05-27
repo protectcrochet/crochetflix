@@ -7,6 +7,77 @@ const CATEGORIAS = ['amigurumi', 'ropa', 'accesorios', 'decoracion', 'hogar', 'o
 const SUBCATEGORIAS_AMIGURUMI = ['animales', 'personas y muñecos', 'comida', 'plantas y flores', 'personajes y fantasía', 'navidad', 'otro'];
 const DIFICULTADES = ['principiante', 'intermedio', 'avanzado'];
 
+function HeroCropModal({ patron, authHeader, onClose }) {
+  const inicial = patron.hero_position || '50% 30%';
+  const [x, setX] = useState(() => parseInt(inicial.split(' ')[0]) || 50);
+  const [y, setY] = useState(() => parseInt(inicial.split(' ')[1]) || 30);
+  const [guardando, setGuardando] = useState(false);
+
+  const guardar = async () => {
+    setGuardando(true);
+    try {
+      await api.patch(`/admin/patrones/${patron.id}/hero-position`,
+        { hero_position: `${x}% ${y}%` },
+        { headers: authHeader }
+      );
+      onClose();
+    } catch {
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-4">
+      <div className="bg-gray-900 rounded-xl p-4 w-full max-w-lg">
+        <h3 className="font-bold text-base mb-1">Ajustar posición en el hero</h3>
+        <p className="text-gray-400 text-xs mb-3">Mueve los sliders para encuadrar la imagen como aparecerá en la portada.</p>
+
+        {/* Preview */}
+        <div className="relative rounded-lg overflow-hidden mb-4 bg-gray-800" style={{ aspectRatio: '16/7' }}>
+          <img
+            src={patron.thumbnail_path || ''}
+            alt={patron.titulo}
+            className="w-full h-full object-cover"
+            style={{ objectPosition: `${x}% ${y}%` }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+          <div className="absolute bottom-3 left-3 right-3">
+            <p className="font-bold text-white">{patron.titulo}</p>
+            <p className="text-gray-300 text-sm">{patron.diseñadora || patron.autor}</p>
+          </div>
+        </div>
+
+        {/* Sliders */}
+        <div className="space-y-3 mb-4">
+          <div>
+            <div className="flex justify-between text-xs text-gray-400 mb-1">
+              <span>Izquierda ← Horizontal → Derecha</span>
+              <span>{x}%</span>
+            </div>
+            <input type="range" min="0" max="100" value={x} onChange={e => setX(+e.target.value)}
+              className="w-full accent-red-500" />
+          </div>
+          <div>
+            <div className="flex justify-between text-xs text-gray-400 mb-1">
+              <span>Arriba ↑ Vertical ↓ Abajo</span>
+              <span>{y}%</span>
+            </div>
+            <input type="range" min="0" max="100" value={y} onChange={e => setY(+e.target.value)}
+              className="w-full accent-red-500" />
+          </div>
+        </div>
+
+        <div className="flex gap-2 justify-end">
+          <button onClick={onClose} className="px-4 py-2 text-sm bg-gray-800 hover:bg-gray-700 rounded-lg transition">Cancelar</button>
+          <button onClick={guardar} disabled={guardando} className="px-4 py-2 text-sm bg-red-600 hover:bg-red-500 rounded-lg transition font-semibold disabled:opacity-50">
+            {guardando ? 'Guardando…' : 'Guardar posición'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Admin() {
   const [secret, setSecret] = useState(() => localStorage.getItem('admin_secret') || '');
   const [autenticado, setAutenticado] = useState(false);
@@ -20,6 +91,7 @@ export default function Admin() {
   const [editForm, setEditForm] = useState({});
   const [guardando, setGuardando] = useState(false);
   const [stats, setStats] = useState(null);
+  const [heroCropPatron, setHeroCropPatron] = useState(null);
 
   const [form, setForm] = useState({
     titulo: '', descripcion: '', autor: '', diseñadora: '',
@@ -194,7 +266,11 @@ export default function Admin() {
 
   const handleDestacar = async (id) => {
     try {
-      await api.patch(`/admin/patrones/${id}/destacar`, {}, { headers: authHeader });
+      const res = await api.patch(`/admin/patrones/${id}/destacar`, {}, { headers: authHeader });
+      if (res.data.destacado) {
+        const patron = patrones.find(p => p.id === id);
+        if (patron) setHeroCropPatron(patron);
+      }
       cargarPatrones();
     } catch (err) {
       setMensaje({ tipo: 'error', texto: err.response?.data?.error || 'Error' });
@@ -319,6 +395,14 @@ export default function Admin() {
 
   return (
     <div className="min-h-screen bg-gray-950 px-4 py-6 max-w-4xl mx-auto relative">
+      {/* Modal ajuste posición hero */}
+      {heroCropPatron && (
+        <HeroCropModal
+          patron={heroCropPatron}
+          authHeader={authHeader}
+          onClose={() => setHeroCropPatron(null)}
+        />
+      )}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">Panel Admin</h1>

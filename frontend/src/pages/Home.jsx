@@ -3,108 +3,77 @@ import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
 import Carrusel from '../components/Carrusel';
 import PatronCard from '../components/PatronCard';
-import { Crown, Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Play, Crown, Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-function HeroPosters({ patrones }) {
-  const [grupo, setGrupo] = useState(0);
-  const [animando, setAnimando] = useState(false);
+function HeroCarrusel({ patrones }) {
+  const [idx, setIdx] = useState(0);
   const timerRef = useRef(null);
 
-  const totalGrupos = Math.ceil(patrones.length / 3);
-
-  const irA = (g) => {
-    if (animando) return;
-    setAnimando(true);
-    setTimeout(() => {
-      setGrupo((g + totalGrupos) % totalGrupos);
-      setAnimando(false);
-    }, 300);
-  };
-
-  const reiniciarTimer = (g) => {
+  const reiniciarTimer = (i) => {
     clearInterval(timerRef.current);
-    irA(g);
-    timerRef.current = setInterval(() => irA((grupo + 1) % totalGrupos), 5000);
+    setIdx((i + patrones.length) % patrones.length);
+    timerRef.current = setInterval(() => setIdx(p => (p + 1) % patrones.length), 12000);
   };
 
   useEffect(() => {
-    if (totalGrupos <= 1) return;
-    timerRef.current = setInterval(() => {
-      setGrupo(g => (g + 1) % totalGrupos);
-    }, 12000);
+    if (patrones.length <= 1) return;
+    timerRef.current = setInterval(() => setIdx(p => (p + 1) % patrones.length), 12000);
     return () => clearInterval(timerRef.current);
-  }, [totalGrupos]);
+  }, [patrones.length]);
 
-  if (patrones.length === 0) return null;
-
-  const trio = patrones.slice(grupo * 3, grupo * 3 + 3);
+  const actual = patrones[idx];
 
   return (
-    <section className="px-4 sm:px-6 pt-4 pb-2">
-      <div
-        className={`grid grid-cols-3 gap-3 transition-opacity duration-300 ${animando ? 'opacity-0' : 'opacity-100'}`}
-        style={{ height: '330px' }}
-      >
-        {trio.map((p) => (
-          <Link
-            key={p.id}
-            to={`/patron/${p.id}`}
-            className="group relative rounded-xl overflow-hidden bg-gray-900 block h-full"
-          >
-            {/* Fondo desenfocado — misma imagen estirada y oscurecida */}
-            <img
-              src={p.thumbnail_path || ''}
-              alt=""
-              aria-hidden="true"
-              className="absolute inset-0 w-full h-full object-cover scale-110 blur-lg opacity-60"
-            />
-            {/* Imagen completa centrada sin recorte */}
-            <img
-              src={p.thumbnail_path || ''}
-              alt={p.titulo}
-              className="relative w-full h-full object-contain group-hover:scale-105 transition-transform duration-300 z-10"
-              onError={e => { e.currentTarget.style.display = 'none'; }}
-            />
-            {/* Gradiente inferior */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent z-20" />
-            {/* Badge */}
-            {p.es_preview === 1 && (
-              <span className="absolute top-2 left-2 bg-green-600 text-xs font-bold px-2 py-0.5 rounded z-30">GRATIS</span>
-            )}
-            {/* Info inferior */}
-            <div className="absolute bottom-0 left-0 right-0 p-2.5 z-30">
-              <h3 className="text-white font-bold text-sm sm:text-base leading-tight line-clamp-2">{p.titulo}</h3>
-              <p className="text-gray-300 text-xs mt-0.5 truncate">{p.diseñadora || p.autor}</p>
-            </div>
+    <section className="relative h-[52vh] sm:h-[62vh] overflow-hidden">
+      {patrones.map((p, i) => (
+        <div key={p.id} className={`absolute inset-0 transition-opacity duration-700 ${i === idx ? 'opacity-100' : 'opacity-0'}`}>
+          <img
+            src={p.thumbnail_path || ''}
+            alt={p.titulo}
+            className="w-full h-full object-cover"
+            style={{ objectPosition: p.hero_position || '50% 30%' }}
+          />
+        </div>
+      ))}
+      <div className="absolute inset-0 bg-gradient-to-t from-crochet-dark via-crochet-dark/40 to-transparent" />
+
+      {/* Info */}
+      <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-10">
+        <div className="max-w-2xl">
+          {actual.es_preview === 1 && (
+            <span className="bg-green-600 text-xs font-bold px-2 py-1 rounded mb-2 inline-block">GRATIS ESTE MES</span>
+          )}
+          <h1 className="text-2xl sm:text-4xl font-bold mb-1 line-clamp-2">{actual.titulo}</h1>
+          <p className="text-gray-300 text-sm mb-1">por {actual.diseñadora || actual.autor}</p>
+          <p className="text-gray-400 text-xs mb-4 line-clamp-1">{actual.descripcion}</p>
+          <Link to={`/patron/${actual.id}`} className="btn-primary flex items-center gap-2 w-fit">
+            <Play className="w-4 h-4" /> Ver patrón
           </Link>
-        ))}
+        </div>
       </div>
 
-      {/* Navegación: flechas + puntos */}
-      {totalGrupos > 1 && (
-        <div className="flex items-center justify-center gap-3 mt-3">
-          <button
-            onClick={() => reiniciarTimer(grupo - 1)}
-            className="p-1 text-gray-500 hover:text-white transition"
-          >
-            <ChevronLeft className="w-4 h-4" />
+      {/* Flechas */}
+      {patrones.length > 1 && (
+        <>
+          <button onClick={() => reiniciarTimer(idx - 1)}
+            className="absolute left-3 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/70 rounded-full p-2 transition">
+            <ChevronLeft className="w-5 h-5" />
           </button>
-          <div className="flex gap-1.5">
-            {Array.from({ length: totalGrupos }).map((_, i) => (
-              <button
-                key={i}
-                onClick={() => reiniciarTimer(i)}
-                className={`rounded-full transition-all duration-300 ${i === grupo ? 'w-5 h-2 bg-white' : 'w-2 h-2 bg-white/30 hover:bg-white/60'}`}
-              />
-            ))}
-          </div>
-          <button
-            onClick={() => reiniciarTimer(grupo + 1)}
-            className="p-1 text-gray-500 hover:text-white transition"
-          >
-            <ChevronRight className="w-4 h-4" />
+          <button onClick={() => reiniciarTimer(idx + 1)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/70 rounded-full p-2 transition">
+            <ChevronRight className="w-5 h-5" />
           </button>
+        </>
+      )}
+
+      {/* Puntos */}
+      {patrones.length > 1 && (
+        <div className="absolute bottom-4 right-6 flex gap-1.5">
+          {patrones.map((_, i) => (
+            <button key={i} onClick={() => reiniciarTimer(i)}
+              className={`rounded-full transition-all ${i === idx ? 'w-4 h-2 bg-white' : 'w-2 h-2 bg-white/40 hover:bg-white/70'}`} />
+          ))}
         </div>
       )}
     </section>
@@ -122,9 +91,7 @@ export default function Home() {
   const [resultados, setResultados] = useState(null);
   const [buscando, setBuscando] = useState(false);
 
-  useEffect(() => {
-    cargarPatrones();
-  }, []);
+  useEffect(() => { cargarPatrones(); }, []);
 
   const cargarPatrones = async () => {
     try {
@@ -138,7 +105,7 @@ export default function Home() {
       const trend = resTendencia.data.patrones || [];
       setPatrones(data);
       setTotalPatrones(resAll.data.total || data.length);
-      setHeroPatrones(dest.length > 0 ? dest : data.slice(0, 3));
+      setHeroPatrones(dest.length > 0 ? dest : data.slice(0, 1));
       setPatronesTendencia(trend.length > 0 ? trend : [...data].sort(() => Math.random() - 0.5).slice(0, 10));
     } catch (err) {
       console.error('Error cargando patrones:', err);
@@ -153,9 +120,7 @@ export default function Home() {
     try {
       const res = await api.get('/patrones', { params: { search: termino.trim() } });
       setResultados(res.data.patrones || []);
-    } catch (err) {
-      console.error('Error buscando:', err);
-    } finally {
+    } catch { } finally {
       setBuscando(false);
     }
   }, []);
@@ -168,17 +133,15 @@ export default function Home() {
   const patronesNuevos = patrones.filter(p => p.es_preview === 0).slice(0, 10);
   const patronesPreview = patrones.filter(p => p.es_preview === 1);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-crochet-primary" />
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="flex items-center justify-center h-96">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-crochet-primary" />
+    </div>
+  );
 
   return (
     <div>
-      {/* Barra de búsqueda */}
+      {/* Búsqueda */}
       <div className="px-4 pt-4">
         <div className="relative max-w-xl mx-auto">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -190,14 +153,15 @@ export default function Home() {
             className="w-full bg-gray-800 border border-gray-700 rounded-full px-10 py-2 text-sm focus:outline-none focus:border-crochet-primary"
           />
           {busqueda && (
-            <button onClick={() => { setBusqueda(''); setResultados(null); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
+            <button onClick={() => { setBusqueda(''); setResultados(null); }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
               <X className="w-4 h-4" />
             </button>
           )}
         </div>
       </div>
 
-      {/* Resultados de búsqueda */}
+      {/* Resultados búsqueda */}
       {(busqueda || resultados) && (
         <div className="px-4 py-4">
           {buscando ? (
@@ -224,7 +188,7 @@ export default function Home() {
       {/* Contenido principal */}
       {!busqueda && (
         <>
-          {heroPatrones.length > 0 && <HeroPosters patrones={heroPatrones} />}
+          {heroPatrones.length > 0 && <HeroCarrusel patrones={heroPatrones} />}
 
           {patronesPreview.length > 0 && (
             <div className="px-4 py-2">

@@ -722,6 +722,16 @@ exports.toggleDestacado = async (req, res) => {
   }
 };
 
+exports.guardarHeroPosition = (req, res) => {
+  const { id } = req.params;
+  const { hero_position } = req.body;
+  if (!hero_position) return res.status(400).json({ error: 'Falta hero_position' });
+  db.run('UPDATE patrones SET hero_position = ? WHERE id = ?', [hero_position, id], function(err) {
+    if (err) return res.status(500).json({ error: 'Error guardando posición' });
+    res.json({ ok: true });
+  });
+};
+
 exports.toggleActivo = async (req, res) => {
   try {
     const { id } = req.params;
