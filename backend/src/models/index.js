@@ -42,6 +42,10 @@ function initTables() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`);
 
+    // Migración: columnas Stripe en users
+    db.run(`ALTER TABLE users ADD COLUMN stripe_customer_id TEXT`, () => {});
+    db.run(`ALTER TABLE users ADD COLUMN stripe_subscription_id TEXT`, () => {});
+
     // Migración: agregar columnas nuevas si la tabla ya existía
     db.run(`ALTER TABLE patrones ADD COLUMN diseñadora TEXT`, () => {});
     db.run(`ALTER TABLE patrones ADD COLUMN subcategoria TEXT`, () => {});
