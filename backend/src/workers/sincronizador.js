@@ -56,7 +56,7 @@ async function convertirPatron(patronId, archivosFlat) {
     if (paginas.length === 0) return false;
 
     await new Promise((resolve, reject) => {
-      db.run('UPDATE patrones SET paginas = ? WHERE id = ?', [paginas.length, patronId],
+      db.run('UPDATE patrones SET paginas = ?, conversion_intentos = 0 WHERE id = ?', [paginas.length, patronId],
         function(err) { if (err) reject(err); else resolve(); }
       );
     });
@@ -73,6 +73,15 @@ async function convertirPatron(patronId, archivosFlat) {
     return true;
   } catch (err) {
     console.error(`[worker] ❌ ${patronId}:`, err.message);
+    await new Promise((resolve) => {
+      db.run(
+        `UPDATE patrones SET conversion_intentos = conversion_intentos + 1,
+         pdf_corrupto = CASE WHEN conversion_intentos + 1 >= 3 THEN 1 ELSE 0 END
+         WHERE id = ?`,
+        [patronId],
+        () => resolve()
+      );
+    });
     return false;
   }
 }
@@ -110,13 +119,17 @@ async function ciclo() {
     // 2. Obtener lote de pendientes
     const pendientes = await new Promise((resolve, reject) => {
       db.all(
-        `SELECT p.id FROM patrones p LEFT JOIN paginas pg ON pg.patron_id = p.id WHERE pg.id IS NULL LIMIT ?`,
+        `SELECT p.id FROM patrones p LEFT JOIN paginas pg ON pg.patron_id = p.id
+         WHERE pg.id IS NULL AND (p.pdf_corrupto IS NULL OR p.pdf_corrupto = 0) LIMIT ?`,
         [BATCH_SIZE],
         (err, rows) => { if (err) reject(err); else resolve(rows); }
       );
     });
 
-    console.log(`[worker] Ciclo — PDFs bot: ${pdfsBot.length}, nuevos: ${registrados}, pendientes: ${pendientes.length}`);
+    const corruptos = await new Promise((resolve) => {
+      db.get('SELECT COUNT(*) as n FROM patrones WHERE pdf_corrupto = 1', [], (_, row) => resolve(row?.n || 0));
+    });
+    console.log(`[worker] Ciclo — PDFs bot: ${pdfsBot.length}, nuevos: ${registrados}, pendientes: ${pendientes.length}, corruptos: ${corruptos}`);
 
     // 3. Convertir en paralelo (CONCURRENCIA a la vez)
     let convertidos = 0;
