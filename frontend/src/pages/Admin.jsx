@@ -1071,7 +1071,7 @@ export default function Admin() {
                       patron={filtrados[Math.min(visorIdx, filtrados.length - 1)]}
                       idx={Math.min(visorIdx, filtrados.length - 1)}
                       total={filtrados.length}
-                      authHeader={{ 'x-admin-secret': adminSecret }}
+                      authHeader={authHeader}
                       onGuardado={(id, form) => setPatrones(prev => prev.map(p => p.id === id ? { ...p, ...form } : p))}
                       onNext={() => setVisorIdx(i => Math.min(filtrados.length - 1, i + 1))}
                       onPrev={() => setVisorIdx(i => Math.max(0, i - 1))}
