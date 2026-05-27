@@ -145,16 +145,20 @@ async function ciclo() {
       console.log(`[worker] Ciclo: ${registrados} registrado(s), ${convertidos} convertido(s)`);
     }
 
-    return convertidos;
+    return { convertidos, pendientes: pendientes.length };
   } catch (err) {
     console.error('[worker] Error en ciclo:', err.message);
-    return 0;
+    return { convertidos: 0, pendientes: 0 };
   }
 }
 
 async function bucle() {
-  const convertidos = await ciclo();
-  const espera = convertidos > 0 ? INTERVALO_ACTIVO_MS : INTERVALO_IDLE_MS;
+  const { convertidos, pendientes } = await ciclo();
+  // Si quedan pendientes reales (no corruptos) pero no se convirtió nada,
+  // esperar 30s antes de reintentar en lugar de 5 minutos
+  const espera = convertidos > 0 ? INTERVALO_ACTIVO_MS :
+                 pendientes > 0   ? 30000 :
+                                    INTERVALO_IDLE_MS;
   setTimeout(bucle, espera);
 }
 

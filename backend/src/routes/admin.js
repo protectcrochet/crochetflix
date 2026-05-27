@@ -73,6 +73,7 @@ router.patch('/patrones/:id/toggle', adminController.toggleActivo);
 router.patch('/patrones/:id/destacar', adminController.toggleDestacado);
 router.patch('/patrones/:id/tendencia', adminController.toggleTendencia);
 router.patch('/patrones/:id/verificar', adminController.toggleVerificado);
+router.patch('/patrones/:id/corrupto', adminController.toggleCorrupto);
 router.patch('/patrones/:id/hero-position', adminController.guardarHeroPosition);
 router.delete('/patrones/:id', adminController.eliminarPatron);
 

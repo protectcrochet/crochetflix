@@ -188,7 +188,7 @@ exports.listarPatrones = async (req, res) => {
   try {
     const patrones = await new Promise((resolve, reject) => {
       db.all(
-        'SELECT id, titulo, autor, diseñadora, categoria, subcategoria, dificultad, paginas, es_preview, activo, destacado, tendencia, verificado, thumbnail_path, hero_position, created_at FROM patrones ORDER BY created_at DESC',
+        'SELECT id, titulo, autor, diseñadora, categoria, subcategoria, dificultad, paginas, es_preview, activo, destacado, tendencia, verificado, pdf_corrupto, conversion_intentos, thumbnail_path, hero_position, created_at FROM patrones ORDER BY created_at DESC',
         [],
         (err, rows) => { if (err) reject(err); else resolve(rows); }
       );
@@ -592,17 +592,26 @@ ${JSON.stringify(datos.map(d => ({ id: d.id, titulo_actual: d.titulo, texto_pdf:
 
 exports.stats = async (req, res) => {
   try {
-    const [totalRow, convertidosRow, verificadosRow, heroRow, tendenciaRow] = await Promise.all([
+    const [totalRow, convertidosRow, verificadosRow, heroRow, tendenciaRow, pendientesRow, corruptosRow] = await Promise.all([
       new Promise((r, j) => db.get('SELECT COUNT(*) as n FROM patrones WHERE activo = 1', [], (e, row) => e ? j(e) : r(row))),
       new Promise((r, j) => db.get('SELECT COUNT(DISTINCT patron_id) as n FROM paginas', [], (e, row) => e ? j(e) : r(row))),
       new Promise((r, j) => db.get('SELECT COUNT(*) as n FROM patrones WHERE verificado = 1', [], (e, row) => e ? j(e) : r(row))),
       new Promise((r, j) => db.get('SELECT COUNT(*) as n FROM patrones WHERE destacado = 1', [], (e, row) => e ? j(e) : r(row))),
       new Promise((r, j) => db.get('SELECT COUNT(*) as n FROM patrones WHERE tendencia = 1', [], (e, row) => e ? j(e) : r(row))),
+      new Promise((r, j) => db.get(
+        `SELECT COUNT(*) as n FROM patrones p LEFT JOIN paginas pg ON pg.patron_id = p.id
+         WHERE p.activo = 1 AND pg.id IS NULL AND (p.pdf_corrupto IS NULL OR p.pdf_corrupto = 0)`,
+        [], (e, row) => e ? j(e) : r(row))),
+      new Promise((r, j) => db.get(
+        `SELECT COUNT(*) as n FROM patrones p LEFT JOIN paginas pg ON pg.patron_id = p.id
+         WHERE p.activo = 1 AND pg.id IS NULL AND p.pdf_corrupto = 1`,
+        [], (e, row) => e ? j(e) : r(row))),
     ]);
 
     const total = totalRow.n;
     const convertidos = convertidosRow.n;
-    const pendientes = total - convertidos;
+    const pendientes = pendientesRow.n;
+    const corruptos = corruptosRow.n;
 
     // Contar PDFs del bot en disco
     let archivosBot = 0;
@@ -616,7 +625,7 @@ exports.stats = async (req, res) => {
     });
 
     res.json({
-      total, convertidos, pendientes, archivosBot,
+      total, convertidos, pendientes, corruptos, archivosBot,
       verificados: verificadosRow.n,
       heroes: heroRow.n,
       tendencia: tendenciaRow.n,
@@ -717,6 +726,29 @@ exports.toggleDestacado = async (req, res) => {
       );
     });
     res.json({ destacado: nuevoEstado === 1 });
+  } catch (err) {
+    res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+exports.toggleCorrupto = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const patron = await new Promise((resolve, reject) => {
+      db.get('SELECT pdf_corrupto FROM patrones WHERE id = ?', [id], (err, row) => {
+        if (err) reject(err); else resolve(row);
+      });
+    });
+    if (!patron) return res.status(404).json({ error: 'Patrón no encontrado' });
+    const nuevoEstado = patron.pdf_corrupto ? 0 : 1;
+    await new Promise((resolve, reject) => {
+      db.run(
+        'UPDATE patrones SET pdf_corrupto = ?, conversion_intentos = 0 WHERE id = ?',
+        [nuevoEstado, id],
+        function(err) { if (err) reject(err); else resolve(); }
+      );
+    });
+    res.json({ pdf_corrupto: nuevoEstado });
   } catch (err) {
     res.status(500).json({ error: 'Error interno' });
   }

@@ -474,6 +474,11 @@ export default function Admin() {
     if (patronEditando?.id === id) setPatronEditando(prev => ({ ...prev, verificado: res.data.verificado ? 1 : 0 }));
   };
 
+  const handleCorrupto = async (id) => {
+    await api.patch(`/admin/patrones/${id}/corrupto`, {}, { headers: authHeader });
+    cargarPatrones();
+  };
+
   const handleEliminar = async (id, titulo) => {
     if (!confirm(`¿Eliminar "${titulo}"? Esta acción no se puede deshacer.`)) return;
     await api.delete(`/admin/patrones/${id}`, { headers: authHeader });
@@ -661,7 +666,10 @@ export default function Admin() {
               />
             </div>
             <div className="flex justify-between text-xs mt-1">
-              <span className="text-gray-500">{stats.pendientes.toLocaleString()} pendientes de convertir</span>
+              <span className="text-gray-500">
+                {stats.pendientes.toLocaleString()} pendientes
+                {stats.corruptos > 0 && <span className="text-red-400 ml-2">· {stats.corruptos} con error (PDF dañado)</span>}
+              </span>
               <span className="text-crochet-primary font-semibold">{stats.total > 0 ? Math.round((stats.convertidos / stats.total) * 100) : 0}%</span>
             </div>
           </div>
@@ -844,9 +852,10 @@ export default function Admin() {
                 { key: 'tendencia', label: '🔥 Tendencia' },
                 { key: 'gratis', label: '🎁 Gratis' },
                 { key: 'ocultos', label: '🙈 Ocultos' },
+                { key: 'corruptos', label: '⚠ Con error' },
               ].map(f => (
                 <button key={f.key} onClick={() => setFiltroAdmin(f.key)}
-                  className={`px-3 py-1.5 rounded-full font-medium transition ${filtroAdmin === f.key ? 'bg-crochet-primary text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}>
+                  className={`px-3 py-1.5 rounded-full font-medium transition ${filtroAdmin === f.key ? (f.key === 'corruptos' ? 'bg-red-600 text-white' : 'bg-crochet-primary text-white') : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}>
                   {f.label}
                 </button>
               ))}
@@ -862,7 +871,8 @@ export default function Admin() {
                 filtroAdmin === 'hero' ? p.destacado === 1 :
                 filtroAdmin === 'tendencia' ? p.tendencia === 1 :
                 filtroAdmin === 'gratis' ? p.es_preview === 1 :
-                filtroAdmin === 'ocultos' ? !p.activo : true;
+                filtroAdmin === 'ocultos' ? !p.activo :
+                filtroAdmin === 'corruptos' ? (p.pdf_corrupto === 1 && p.paginas === 0) : true;
               return matchBusqueda && matchFiltro;
             });
 
@@ -885,6 +895,7 @@ export default function Admin() {
                     {p.tendencia === 1 && <span className="bg-orange-600 text-xs px-1.5 py-0.5 rounded">TREND</span>}
                     {p.es_preview === 1 && <span className="bg-green-700 text-xs px-1.5 py-0.5 rounded">GRATIS</span>}
                     {!p.activo && <span className="bg-gray-600 text-xs px-1.5 py-0.5 rounded">OCULTO</span>}
+                    {p.pdf_corrupto === 1 && p.paginas === 0 && <span className="bg-red-800 text-xs px-1.5 py-0.5 rounded" title={`${p.conversion_intentos} intentos fallidos`}>ERROR PDF</span>}
                   </div>
                   <p className="text-xs text-gray-400">
                     {p.diseñadora || p.autor || '—'} · {p.categoria}{p.subcategoria ? ` / ${p.subcategoria}` : ''} · {p.dificultad} · {p.paginas} págs.
@@ -910,6 +921,10 @@ export default function Admin() {
                     className="p-2 text-gray-400 hover:text-white transition">
                     {p.activo ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                   </button>
+                  {p.pdf_corrupto === 1 && p.paginas === 0 && (
+                    <button onClick={() => handleCorrupto(p.id)} title="Reintentar conversión"
+                      className="p-2 text-red-400 hover:text-green-400 transition text-xs font-bold">↺</button>
+                  )}
                   <button onClick={() => handleEliminar(p.id, p.titulo)} title="Eliminar"
                     className="p-2 text-gray-400 hover:text-red-400 transition">
                     <Trash2 className="w-4 h-4" />
