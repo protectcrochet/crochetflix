@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { Upload, Trash2, Eye, EyeOff, Plus, FileText, Image, Loader, LogOut, Download, Sparkles, Star, Flame, Search, X, ExternalLink } from 'lucide-react';
@@ -7,79 +7,169 @@ const CATEGORIAS = ['amigurumi', 'ropa', 'accesorios', 'decoracion', 'hogar', 'o
 const SUBCATEGORIAS_AMIGURUMI = ['animales', 'personas y muñecos', 'comida', 'plantas y flores', 'personajes y fantasía', 'navidad', 'otro'];
 const DIFICULTADES = ['principiante', 'intermedio', 'avanzado'];
 
+// Relación de aspecto del hero: 16:7
+const HERO_W = 16, HERO_H = 7;
+
 function HeroCropModal({ patron, authHeader, onClose }) {
+  const imgRef = useRef(null);
+  const containerRef = useRef(null);
+  const dragRef = useRef(null);
+
+  // rectPos: posición del rectángulo de crop (esquina superior izquierda) en % de la imagen
   const partes = (patron.hero_position || '50% 30% 1').split(' ');
-  const [x, setX] = useState(() => parseInt(partes[0]) || 50);
-  const [y, setY] = useState(() => parseInt(partes[1]) || 30);
-  const [zoom, setZoom] = useState(() => parseFloat(partes[2]) || 1);
+  const initX = parseFloat(partes[0]) || 50;
+  const initY = parseFloat(partes[1]) || 30;
+  const initZoom = parseFloat(partes[2]) || 1;
+
+  // El rectángulo en % de la imagen: ancho=60%, alto=60%*(7/16)
+  const [rectPct, setRectPct] = useState({ x: Math.max(0, initX - 30), y: Math.max(0, initY - 15) });
+  const [zoom, setZoom] = useState(initZoom);
   const [guardando, setGuardando] = useState(false);
+  const [imgSize, setImgSize] = useState({ w: 0, h: 0 });
+
+  // Tamaño del rectángulo de crop como % de la imagen mostrada
+  // Queremos que el rect tenga relación 16:7 y un tamaño razonable
+  const getRectSize = () => {
+    if (!imgSize.w || !imgSize.h) return { w: 60, h: 60 * HERO_H / HERO_W };
+    const imgRatio = imgSize.w / imgSize.h;
+    const heroRatio = HERO_W / HERO_H;
+    // Rect width in % of image display width: 80%
+    const rw = 80;
+    const rh = rw / heroRatio / imgRatio * 100; // convert to % of image height
+    return { w: rw, h: Math.min(rh, 90) };
+  };
+
+  const clampRect = (x, y, rw, rh) => ({
+    x: Math.max(0, Math.min(100 - rw, x)),
+    y: Math.max(0, Math.min(100 - rh, y)),
+  });
+
+  const onImgLoad = (e) => {
+    setImgSize({ w: e.target.naturalWidth, h: e.target.naturalHeight });
+  };
+
+  const startDrag = (e) => {
+    e.preventDefault();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    dragRef.current = { startX: clientX, startY: clientY, rectX: rectPct.x, rectY: rectPct.y };
+  };
+
+  const onDrag = useCallback((e) => {
+    if (!dragRef.current || !containerRef.current) return;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const { width, height } = containerRef.current.getBoundingClientRect();
+    const dx = ((clientX - dragRef.current.startX) / width) * 100;
+    const dy = ((clientY - dragRef.current.startY) / height) * 100;
+    const { w, h } = getRectSize();
+    setRectPct(clampRect(dragRef.current.rectX + dx, dragRef.current.rectY + dy, w, h));
+  }, [imgSize]);
+
+  const stopDrag = () => { dragRef.current = null; };
+
+  useEffect(() => {
+    window.addEventListener('mousemove', onDrag);
+    window.addEventListener('mouseup', stopDrag);
+    window.addEventListener('touchmove', onDrag, { passive: false });
+    window.addEventListener('touchend', stopDrag);
+    return () => {
+      window.removeEventListener('mousemove', onDrag);
+      window.removeEventListener('mouseup', stopDrag);
+      window.removeEventListener('touchmove', onDrag);
+      window.removeEventListener('touchend', stopDrag);
+    };
+  }, [onDrag]);
+
+  // Calcular objectPosition a partir del rectángulo
+  const { w: rw, h: rh } = getRectSize();
+  const objX = rw >= 100 ? 50 : Math.round(rectPct.x / (100 - rw) * 100);
+  const objY = rh >= 100 ? 50 : Math.round(rectPct.y / (100 - rh) * 100);
 
   const guardar = async () => {
     setGuardando(true);
     try {
       await api.patch(`/admin/patrones/${patron.id}/hero-position`,
-        { hero_position: `${x}% ${y}% ${zoom}` },
+        { hero_position: `${objX}% ${objY}% ${zoom}` },
         { headers: authHeader }
       );
       onClose();
-    } catch {
-      setGuardando(false);
-    }
+    } catch { setGuardando(false); }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-4">
-      <div className="bg-gray-900 rounded-xl p-4 w-full max-w-lg">
-        <h3 className="font-bold text-base mb-1">Ajustar encuadre del hero</h3>
-        <p className="text-gray-400 text-xs mb-3">El preview muestra exactamente cómo se verá en la portada.</p>
+    <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-3">
+      <div className="bg-gray-900 rounded-xl p-4 w-full max-w-xl flex flex-col gap-3">
+        <div>
+          <h3 className="font-bold text-base">Encuadrar en el hero</h3>
+          <p className="text-gray-400 text-xs">Arrastra el rectángulo para seleccionar qué parte se verá. Ajusta el zoom si necesitas.</p>
+        </div>
 
-        {/* Preview */}
-        <div className="relative rounded-lg overflow-hidden mb-4 bg-gray-800" style={{ aspectRatio: '16/7' }}>
+        {/* Imagen completa con rectángulo de crop arrastrable */}
+        <div ref={containerRef} className="relative rounded-lg overflow-hidden bg-gray-800 select-none" style={{ touchAction: 'none' }}>
           <img
+            ref={imgRef}
             src={patron.thumbnail_path || ''}
             alt={patron.titulo}
-            className="w-full h-full object-cover transition-all duration-150"
-            style={{
-              objectPosition: `${x}% ${y}%`,
-              transform: `scale(${zoom})`,
-              transformOrigin: `${x}% ${y}%`,
-            }}
+            className="w-full h-auto block"
+            onLoad={onImgLoad}
+            draggable={false}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
-          <div className="absolute bottom-3 left-3 right-3 pointer-events-none">
-            <p className="font-bold text-white">{patron.titulo}</p>
-            <p className="text-gray-300 text-sm">{patron.diseñadora || patron.autor}</p>
+          {/* Overlay oscuro fuera del crop rect */}
+          <div className="absolute inset-0 bg-black/50 pointer-events-none" />
+          {/* Rectángulo de crop */}
+          <div
+            className="absolute border-2 border-white cursor-move"
+            style={{
+              left: `${rectPct.x}%`,
+              top: `${rectPct.y}%`,
+              width: `${rw}%`,
+              paddingTop: `${rw * HERO_H / HERO_W}%`,
+              boxShadow: '0 0 0 9999px rgba(0,0,0,0.55)',
+              touchAction: 'none',
+            }}
+            onMouseDown={startDrag}
+            onTouchStart={startDrag}
+          >
+            {/* Líneas guía */}
+            <div className="absolute inset-0 pointer-events-none">
+              <div className="absolute left-1/3 top-0 bottom-0 border-l border-white/30" />
+              <div className="absolute left-2/3 top-0 bottom-0 border-l border-white/30" />
+              <div className="absolute top-1/3 left-0 right-0 border-t border-white/30" />
+              <div className="absolute top-2/3 left-0 right-0 border-t border-white/30" />
+            </div>
+            <div className="absolute bottom-1 left-1/2 -translate-x-1/2 text-white/60 text-xs whitespace-nowrap select-none pointer-events-none">
+              ↔ arrastra
+            </div>
           </div>
         </div>
 
-        {/* Sliders */}
-        <div className="space-y-3 mb-4">
-          <div>
-            <div className="flex justify-between text-xs text-gray-400 mb-1">
-              <span>← Horizontal →</span><span>{x}%</span>
+        {/* Zoom + preview */}
+        <div className="flex gap-3 items-center">
+          <span className="text-xs text-gray-400 shrink-0">🔍 Zoom</span>
+          <input type="range" min="0.5" max="2.5" step="0.05" value={zoom}
+            onChange={e => setZoom(+e.target.value)} className="flex-1 accent-red-500" />
+          <span className="text-xs text-gray-400 w-10 text-right">{Math.round(zoom * 100)}%</span>
+        </div>
+
+        {/* Preview del resultado */}
+        <div>
+          <p className="text-xs text-gray-500 mb-1">Preview final:</p>
+          <div className="relative rounded overflow-hidden bg-gray-800" style={{ aspectRatio: '16/7' }}>
+            <img src={patron.thumbnail_path || ''} alt="" className="w-full h-full object-cover"
+              style={{ objectPosition: `${objX}% ${objY}%`, transform: `scale(${zoom})`, transformOrigin: `${objX}% ${objY}%` }} />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
+            <div className="absolute bottom-2 left-3 pointer-events-none">
+              <p className="font-bold text-white text-sm leading-tight">{patron.titulo}</p>
+              <p className="text-gray-300 text-xs">{patron.diseñadora || patron.autor}</p>
             </div>
-            <input type="range" min="0" max="100" value={x} onChange={e => setX(+e.target.value)}
-              className="w-full accent-red-500" />
-          </div>
-          <div>
-            <div className="flex justify-between text-xs text-gray-400 mb-1">
-              <span>↑ Vertical ↓</span><span>{y}%</span>
-            </div>
-            <input type="range" min="0" max="100" value={y} onChange={e => setY(+e.target.value)}
-              className="w-full accent-red-500" />
-          </div>
-          <div>
-            <div className="flex justify-between text-xs text-gray-400 mb-1">
-              <span>🔍 Zoom (alejar ↔ acercar)</span><span>{Math.round(zoom * 100)}%</span>
-            </div>
-            <input type="range" min="0.5" max="2.5" step="0.05" value={zoom} onChange={e => setZoom(+e.target.value)}
-              className="w-full accent-red-500" />
           </div>
         </div>
 
         <div className="flex gap-2 justify-end">
           <button onClick={onClose} className="px-4 py-2 text-sm bg-gray-800 hover:bg-gray-700 rounded-lg transition">Cancelar</button>
-          <button onClick={guardar} disabled={guardando} className="px-4 py-2 text-sm bg-red-600 hover:bg-red-500 rounded-lg transition font-semibold disabled:opacity-50">
+          <button onClick={guardar} disabled={guardando}
+            className="px-4 py-2 text-sm bg-red-600 hover:bg-red-500 rounded-lg transition font-semibold disabled:opacity-50">
             {guardando ? 'Guardando…' : 'Guardar'}
           </button>
         </div>
