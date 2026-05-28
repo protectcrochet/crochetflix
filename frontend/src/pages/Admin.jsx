@@ -601,9 +601,9 @@ export default function Admin() {
     }
   };
 
-  const extraerGemini = async () => {
+  const extraerGroq = async () => {
     try {
-      const res = await api.post('/admin/patrones/extraer-metadatos-gemini', {}, { headers: authHeader });
+      const res = await api.post('/admin/patrones/extraer-metadatos-groq', {}, { headers: authHeader });
       setMensaje({ tipo: 'ok', texto: res.data.message });
       setTimeout(() => setMensaje(null), 4000);
     } catch (err) {
@@ -825,10 +825,10 @@ export default function Admin() {
             {stats?.metadatosRunning ? <Loader className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
             {stats?.metadatosRunning ? 'Extrayendo…' : 'Extraer datos PDF'}
           </button>
-          <button onClick={extraerGemini} disabled={stats?.geminiRunning} title="Extrae título, diseñadora e idioma con Gemini (gratis, 1500 req/día)"
+          <button onClick={extraerGroq} disabled={stats?.groqRunning} title="Extrae título, diseñadora e idioma con Groq/Llama (gratis)"
             className="flex items-center gap-1.5 px-3 py-2 bg-teal-700 hover:bg-teal-600 rounded text-sm text-white transition disabled:opacity-50">
-            {stats?.geminiRunning ? <Loader className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            {stats?.geminiRunning ? 'Gemini…' : 'Gemini ✨'}
+            {stats?.groqRunning ? <Loader className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            {stats?.groqRunning ? 'Groq…' : 'Groq ✨'}
           </button>
           <button onClick={categorizarConIA} disabled={stats?.categoriasRunning} title="Categorizar patrones con IA (corre en el servidor)"
             className="flex items-center gap-1.5 px-3 py-2 bg-purple-700 hover:bg-purple-600 rounded text-sm text-white transition disabled:opacity-50">
@@ -926,15 +926,15 @@ export default function Admin() {
         </div>
       )}
 
-      {stats?.geminiRunning && (
+      {stats?.groqRunning && (
         <div className="mb-4 px-4 py-3 rounded text-sm bg-teal-900/40 border border-teal-500 text-teal-200">
           <div className="flex items-center gap-2 mb-1">
             <Loader className="w-4 h-4 animate-spin" />
-            <span className="font-semibold">Extrayendo metadatos con Gemini en el servidor…</span>
+            <span className="font-semibold">Extrayendo metadatos con Groq en el servidor…</span>
           </div>
           <div className="flex gap-6 text-xs">
-            <span>✅ Actualizados: <strong>{stats.geminiProgreso?.actualizados ?? 0}</strong></span>
-            <span>⏳ Pendientes: <strong>{stats.geminiProgreso?.restantes ?? '...'}</strong></span>
+            <span>✅ Actualizados: <strong>{stats.groqProgreso?.actualizados ?? 0}</strong></span>
+            <span>⏳ Pendientes: <strong>{stats.groqProgreso?.restantes ?? '...'}</strong></span>
           </div>
         </div>
       )}

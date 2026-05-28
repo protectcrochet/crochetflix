@@ -4,17 +4,17 @@ const fs = require('fs');
 const { execSync } = require('child_process');
 const { v4: uuidv4 } = require('uuid');
 const Anthropic = require('@anthropic-ai/sdk');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const Groq = require('groq-sdk');
 
 const UPLOADS_DIR = path.join(__dirname, '../../uploads/patrones');
 
 // Estado de jobs en segundo plano
 let metadatosRunning = false;
 let categoriasRunning = false;
-let geminiRunning = false;
+let groqRunning = false;
 let metadatosProgreso = { actualizados: 0, restantes: null };
 let categoriasProgreso = { actualizados: 0, restantes: null };
-let geminiProgreso = { actualizados: 0, restantes: null };
+let groqProgreso = { actualizados: 0, restantes: null };
 
 // Convertir PDF a imágenes usando pdftoppm (poppler-utils)
 function convertirPDF(pdfPath, outputDir) {
@@ -561,14 +561,12 @@ exports.extraerMetadatosFondo = async (req, res) => {
     .finally(() => { metadatosRunning = false; });
 };
 
-// ── Job en segundo plano: extracción de metadatos con Gemini ──────────────
-async function _runExtraccionGemini(apiKey) {
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+// ── Job en segundo plano: extracción de metadatos con Groq ───────────────
+async function _runExtraccionGroq(apiKey) {
+  const groq = new Groq({ apiKey });
   const LOTE = 10;
   let totalActualizados = 0;
 
-  // Condición ampliada: captura 'Diseñadora', 'N/A', null y vacío
   const WHERE_PENDIENTE = `autor IN ('Telegram', 'Diseñadora') AND
     (diseñadora IS NULL OR diseñadora = '' OR diseñadora = 'N/A' OR diseñadora = 'Diseñadora')`;
 
@@ -593,27 +591,24 @@ async function _runExtraccionGemini(apiKey) {
 
       const prompt = `Analiza estos patrones de crochet. Extrae el nombre real del patrón y el nombre de la diseñadora leyendo el texto del PDF.
 
-Responde SOLO con un JSON array válido, sin texto adicional ni bloques de código:
+Responde SOLO con un JSON array válido, sin texto adicional ni bloques de código markdown:
 [{"id":"...","titulo_limpio":"Nombre real","diseñadora":"Nombre o null","idioma":"es|en|pt|fr|de|it|otro"}]
 
-Reglas título:
-- Usa el nombre oficial del PDF (primera página). Máximo 80 caracteres.
-- Si no hay título claro, mejora el actual quitando guiones bajos, hashes y sufijo "_pdf".
-
-Reglas diseñadora:
-- Si aparece un nombre de persona, marca, tienda, blog o usuario → ponlo.
-- Si no hay ninguna pista → null. No pongas "Desconocida", "Unknown" ni descripciones.
-
-Reglas idioma:
-- Detecta el idioma del texto. Usa: es, en, pt, fr, de, it, otro.
-- PDF vacío o sin texto → es por defecto.
+Reglas título: usa el nombre oficial del PDF (primera página), máx 80 caracteres. Si no hay título claro, mejora el actual quitando guiones bajos, hashes y sufijo "_pdf".
+Reglas diseñadora: si aparece nombre de persona, marca, tienda o usuario → ponlo. Sin pistas → null. No pongas "Desconocida" ni descripciones.
+Reglas idioma: detecta el idioma del texto. PDF vacío → es por defecto.
 
 Patrones:
-${JSON.stringify(datos.map(d => ({ id: d.id, titulo_actual: d.titulo, texto_pdf: d.texto.slice(0, 900) })), null, 2)}`;
+${JSON.stringify(datos.map(d => ({ id: d.id, titulo_actual: d.titulo, texto_pdf: d.texto.slice(0, 800) })), null, 2)}`;
 
       try {
-        const result = await model.generateContent(prompt);
-        const texto = result.response.text().trim();
+        const completion = await groq.chat.completions.create({
+          model: 'llama-3.1-8b-instant',
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 1500,
+          temperature: 0.1,
+        });
+        const texto = completion.choices[0].message.content.trim();
         const jsonStr = texto.startsWith('[') ? texto : texto.match(/\[[\s\S]*\]/)?.[0];
         if (!jsonStr) throw new Error('Sin JSON en respuesta');
         const resultados = JSON.parse(jsonStr);
@@ -629,44 +624,42 @@ ${JSON.stringify(datos.map(d => ({ id: d.id, titulo_actual: d.titulo, texto_pdf:
             );
           });
         }
-        console.log(`[gemini] Lote procesado: ${resultados.length} patrones`);
+        console.log(`[groq] Lote procesado: ${resultados.length} patrones`);
       } catch (e) {
-        console.error('[gemini] Error en lote:', e.message);
-        if (e.message?.includes('quota') || e.message?.includes('429') || e.status === 429) {
-          console.log('[gemini] Cuota agotada — deteniendo extracción.');
-          geminiProgreso = { actualizados: totalActualizados, restantes: null };
-          return;
+        console.error('[groq] Error en lote:', e.message);
+        if (e.status === 429 || e.message?.includes('rate limit') || e.message?.includes('quota')) {
+          console.log('[groq] Rate limit — esperando 60s...');
+          await new Promise(r => setTimeout(r, 60000));
         }
       }
 
-      // Espera breve para respetar rate limit del free tier (15 req/min)
-      await new Promise(r => setTimeout(r, 4200));
+      await new Promise(r => setTimeout(r, 1000));
     }
 
     const restantes = await new Promise(r => {
       db.get(`SELECT COUNT(*) as n FROM patrones WHERE ${WHERE_PENDIENTE}`,
         [], (_, row) => r(row?.n || 0));
     });
-    geminiProgreso = { actualizados: totalActualizados, restantes };
-    console.log(`[gemini] Ciclo completo — actualizados: ${totalActualizados}, restantes: ${restantes}`);
+    groqProgreso = { actualizados: totalActualizados, restantes };
+    console.log(`[groq] Ciclo completo — actualizados: ${totalActualizados}, restantes: ${restantes}`);
   }
 
-  console.log(`[gemini] Finalizado — ${totalActualizados} patrones actualizados`);
-  geminiProgreso = { actualizados: totalActualizados, restantes: 0 };
+  console.log(`[groq] Finalizado — ${totalActualizados} patrones actualizados`);
+  groqProgreso = { actualizados: totalActualizados, restantes: 0 };
 }
 
-exports.extraerMetadatosGeminiFondo = async (req, res) => {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return res.status(503).json({ error: 'Falta GEMINI_API_KEY en .env' });
-  if (geminiRunning) return res.json({ message: 'Ya está corriendo en el servidor', running: true, progreso: geminiProgreso });
+exports.extraerMetadatosGroqFondo = async (req, res) => {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) return res.status(503).json({ error: 'Falta GROQ_API_KEY en .env' });
+  if (groqRunning) return res.json({ message: 'Ya está corriendo en el servidor', running: true, progreso: groqProgreso });
 
-  geminiRunning = true;
-  geminiProgreso = { actualizados: 0, restantes: null };
-  res.json({ message: 'Extracción Gemini iniciada en el servidor. Puedes cerrar la laptop.', running: true });
+  groqRunning = true;
+  groqProgreso = { actualizados: 0, restantes: null };
+  res.json({ message: 'Extracción Groq iniciada en el servidor. Puedes cerrar la laptop.', running: true });
 
-  _runExtraccionGemini(apiKey)
-    .catch(err => console.error('[gemini] Error fatal:', err.message))
-    .finally(() => { geminiRunning = false; });
+  _runExtraccionGroq(apiKey)
+    .catch(err => console.error('[groq] Error fatal:', err.message))
+    .finally(() => { groqRunning = false; });
 };
 
 // ── Job en segundo plano: categorización con IA ─────────────────────────────
@@ -931,10 +924,10 @@ exports.stats = async (req, res) => {
       porCategoria,
       metadatosRunning,
       categoriasRunning,
-      geminiRunning,
+      groqRunning,
       metadatosProgreso,
       categoriasProgreso,
-      geminiProgreso,
+      groqProgreso,
     });
   } catch (err) {
     res.status(500).json({ error: 'Error interno' });
