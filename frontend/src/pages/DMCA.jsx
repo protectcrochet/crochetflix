@@ -87,7 +87,6 @@ export default function DMCA() {
           <AlertTriangle className="w-4 h-4 text-yellow-400 shrink-0 mt-0.5" />
           <p className="text-yellow-200 text-xs">
             Una declaración falsa o de mala fe puede resultar en responsabilidad legal bajo la Sección 512(f) del DMCA.
-            Si no estás seguro, consulta a un abogado antes de enviar esta notificación.
           </p>
         </div>
         <p className="text-xs text-gray-500">

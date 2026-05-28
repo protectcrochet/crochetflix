@@ -153,11 +153,6 @@ export default function DerechosDeAutor() {
             comparará con la obra original declarada.
           </li>
           <li>
-            <strong>Resolución</strong> — En un plazo de <strong>3 a 5 días hábiles</strong> desde
-            la recepción de la notificación completa, se tomará una de las siguientes decisiones:
-            retiro del contenido, conservación con justificación, o solicitud de información adicional.
-          </li>
-          <li>
             <strong>Notificación al titular del contenido</strong> — Si el contenido es retirado,
             el responsable del patrón será informado de la reclamación y de su derecho a presentar
             una contra-notificación.
