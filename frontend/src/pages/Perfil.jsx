@@ -4,10 +4,51 @@ import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
 import { Crown, Check, Clock, Loader, CreditCard, Settings, CheckCircle, XCircle } from 'lucide-react';
 
+const PRECIOS = {
+  MXN: { mensual: '$100',      anual: '$899',       label: 'MXN' },
+  ARS: { mensual: '$8,130',    anual: '$73,090',    label: 'ARS' },
+  BRL: { mensual: 'R$29.21',   anual: 'R$262.99',   label: 'BRL' },
+  BYN: { mensual: 'Br15.91',   anual: 'Br143.00',   label: 'BYN' },
+  CAD: { mensual: 'CA$7.97',   anual: 'CA$71.99',   label: 'CAD' },
+  CLP: { mensual: '$5,149',    anual: '$46,290',    label: 'CLP' },
+  COP: { mensual: '$20,908',   anual: '$187,990',   label: 'COP' },
+  CRC: { mensual: '₡2,610',    anual: '₡23,490',    label: 'CRC' },
+  DOP: { mensual: 'RD$341',    anual: 'RD$3,069',   label: 'DOP' },
+  EUR: { mensual: '€4.95',     anual: '€44.99',     label: 'EUR' },
+  GBP: { mensual: '£4.29',     anual: '£38.99',     label: 'GBP' },
+  GTQ: { mensual: 'Q43.90',    anual: 'Q394.99',    label: 'GTQ' },
+  PEN: { mensual: 'S/19.65',   anual: 'S/176.99',   label: 'PEN' },
+  RUB: { mensual: '₽408',      anual: '₽3,668',     label: 'RUB' },
+  USD: { mensual: 'US$5.99',   anual: 'US$53.99',   label: 'USD' },
+};
+
+const PAIS_MONEDA = {
+  MX:'MXN', AR:'ARS', BR:'BRL', BY:'BYN', CA:'CAD', CL:'CLP', CO:'COP',
+  CR:'CRC', DO:'DOP', GT:'GTQ', PE:'PEN', RU:'RUB', US:'USD', GB:'GBP',
+  DE:'EUR', FR:'EUR', ES:'EUR', IT:'EUR', PT:'EUR', NL:'EUR', AT:'EUR',
+  BE:'EUR', FI:'EUR', GR:'EUR', IE:'EUR', LU:'EUR', SK:'EUR', SI:'EUR',
+  EE:'EUR', LV:'EUR', LT:'EUR', MT:'EUR', CY:'EUR',
+};
+
+async function detectarMoneda() {
+  const cached = sessionStorage.getItem('cf_moneda');
+  if (cached) return cached;
+  try {
+    const res = await fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout(3000) });
+    const data = await res.json();
+    const moneda = PAIS_MONEDA[data.country_code] || 'USD';
+    sessionStorage.setItem('cf_moneda', moneda);
+    return moneda;
+  } catch {
+    return 'USD';
+  }
+}
+
 export default function Perfil() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const [moneda, setMoneda] = useState('USD');
   const [loading, setLoading] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
   const [error, setError] = useState('');
@@ -26,6 +67,10 @@ export default function Perfil() {
       api.get('/auth/stats').then(res => setStats(res.data)).catch(() => {});
     }
   }, [user]);
+
+  useEffect(() => {
+    detectarMoneda().then(setMoneda);
+  }, []);
 
   const esPremium = user?.tier === 'premium';
   const expira = user?.subscription_expires_at
@@ -168,8 +213,8 @@ export default function Perfil() {
             <div className="flex items-center justify-between mb-1">
               <h3 className="text-lg font-semibold">Premium Mensual</h3>
               <div className="text-right">
-                <span className="text-2xl font-bold">$4.99</span>
-                <span className="text-sm text-gray-400"> USD/mes</span>
+                <span className="text-2xl font-bold">{PRECIOS[moneda]?.mensual}</span>
+                <span className="text-sm text-gray-400"> {moneda}/mes</span>
               </div>
             </div>
             <p className="text-xs text-crochet-primary mb-4">Flexibilidad total · cancela cuando quieras</p>
@@ -200,11 +245,11 @@ export default function Perfil() {
                 <h3 className="text-lg font-semibold">Premium Anual</h3>
               </div>
               <div className="text-right">
-                <span className="text-2xl font-bold">$49.99</span>
-                <span className="text-sm text-gray-400"> USD/año</span>
+                <span className="text-2xl font-bold">{PRECIOS[moneda]?.anual}</span>
+                <span className="text-sm text-gray-400"> {moneda}/año</span>
               </div>
             </div>
-            <p className="text-xs text-purple-400 mb-4">Equivale a $4.17/mes · ahorras 2 meses vs. mensual</p>
+            <p className="text-xs text-purple-400 mb-4">Ahorra ~3 meses vs. mensual</p>
             <ul className="space-y-2 text-sm text-gray-300 mb-5">
               <li className="flex items-center gap-2"><Check className="w-4 h-4 text-purple-400 shrink-0" /> Todo lo del plan mensual</li>
               <li className="flex items-center gap-2"><Check className="w-4 h-4 text-purple-400 shrink-0" /><strong>2 meses gratis</strong> vs. mensual</li>
@@ -221,6 +266,10 @@ export default function Perfil() {
             <p className="text-xs text-gray-500 text-center mt-2">
               Pago seguro con tarjeta vía Stripe. Se renueva automáticamente cada año.
             </p>
+          </div>
+          <p className="text-xs text-gray-600 text-center">
+            Precios aproximados en {moneda}. El monto exacto se confirma en la página de pago de Stripe.
+          </p>
           </div>
         </div>
       )}
