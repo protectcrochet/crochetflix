@@ -270,7 +270,6 @@ export default function Perfil() {
           <p className="text-xs text-gray-600 text-center">
             Precios aproximados en {moneda}. El monto exacto se confirma en la página de pago de Stripe.
           </p>
-          </div>
         </div>
       )}
 
