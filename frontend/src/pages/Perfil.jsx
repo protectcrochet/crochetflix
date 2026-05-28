@@ -5,21 +5,21 @@ import api from '../services/api';
 import { Crown, Check, Clock, Loader, CreditCard, Settings, CheckCircle, XCircle } from 'lucide-react';
 
 const PRECIOS = {
-  MXN: { mensual: '$100',      anual: '$899',       label: 'MXN' },
-  ARS: { mensual: '$8,130',    anual: '$73,090',    label: 'ARS' },
-  BRL: { mensual: 'R$29.21',   anual: 'R$262.99',   label: 'BRL' },
-  BYN: { mensual: 'Br15.91',   anual: 'Br143.00',   label: 'BYN' },
-  CAD: { mensual: 'CA$7.97',   anual: 'CA$71.99',   label: 'CAD' },
-  CLP: { mensual: '$5,149',    anual: '$46,290',    label: 'CLP' },
-  COP: { mensual: '$20,908',   anual: '$187,990',   label: 'COP' },
-  CRC: { mensual: '₡2,610',    anual: '₡23,490',    label: 'CRC' },
-  DOP: { mensual: 'RD$341',    anual: 'RD$3,069',   label: 'DOP' },
-  EUR: { mensual: '€4.95',     anual: '€44.99',     label: 'EUR' },
-  GBP: { mensual: '£4.29',     anual: '£38.99',     label: 'GBP' },
-  GTQ: { mensual: 'Q43.90',    anual: 'Q394.99',    label: 'GTQ' },
-  PEN: { mensual: 'S/19.65',   anual: 'S/176.99',   label: 'PEN' },
-  RUB: { mensual: '₽408',      anual: '₽3,668',     label: 'RUB' },
-  USD: { mensual: 'US$5.99',   anual: 'US$53.99',   label: 'USD' },
+  MXN: { mensual: '$100',      anual: '$999',       label: 'MXN' },
+  ARS: { mensual: '$8,130',    anual: '$81,190',    label: 'ARS' },
+  BRL: { mensual: 'R$29.21',   anual: 'R$291.99',   label: 'BRL' },
+  BYN: { mensual: 'Br15.91',   anual: 'Br158.99',   label: 'BYN' },
+  CAD: { mensual: 'CA$7.97',   anual: 'CA$79.99',   label: 'CAD' },
+  CLP: { mensual: '$5,149',    anual: '$51,440',    label: 'CLP' },
+  COP: { mensual: '$20,908',   anual: '$208,890',   label: 'COP' },
+  CRC: { mensual: '₡2,610',    anual: '₡26,090',    label: 'CRC' },
+  DOP: { mensual: 'RD$341',    anual: 'RD$3,409',   label: 'DOP' },
+  EUR: { mensual: '€4.95',     anual: '€49.99',     label: 'EUR' },
+  GBP: { mensual: '£4.29',     anual: '£42.99',     label: 'GBP' },
+  GTQ: { mensual: 'Q43.90',    anual: 'Q438.99',    label: 'GTQ' },
+  PEN: { mensual: 'S/19.65',   anual: 'S/196.99',   label: 'PEN' },
+  RUB: { mensual: '₽408',      anual: '₽4,076',     label: 'RUB' },
+  USD: { mensual: 'US$5.99',   anual: 'US$59.99',   label: 'USD' },
 };
 
 const PAIS_MONEDA = {
@@ -249,7 +249,7 @@ export default function Perfil() {
                 <span className="text-sm text-gray-400"> {moneda}/año</span>
               </div>
             </div>
-            <p className="text-xs text-purple-400 mb-4">Ahorra ~3 meses vs. mensual</p>
+            <p className="text-xs text-purple-400 mb-4">Ahorra ~2 meses vs. mensual</p>
             <ul className="space-y-2 text-sm text-gray-300 mb-5">
               <li className="flex items-center gap-2"><Check className="w-4 h-4 text-purple-400 shrink-0" /> Todo lo del plan mensual</li>
               <li className="flex items-center gap-2"><Check className="w-4 h-4 text-purple-400 shrink-0" /><strong>2 meses gratis</strong> vs. mensual</li>
