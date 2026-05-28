@@ -57,6 +57,7 @@ router.post('/patrones/sincronizar', adminController.sincronizarPDFs);
 router.post('/patrones/reparar-thumbnails', adminController.repararThumbnails);
 router.post('/patrones/fix-autor', adminController.fixAutorTelegram);
 router.post('/patrones/extraer-metadatos-fondo', adminController.extraerMetadatosFondo);
+router.post('/patrones/extraer-metadatos-gemini', adminController.extraerMetadatosGeminiFondo);
 router.post('/patrones/categorizar-fondo', adminController.categorizarFondo);
 router.post('/patrones/categorizar', adminController.categorizarConIA);
 router.post('/patrones/importar', (req, res, next) => {

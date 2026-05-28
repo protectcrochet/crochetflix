@@ -4,14 +4,17 @@ const fs = require('fs');
 const { execSync } = require('child_process');
 const { v4: uuidv4 } = require('uuid');
 const Anthropic = require('@anthropic-ai/sdk');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const UPLOADS_DIR = path.join(__dirname, '../../uploads/patrones');
 
 // Estado de jobs en segundo plano
 let metadatosRunning = false;
 let categoriasRunning = false;
+let geminiRunning = false;
 let metadatosProgreso = { actualizados: 0, restantes: null };
 let categoriasProgreso = { actualizados: 0, restantes: null };
+let geminiProgreso = { actualizados: 0, restantes: null };
 
 // Convertir PDF a imágenes usando pdftoppm (poppler-utils)
 function convertirPDF(pdfPath, outputDir) {
@@ -558,6 +561,114 @@ exports.extraerMetadatosFondo = async (req, res) => {
     .finally(() => { metadatosRunning = false; });
 };
 
+// ── Job en segundo plano: extracción de metadatos con Gemini ──────────────
+async function _runExtraccionGemini(apiKey) {
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  const LOTE = 10;
+  let totalActualizados = 0;
+
+  // Condición ampliada: captura 'Diseñadora', 'N/A', null y vacío
+  const WHERE_PENDIENTE = `autor IN ('Telegram', 'Diseñadora') AND
+    (diseñadora IS NULL OR diseñadora = '' OR diseñadora = 'N/A' OR diseñadora = 'Diseñadora')`;
+
+  while (true) {
+    const pendientes = await new Promise((resolve, reject) => {
+      db.all(
+        `SELECT id, titulo FROM patrones WHERE ${WHERE_PENDIENTE} LIMIT 30`,
+        [], (err, rows) => { if (err) reject(err); else resolve(rows); }
+      );
+    });
+    if (pendientes.length === 0) break;
+
+    const archivosFlat = fs.readdirSync(UPLOADS_DIR);
+
+    for (let i = 0; i < pendientes.length; i += LOTE) {
+      const lote = pendientes.slice(i, i + LOTE);
+      const datos = lote.map(p => {
+        const pdfPath = localizarPDF(p.id, archivosFlat);
+        const texto = pdfPath ? extraerTextoPDF(pdfPath) : '';
+        return { id: p.id, titulo: p.titulo, texto };
+      });
+
+      const prompt = `Analiza estos patrones de crochet. Extrae el nombre real del patrón y el nombre de la diseñadora leyendo el texto del PDF.
+
+Responde SOLO con un JSON array válido, sin texto adicional ni bloques de código:
+[{"id":"...","titulo_limpio":"Nombre real","diseñadora":"Nombre o null","idioma":"es|en|pt|fr|de|it|otro"}]
+
+Reglas título:
+- Usa el nombre oficial del PDF (primera página). Máximo 80 caracteres.
+- Si no hay título claro, mejora el actual quitando guiones bajos, hashes y sufijo "_pdf".
+
+Reglas diseñadora:
+- Si aparece un nombre de persona, marca, tienda, blog o usuario → ponlo.
+- Si no hay ninguna pista → null. No pongas "Desconocida", "Unknown" ni descripciones.
+
+Reglas idioma:
+- Detecta el idioma del texto. Usa: es, en, pt, fr, de, it, otro.
+- PDF vacío o sin texto → es por defecto.
+
+Patrones:
+${JSON.stringify(datos.map(d => ({ id: d.id, titulo_actual: d.titulo, texto_pdf: d.texto.slice(0, 900) })), null, 2)}`;
+
+      try {
+        const result = await model.generateContent(prompt);
+        const texto = result.response.text().trim();
+        const jsonStr = texto.startsWith('[') ? texto : texto.match(/\[[\s\S]*\]/)?.[0];
+        if (!jsonStr) throw new Error('Sin JSON en respuesta');
+        const resultados = JSON.parse(jsonStr);
+
+        for (const r of resultados) {
+          if (!r.id) continue;
+          const diseñadora = r.diseñadora && r.diseñadora !== 'null' ? r.diseñadora : 'N/A';
+          await new Promise((resolve, reject) => {
+            db.run(
+              `UPDATE patrones SET diseñadora = ?, titulo = COALESCE(NULLIF(?, ''), titulo), idioma = ? WHERE id = ?`,
+              [diseñadora, r.titulo_limpio?.trim() || null, r.idioma || 'es', r.id],
+              function(err) { if (err) reject(err); else { totalActualizados += this.changes; resolve(); } }
+            );
+          });
+        }
+        console.log(`[gemini] Lote procesado: ${resultados.length} patrones`);
+      } catch (e) {
+        console.error('[gemini] Error en lote:', e.message);
+        if (e.message?.includes('quota') || e.message?.includes('429') || e.status === 429) {
+          console.log('[gemini] Cuota agotada — deteniendo extracción.');
+          geminiProgreso = { actualizados: totalActualizados, restantes: null };
+          return;
+        }
+      }
+
+      // Espera breve para respetar rate limit del free tier (15 req/min)
+      await new Promise(r => setTimeout(r, 4200));
+    }
+
+    const restantes = await new Promise(r => {
+      db.get(`SELECT COUNT(*) as n FROM patrones WHERE ${WHERE_PENDIENTE}`,
+        [], (_, row) => r(row?.n || 0));
+    });
+    geminiProgreso = { actualizados: totalActualizados, restantes };
+    console.log(`[gemini] Ciclo completo — actualizados: ${totalActualizados}, restantes: ${restantes}`);
+  }
+
+  console.log(`[gemini] Finalizado — ${totalActualizados} patrones actualizados`);
+  geminiProgreso = { actualizados: totalActualizados, restantes: 0 };
+}
+
+exports.extraerMetadatosGeminiFondo = async (req, res) => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return res.status(503).json({ error: 'Falta GEMINI_API_KEY en .env' });
+  if (geminiRunning) return res.json({ message: 'Ya está corriendo en el servidor', running: true, progreso: geminiProgreso });
+
+  geminiRunning = true;
+  geminiProgreso = { actualizados: 0, restantes: null };
+  res.json({ message: 'Extracción Gemini iniciada en el servidor. Puedes cerrar la laptop.', running: true });
+
+  _runExtraccionGemini(apiKey)
+    .catch(err => console.error('[gemini] Error fatal:', err.message))
+    .finally(() => { geminiRunning = false; });
+};
+
 // ── Job en segundo plano: categorización con IA ─────────────────────────────
 async function _runCategorizacion(apiKey) {
   const anthropic = new Anthropic({ apiKey });
@@ -820,8 +931,10 @@ exports.stats = async (req, res) => {
       porCategoria,
       metadatosRunning,
       categoriasRunning,
+      geminiRunning,
       metadatosProgreso,
       categoriasProgreso,
+      geminiProgreso,
     });
   } catch (err) {
     res.status(500).json({ error: 'Error interno' });
