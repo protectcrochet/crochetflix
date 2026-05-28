@@ -19,11 +19,11 @@ function dbRun(sql, params) {
   );
 }
 
-async function getOrCreateCustomer(userId, email) {
-  const user = await dbGet('SELECT stripe_customer_id FROM users WHERE id = ?', [userId]);
+async function getOrCreateCustomer(userId) {
+  const user = await dbGet('SELECT email, stripe_customer_id FROM users WHERE id = ?', [userId]);
   if (user?.stripe_customer_id) return user.stripe_customer_id;
 
-  const customer = await stripe.customers.create({ email, metadata: { userId } });
+  const customer = await stripe.customers.create({ email: user.email, metadata: { userId } });
   await dbRun('UPDATE users SET stripe_customer_id = ? WHERE id = ?', [customer.id, userId]);
   return customer.id;
 }
@@ -54,12 +54,12 @@ async function userIdDeCustomer(customerId) {
 exports.crearCheckout = async (req, res) => {
   try {
     const { plan } = req.body;
+    const userId = req.userId;
     const precios = PLANES();
 
     if (!precios[plan]) return res.status(400).json({ error: 'Plan no válido. Usa "mensual" o "anual".' });
-    if (!precios[plan]) return res.status(500).json({ error: 'Precio de Stripe no configurado en el servidor.' });
 
-    const customerId = await getOrCreateCustomer(req.user.userId, req.user.email);
+    const customerId = await getOrCreateCustomer(userId);
 
     // Evitar doble suscripción activa
     const subs = await stripe.subscriptions.list({ customer: customerId, status: 'active', limit: 1 });
@@ -74,8 +74,8 @@ exports.crearCheckout = async (req, res) => {
       mode: 'subscription',
       success_url: `${FRONTEND}/perfil?pago=exitoso`,
       cancel_url: `${FRONTEND}/perfil?pago=cancelado`,
-      subscription_data: { metadata: { userId: req.user.userId, plan } },
-      metadata: { userId: req.user.userId, plan },
+      subscription_data: { metadata: { userId, plan } },
+      metadata: { userId, plan },
       locale: 'es',
       allow_promotion_codes: true,
     });
@@ -156,7 +156,7 @@ exports.webhook = async (req, res) => {
 // POST /api/stripe/portal  — Customer Portal para gestionar/cancelar
 exports.portal = async (req, res) => {
   try {
-    const user = await dbGet('SELECT stripe_customer_id FROM users WHERE id = ?', [req.user.userId]);
+    const user = await dbGet('SELECT stripe_customer_id FROM users WHERE id = ?', [req.userId]);
     if (!user?.stripe_customer_id) {
       return res.status(400).json({ error: 'No tienes una suscripción activa con Stripe.' });
     }
