@@ -564,7 +564,7 @@ exports.extraerMetadatosFondo = async (req, res) => {
 // ── Job en segundo plano: extracción de metadatos con Gemini ──────────────
 async function _runExtraccionGemini(apiKey) {
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
   const LOTE = 10;
   let totalActualizados = 0;
 
