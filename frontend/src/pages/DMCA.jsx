@@ -13,7 +13,7 @@ export default function DMCA() {
   const [form, setForm] = useState({
     claimant_name: '', claimant_email: '', claimant_company: '', claimant_address: '',
     work_description: '', infringing_urls: urlParam, patron_id: patronIdParam,
-    proof_url: '',
+    proof_url: '', registro_obra: '',
     good_faith: false, accuracy: false, signature: '',
   });
   const [enviando, setEnviando] = useState(false);
@@ -142,6 +142,17 @@ export default function DMCA() {
           <p className="text-xs text-gray-500 mb-1">Si conoces el ID del patrón en la URL (ej. <span className="font-mono">patron-ab12cd34</span>).</p>
           <input value={form.patron_id} onChange={e => set('patron_id', e.target.value)}
             placeholder="patron-xxxxxxxx" className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-crochet-primary font-mono" />
+        </div>
+
+        <div>
+          <label className="block text-xs text-gray-400 mb-1">Número de registro (opcional)</label>
+          <p className="text-xs text-gray-500 mb-1">
+            Número de registro ante <strong>INDAUTOR</strong>, ISBN, número de depósito legal u otro registro oficial de la obra.
+            Fortalece significativamente tu reclamación.
+          </p>
+          <input value={form.registro_obra} onChange={e => set('registro_obra', e.target.value)}
+            placeholder="Ej: 03-2024-XXXXXXXX, ISBN 978-XXX, etc."
+            className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-crochet-primary" />
         </div>
 
         {desdePatron && (
