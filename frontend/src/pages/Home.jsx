@@ -276,7 +276,7 @@ export default function Home() {
                 <p className="text-gray-400 mb-4">Más de {totalPatrones.toLocaleString()} patrones profesionales por solo $100 MXN/mes</p>
                 <ul className="text-left text-sm text-gray-300 mb-6 space-y-2 max-w-md mx-auto">
                   <li>✓ Acceso ilimitado a todos los patrones</li>
-                  <li>✓ Descarga hasta 5 patrones para ver offline</li>
+                  <li>✓ Vista offline de tus patrones favoritos</li>
                   <li>✓ Nuevos patrones cada semana</li>
                   <li>✓ Guarda tu progreso y favoritos</li>
                 </ul>

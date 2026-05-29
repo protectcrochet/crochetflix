@@ -253,7 +253,7 @@ export default function Viewer() {
           <ul className="text-left text-sm text-gray-300 space-y-2 mb-5">
             <li>✅ Acceso a <strong>todos los patrones</strong></li>
             <li>✅ Sin publicidad</li>
-            <li>✅ Descarga hasta 5 patrones offline</li>
+            <li>✅ Vista offline de tus patrones favoritos</li>
             <li>✅ Guarda tu progreso de lectura</li>
           </ul>
           <button onClick={suscribirse} disabled={suscLoading}

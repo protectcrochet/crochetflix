@@ -181,7 +181,7 @@ export default function Perfil() {
             <p className="text-xs text-crochet-primary mb-4">Flexibilidad total · cancela cuando quieras</p>
             <ul className="space-y-2 text-sm text-gray-300 mb-5">
               <li className="flex items-center gap-2"><Check className="w-4 h-4 text-crochet-primary shrink-0" /> Acceso ilimitado a todos los patrones</li>
-              <li className="flex items-center gap-2"><Check className="w-4 h-4 text-crochet-primary shrink-0" /> Descarga hasta 5 patrones offline</li>
+              <li className="flex items-center gap-2"><Check className="w-4 h-4 text-crochet-primary shrink-0" /> Vista offline de tus patrones favoritos</li>
               <li className="flex items-center gap-2"><Check className="w-4 h-4 text-crochet-primary shrink-0" /> Nuevos patrones semanales</li>
               <li className="flex items-center gap-2"><Check className="w-4 h-4 text-crochet-primary shrink-0" /> Guarda progreso y favoritos</li>
               <li className="flex items-center gap-2"><Check className="w-4 h-4 text-crochet-primary shrink-0" /> Sin anuncios</li>
