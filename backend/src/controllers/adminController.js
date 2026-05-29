@@ -243,7 +243,7 @@ exports.sincronizarPDFs = async (req, res) => {
           db.run(
             `INSERT INTO patrones (id, titulo, descripcion, autor, diseñadora, categoria, dificultad, tiempo_minutos, paginas, thumbnail_path, activo, es_preview)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [patronId, titulo, '', 'Telegram', '', 'amigurumi', 'principiante', 0, 1,
+            [patronId, titulo, '', 'Diseñadora', '', 'amigurumi', 'principiante', 0, 1,
              `/uploads/patrones/${patronId}/pagina_1.jpg`, 1, 0],
             function(err) { if (err) reject(err); else { registrados++; resolve(); } }
           );
@@ -359,7 +359,7 @@ exports.categorizarConIA = async (req, res) => {
     // Obtener patrones sin categorizar (los del bot tienen dificultad='principiante' y diseñadora vacía)
     const pendientes = await new Promise((resolve, reject) => {
       db.all(
-        `SELECT id, titulo FROM patrones WHERE autor = 'Telegram' AND (diseñadora = '' OR diseñadora IS NULL) LIMIT 50`,
+        `SELECT id, titulo FROM patrones WHERE autor IN ('Telegram','Diseñadora') AND (diseñadora = '' OR diseñadora IS NULL) LIMIT 50`,
         [],
         (err, rows) => { if (err) reject(err); else resolve(rows); }
       );
@@ -441,7 +441,7 @@ ${JSON.stringify(lote.map(p => ({ id: p.id, titulo: p.titulo })), null, 2)}`
     // Cuántos quedan
     const restantes = await new Promise((resolve, reject) => {
       db.get(
-        `SELECT COUNT(*) as total FROM patrones WHERE autor = 'Telegram' AND (diseñadora = '' OR diseñadora IS NULL)`,
+        `SELECT COUNT(*) as total FROM patrones WHERE autor IN ('Telegram','Diseñadora') AND (diseñadora = '' OR diseñadora IS NULL)`,
         [],
         (err, row) => { if (err) reject(err); else resolve(row.total); }
       );
@@ -468,7 +468,7 @@ async function _runExtraccionMetadatos(apiKey) {
     const pendientes = await new Promise((resolve, reject) => {
       db.all(
         `SELECT id, titulo FROM patrones
-         WHERE autor = 'Telegram' AND (diseñadora IS NULL OR diseñadora = '' OR diseñadora = 'N/A')
+         WHERE autor IN ('Telegram','Diseñadora') AND (diseñadora IS NULL OR diseñadora = '' OR diseñadora = 'N/A')
          LIMIT 30`,
         [], (err, rows) => { if (err) reject(err); else resolve(rows); }
       );
@@ -536,7 +536,7 @@ ${JSON.stringify(datos.map(d => ({ id: d.id, titulo_actual: d.titulo, texto_pdf:
     }
 
     const restantes = await new Promise(r => {
-      db.get(`SELECT COUNT(*) as n FROM patrones WHERE autor='Telegram' AND (diseñadora IS NULL OR diseñadora='' OR diseñadora='N/A')`,
+      db.get(`SELECT COUNT(*) as n FROM patrones WHERE autor IN ('Telegram','Diseñadora') AND (diseñadora IS NULL OR diseñadora='' OR diseñadora='N/A')`,
         [], (_, row) => r(row?.n || 0));
     });
     metadatosProgreso = { actualizados: totalActualizados, restantes };
@@ -678,7 +678,7 @@ async function _runCategorizacion(apiKey) {
   while (true) {
     const pendientes = await new Promise((resolve, reject) => {
       db.all(
-        `SELECT id, titulo FROM patrones WHERE autor = 'Telegram' AND (diseñadora = '' OR diseñadora IS NULL) LIMIT 50`,
+        `SELECT id, titulo FROM patrones WHERE autor IN ('Telegram','Diseñadora') AND (diseñadora = '' OR diseñadora IS NULL) LIMIT 50`,
         [], (err, rows) => { if (err) reject(err); else resolve(rows); }
       );
     });
@@ -723,7 +723,7 @@ ${JSON.stringify(lote.map(p => ({ id: p.id, titulo: p.titulo })), null, 2)}` }]
     }
 
     const restantes = await new Promise(r => {
-      db.get(`SELECT COUNT(*) as n FROM patrones WHERE autor='Telegram' AND (diseñadora='' OR diseñadora IS NULL)`,
+      db.get(`SELECT COUNT(*) as n FROM patrones WHERE autor IN ('Telegram','Diseñadora') AND (diseñadora='' OR diseñadora IS NULL)`,
         [], (_, row) => r(row?.n || 0));
     });
     categoriasProgreso = { actualizados: totalActualizados, restantes };
@@ -794,7 +794,7 @@ exports.extraerDiseñadoras = async (req, res) => {
     const pendientes = await new Promise((resolve, reject) => {
       db.all(
         `SELECT id, titulo FROM patrones
-         WHERE autor = 'Telegram' AND (diseñadora IS NULL OR diseñadora = '' OR diseñadora = 'N/A')
+         WHERE autor IN ('Telegram','Diseñadora') AND (diseñadora IS NULL OR diseñadora = '' OR diseñadora = 'N/A')
          LIMIT 30`,
         [],
         (err, rows) => { if (err) reject(err); else resolve(rows); }
@@ -876,7 +876,7 @@ ${JSON.stringify(datos.map(d => ({ id: d.id, titulo_actual: d.titulo, texto_pdf:
 
     const restantes = await new Promise((resolve, reject) => {
       db.get(
-        `SELECT COUNT(*) as total FROM patrones WHERE autor = 'Telegram' AND (diseñadora IS NULL OR diseñadora = '' OR diseñadora = 'N/A')`,
+        `SELECT COUNT(*) as total FROM patrones WHERE autor IN ('Telegram','Diseñadora') AND (diseñadora IS NULL OR diseñadora = '' OR diseñadora = 'N/A')`,
         [],
         (err, row) => { if (err) reject(err); else resolve(row.total); }
       );
