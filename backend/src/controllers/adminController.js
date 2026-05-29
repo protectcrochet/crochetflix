@@ -628,8 +628,15 @@ ${JSON.stringify(datos.map(d => ({ id: d.id, titulo_actual: d.titulo, texto_pdf:
       } catch (e) {
         console.error('[groq] Error en lote:', e.message);
         if (e.status === 429 || e.message?.includes('rate limit') || e.message?.includes('quota')) {
-          console.log('[groq] Rate limit — esperando 60s...');
-          await new Promise(r => setTimeout(r, 60000));
+          // Parsear el tiempo exacto que indica Groq en el mensaje de error
+          let espera = 65000;
+          const mMatch = e.message?.match(/try again in (\d+)m([\d.]+)s/);
+          const sMatch = !mMatch && e.message?.match(/try again in ([\d.]+)s/);
+          if (mMatch) espera = (parseInt(mMatch[1]) * 60 + parseFloat(mMatch[2])) * 1000 + 5000;
+          else if (sMatch) espera = parseFloat(sMatch[1]) * 1000 + 5000;
+          const seg = Math.round(espera / 1000);
+          console.log(`[groq] Rate limit — esperando ${seg}s según Groq...`);
+          await new Promise(r => setTimeout(r, espera));
         }
       }
 
