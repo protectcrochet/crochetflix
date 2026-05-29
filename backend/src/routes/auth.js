@@ -16,5 +16,6 @@ router.post('/register', authLimiter, authController.register);
 router.post('/login', authLimiter, authController.login);
 router.get('/me', authMiddleware, authController.me);
 router.get('/stats', authMiddleware, authController.stats);
+router.get('/historial', authMiddleware, authController.historial);
 
 module.exports = router;

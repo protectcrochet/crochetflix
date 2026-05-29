@@ -113,8 +113,14 @@ export default function Home() {
   const [busqueda, setBusqueda] = useState('');
   const [resultados, setResultados] = useState(null);
   const [buscando, setBuscando] = useState(false);
+  const [continua, setContinua] = useState([]);
 
   useEffect(() => { cargarPatrones(); }, []);
+
+  useEffect(() => {
+    if (!user) { setContinua([]); return; }
+    api.get('/auth/historial').then(r => setContinua(r.data.patrones || [])).catch(() => {});
+  }, [user]);
 
   const cargarPatrones = async () => {
     try {
@@ -223,6 +229,40 @@ export default function Home() {
                 </div>
               </div>
             </div>
+          )}
+
+          {continua.length > 0 && (
+            <section className="px-4 pt-6 pb-2">
+              <h2 className="text-base font-semibold mb-3 text-white">Continúa leyendo</h2>
+              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                {continua.map(p => {
+                  const pct = p.paginas > 0 ? Math.round((p.pagina_actual / p.paginas) * 100) : 0;
+                  return (
+                    <Link key={p.id} to={`/patron/${p.id}`}
+                      className="flex-none w-36 group relative rounded-lg overflow-hidden bg-gray-800">
+                      <div className="relative w-full h-24 overflow-hidden">
+                        {p.thumbnail_path ? (
+                          <img src={p.thumbnail_path} alt={p.titulo}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                        ) : (
+                          <div className="w-full h-full bg-gray-700" />
+                        )}
+                        {p.completado ? (
+                          <div className="absolute top-1 right-1 bg-green-600 rounded-full w-5 h-5 flex items-center justify-center text-xs">✓</div>
+                        ) : null}
+                      </div>
+                      <div className="p-2">
+                        <p className="text-xs text-white font-medium line-clamp-2 leading-tight mb-1">{p.titulo}</p>
+                        <div className="w-full h-1 bg-gray-600 rounded-full overflow-hidden">
+                          <div className="h-full bg-crochet-primary rounded-full transition-all" style={{ width: `${pct}%` }} />
+                        </div>
+                        <p className="text-gray-400 text-xs mt-1">{p.completado ? 'Completado' : `Pág. ${p.pagina_actual}${p.paginas > 0 ? ` / ${p.paginas}` : ''}`}</p>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </section>
           )}
 
           <Carrusel titulo="🔥 Tendencia" patrones={patronesTendencia} loop autoScroll />

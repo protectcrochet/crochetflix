@@ -149,6 +149,29 @@ exports.stats = async (req, res) => {
   }
 };
 
+exports.historial = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const patrones = await new Promise((resolve, reject) => {
+      db.all(
+        `SELECT p.id, p.titulo, p.autor, p.diseñadora, p.thumbnail_path, p.paginas, p.categoria,
+                pr.pagina_actual, pr.completado, pr.ultimo_acceso
+         FROM progreso pr
+         JOIN patrones p ON p.id = pr.patron_id
+         WHERE pr.user_id = ? AND p.activo = 1
+         ORDER BY pr.ultimo_acceso DESC
+         LIMIT 10`,
+        [userId],
+        (err, rows) => { if (err) reject(err); else resolve(rows); }
+      );
+    });
+    res.json({ patrones });
+  } catch (err) {
+    console.error('Error historial:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+};
+
 exports.me = async (req, res) => {
   try {
     const user = await new Promise((resolve, reject) => {
