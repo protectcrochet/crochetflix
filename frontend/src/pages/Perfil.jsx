@@ -14,6 +14,8 @@ export default function Perfil() {
   const [portalLoading, setPortalLoading] = useState(false);
   const [error, setError] = useState('');
   const [stats, setStats] = useState(null);
+  const [referidos, setReferidos] = useState(null);
+  const [copiado, setCopiado] = useState(false);
 
   const pagoParam = searchParams.get('pago');
 
@@ -30,8 +32,21 @@ export default function Perfil() {
   }, [user]);
 
   useEffect(() => {
+    if (user) {
+      api.get('/auth/referidos').then(res => setReferidos(res.data)).catch(() => {});
+    }
+  }, [user]);
+
+  useEffect(() => {
     detectarMoneda().then(setMoneda);
   }, []);
+
+  const copiarLink = () => {
+    const url = `${window.location.origin}/register?ref=${referidos.codigo}`;
+    navigator.clipboard.writeText(url);
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 2000);
+  };
 
   const esPremium = user?.tier === 'premium';
   const expira = user?.subscription_expires_at

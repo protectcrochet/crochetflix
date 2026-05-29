@@ -500,6 +500,8 @@ export default function Admin() {
   const [stats, setStats] = useState(null);
   const [heroCropPatron, setHeroCropPatron] = useState(null);
   const [visorIdx, setVisorIdx] = useState(null); // null = visor cerrado, number = índice abierto
+  const [usuarioDetalle, setUsuarioDetalle] = useState(null);
+  const [usuarioDetalleCargando, setUsuarioDetalleCargando] = useState(false);
 
   const [form, setForm] = useState({
     titulo: '', descripcion: '', autor: '', diseñadora: '',
@@ -1374,7 +1376,19 @@ export default function Admin() {
                     <tbody>
                       {usuarios.map((u, i) => (
                         <tr key={u.id} className={`border-b border-gray-700/50 hover:bg-gray-700/30 transition ${i % 2 === 0 ? '' : 'bg-gray-800/50'}`}>
-                          <td className="px-4 py-2.5 text-gray-200 font-mono text-xs">{u.email}</td>
+                          <td className="px-4 py-2.5">
+                            <button
+                              onClick={async () => {
+                                setUsuarioDetalleCargando(true);
+                                try {
+                                  const res = await api.get(`/admin/usuarios/${u.id}`, { headers: authHeader });
+                                  setUsuarioDetalle({ ...res.data.usuario, patrones: res.data.patrones });
+                                } catch { }
+                                finally { setUsuarioDetalleCargando(false); }
+                              }}
+                              className="font-mono text-xs text-blue-400 hover:text-blue-200 hover:underline text-left"
+                            >{u.email}</button>
+                          </td>
                           <td className="px-4 py-2.5">
                             <span className={`text-xs px-2 py-0.5 rounded font-semibold ${u.tier === 'premium' ? 'bg-yellow-600 text-white' : 'bg-gray-600 text-gray-300'}`}>
                               {u.tier}
@@ -1394,6 +1408,19 @@ export default function Admin() {
                                 </span>
                               : <span className="text-gray-600">—</span>
                             }
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <button
+                              onClick={async () => {
+                                if (!confirm(`¿Eliminar a ${u.email}? Se borrarán todos sus datos.`)) return;
+                                try {
+                                  await api.delete(`/admin/usuarios/${u.id}`, { headers: authHeader });
+                                  setUsuarios(prev => prev.filter(x => x.id !== u.id));
+                                } catch (err) { alert(err.response?.data?.error || 'Error'); }
+                              }}
+                              className="text-gray-600 hover:text-red-400 transition p-1"
+                              title="Eliminar usuario"
+                            >🗑</button>
                           </td>
                         </tr>
                       ))}
@@ -1538,6 +1565,59 @@ export default function Admin() {
           ) : (
             <div className="text-center py-12 text-gray-500">No se pudieron cargar las métricas.</div>
           )}
+        </div>
+      )}
+
+      {/* Panel detalle usuario */}
+      {usuarioDetalle && (
+        <div className="fixed inset-0 z-50 flex">
+          <div className="flex-1 bg-black/60" onClick={() => setUsuarioDetalle(null)} />
+          <div className="w-full max-w-sm bg-gray-900 border-l border-gray-700 flex flex-col overflow-y-auto">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700 shrink-0">
+              <div>
+                <p className="font-semibold text-sm">{usuarioDetalle.email}</p>
+                <span className={`text-xs px-2 py-0.5 rounded font-semibold ${usuarioDetalle.tier === 'premium' ? 'bg-yellow-600 text-white' : 'bg-gray-600 text-gray-300'}`}>
+                  {usuarioDetalle.tier}
+                </span>
+              </div>
+              <button onClick={() => setUsuarioDetalle(null)} className="text-gray-400 hover:text-white p-1">✕</button>
+            </div>
+            <div className="px-4 py-3 text-xs text-gray-400 border-b border-gray-700 shrink-0 space-y-1">
+              <p>Registro: {new Date(usuarioDetalle.created_at).toLocaleDateString('es-MX')}</p>
+              {usuarioDetalle.subscription_expires_at && (
+                <p>Suscripción vence: {new Date(usuarioDetalle.subscription_expires_at).toLocaleDateString('es-MX')}</p>
+              )}
+              <p>{usuarioDetalle.patrones?.length || 0} patrones abiertos</p>
+            </div>
+            <div className="flex-1 overflow-y-auto divide-y divide-gray-700/50">
+              {usuarioDetalle.patrones?.length === 0 ? (
+                <p className="text-gray-500 text-sm text-center py-8">Sin patrones abiertos aún</p>
+              ) : (
+                usuarioDetalle.patrones?.map(p => {
+                  const pct = p.paginas > 0 ? Math.round((p.pagina_actual / p.paginas) * 100) : 0;
+                  return (
+                    <div key={p.id} className="flex items-center gap-3 px-4 py-3">
+                      <div className="w-10 h-14 bg-gray-800 rounded overflow-hidden shrink-0">
+                        {p.thumbnail_path
+                          ? <img src={p.thumbnail_path} alt="" className="w-full h-full object-cover" />
+                          : <div className="w-full h-full" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-white font-medium line-clamp-2 leading-tight">{p.titulo}</p>
+                        <div className="w-full h-1 bg-gray-700 rounded-full overflow-hidden mt-1.5">
+                          <div className="h-full bg-crochet-primary rounded-full" style={{ width: `${pct}%` }} />
+                        </div>
+                        <p className="text-gray-500 text-xs mt-0.5">
+                          {p.completado ? '✓ Completado' : `Pág. ${p.pagina_actual}${p.paginas > 0 ? ` / ${p.paginas}` : ''}`}
+                          {p.ultimo_acceso ? ` · ${new Date(p.ultimo_acceso).toLocaleDateString('es-MX')}` : ''}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
         </div>
       )}
 

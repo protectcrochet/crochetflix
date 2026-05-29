@@ -50,6 +50,30 @@ async function userIdDeCustomer(customerId) {
   return row?.id || null;
 }
 
+async function verificarRecompensaReferido(userId) {
+  try {
+    const referido = await new Promise(r =>
+      db.get('SELECT * FROM referidos WHERE referido_id = ? AND convertido = 0', [userId], (_, row) => r(row))
+    );
+    if (!referido) return;
+    await new Promise(r => db.run('UPDATE referidos SET convertido = 1 WHERE id = ?', [referido.id], () => r()));
+    const { n } = await new Promise(r =>
+      db.get('SELECT COUNT(*) as n FROM referidos WHERE referrer_id = ? AND convertido = 1', [referido.referrer_id], (_, row) => r(row || { n: 0 }))
+    );
+    if (n > 0 && n % 3 === 0) {
+      await new Promise(r =>
+        db.run(
+          `UPDATE users SET tier = 'premium', subscription_expires_at = datetime(COALESCE(subscription_expires_at, datetime('now')), '+30 days') WHERE id = ?`,
+          [referido.referrer_id], () => r()
+        )
+      );
+      console.log(`[referidos] Recompensa: 1 mes gratis para ${referido.referrer_id} (${n} referidos convertidos)`);
+    }
+  } catch (e) {
+    console.error('[referidos] Error verificando recompensa:', e.message);
+  }
+}
+
 // POST /api/stripe/checkout
 exports.crearCheckout = async (req, res) => {
   try {
@@ -111,6 +135,7 @@ exports.webhook = async (req, res) => {
         if (!userId) break;
         const sub = await stripe.subscriptions.retrieve(session.subscription);
         await activarPremium(userId, sub.id, sub.current_period_end);
+        await verificarRecompensaReferido(userId);
         break;
       }
 

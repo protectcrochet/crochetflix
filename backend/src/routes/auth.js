@@ -17,5 +17,6 @@ router.post('/login', authLimiter, authController.login);
 router.get('/me', authMiddleware, authController.me);
 router.get('/stats', authMiddleware, authController.stats);
 router.get('/historial', authMiddleware, authController.historial);
+router.get('/referidos', authMiddleware, authController.referidos);
 
 module.exports = router;

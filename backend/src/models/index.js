@@ -63,6 +63,18 @@ function initTables() {
     // Migración: primer acceso para allowance mensual
     db.run(`ALTER TABLE progreso ADD COLUMN primer_acceso TIMESTAMP`, () => {});
 
+    // Migración: columnas de referidos en users
+    db.run(`ALTER TABLE users ADD COLUMN referral_code TEXT`, () => {});
+    db.run(`ALTER TABLE users ADD COLUMN referred_by TEXT`, () => {});
+
+    db.run(`CREATE TABLE IF NOT EXISTS referidos (
+      id TEXT PRIMARY KEY,
+      referrer_id TEXT NOT NULL,
+      referido_id TEXT,
+      convertido INTEGER DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
     // Páginas de patrones
     db.run(`CREATE TABLE IF NOT EXISTS paginas (
       id TEXT PRIMARY KEY,

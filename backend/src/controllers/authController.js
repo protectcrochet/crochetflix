@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 const db = require('../models');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-cambia-en-prod';
@@ -51,6 +52,19 @@ exports.register = async (req, res) => {
         }
       );
     });
+
+    // Generar código de referido
+    const refCode = crypto.randomBytes(4).toString('hex');
+    await new Promise(r => db.run('UPDATE users SET referral_code = ? WHERE id = ?', [refCode, userId], () => r()));
+
+    // Procesar referido si viene con código
+    if (req.body.ref) {
+      const referrer = await new Promise(r => db.get('SELECT id FROM users WHERE referral_code = ?', [req.body.ref], (_, row) => r(row)));
+      if (referrer) {
+        await new Promise(r => db.run('INSERT INTO referidos (id, referrer_id, referido_id) VALUES (?,?,?)', [uuidv4(), referrer.id, userId], () => r()));
+        await new Promise(r => db.run('UPDATE users SET referred_by = ? WHERE id = ?', [referrer.id, userId], () => r()));
+      }
+    }
 
     // Generar JWT
     const token = jwt.sign(
@@ -193,6 +207,34 @@ exports.me = async (req, res) => {
 
   } catch (err) {
     console.error('Error me:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+exports.referidos = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const user = await new Promise((resolve, reject) => {
+      db.get('SELECT referral_code FROM users WHERE id = ?', [userId], (err, row) => { if (err) reject(err); else resolve(row); });
+    });
+    // Generate code if missing
+    if (!user.referral_code) {
+      const code = crypto.randomBytes(4).toString('hex');
+      await new Promise(r => db.run('UPDATE users SET referral_code = ? WHERE id = ?', [code, userId], () => r()));
+      user.referral_code = code;
+    }
+    const stats = await new Promise((resolve, reject) => {
+      db.get(
+        'SELECT COUNT(*) as total, SUM(convertido) as convertidos FROM referidos WHERE referrer_id = ?',
+        [userId], (err, row) => { if (err) reject(err); else resolve(row); }
+      );
+    });
+    res.json({
+      codigo: user.referral_code,
+      total: stats?.total || 0,
+      convertidos: stats?.convertidos || 0,
+    });
+  } catch (err) {
     res.status(500).json({ error: 'Error interno' });
   }
 };

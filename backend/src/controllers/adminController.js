@@ -1267,3 +1267,51 @@ exports.listarUsuarios = async (req, res) => {
     res.status(500).json({ error: 'Error interno' });
   }
 };
+
+exports.verUsuario = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [usuario, patrones] = await Promise.all([
+      new Promise((resolve, reject) => {
+        db.get('SELECT id, email, tier, created_at, subscription_expires_at FROM users WHERE id = ?', [id], (err, row) => { if (err) reject(err); else resolve(row); });
+      }),
+      new Promise((resolve, reject) => {
+        db.all(
+          `SELECT p.id, p.titulo, p.thumbnail_path, p.paginas, p.categoria,
+                  pr.pagina_actual, pr.completado, pr.primer_acceso, pr.ultimo_acceso
+           FROM progreso pr
+           JOIN patrones p ON p.id = pr.patron_id
+           WHERE pr.user_id = ?
+           ORDER BY pr.ultimo_acceso DESC`,
+          [id], (err, rows) => { if (err) reject(err); else resolve(rows); }
+        );
+      }),
+    ]);
+    if (!usuario) return res.status(404).json({ error: 'Usuario no encontrado' });
+    res.json({ usuario, patrones });
+  } catch (err) {
+    res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+exports.eliminarUsuario = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const usuario = await new Promise((resolve, reject) => {
+      db.get('SELECT id, email FROM users WHERE id = ?', [id], (err, row) => { if (err) reject(err); else resolve(row); });
+    });
+    if (!usuario) return res.status(404).json({ error: 'Usuario no encontrado' });
+    await new Promise((resolve, reject) => {
+      db.serialize(() => {
+        db.run('DELETE FROM progreso WHERE user_id = ?', [id]);
+        db.run('DELETE FROM mi_lista WHERE user_id = ?', [id]);
+        db.run('DELETE FROM visitas WHERE user_id = ?', [id]);
+        db.run('DELETE FROM referidos WHERE referrer_id = ? OR referido_id = ?', [id, id], (err) => { if (err) {} });
+        db.run('DELETE FROM users WHERE id = ?', [id], function(err) { if (err) reject(err); else resolve(); });
+      });
+    });
+    res.json({ message: `Usuario ${usuario.email} eliminado` });
+  } catch (err) {
+    res.status(500).json({ error: 'Error interno' });
+  }
+};
