@@ -8,13 +8,21 @@ const geoip = require('geoip-lite');
 const UPLOADS_DIR = path.join(__dirname, '../../uploads/patrones');
 
 function registrarVisita(patronId, userId, userTier, req) {
-  const ip = (req.headers['x-forwarded-for'] || req.ip || '').split(',')[0].trim();
-  const geo = ip ? geoip.lookup(ip) : null;
-  const pais = geo?.country || null;
-  const id = crypto.randomUUID();
-  db.run(
-    'INSERT INTO visitas (id, patron_id, user_id, user_tier, ip, pais) VALUES (?,?,?,?,?,?)',
-    [id, patronId, userId, userTier, ip, pais]
+  // Solo contar una visita por usuario+patrón por día calendario
+  const hoy = new Date().toISOString().slice(0, 10);
+  db.get(
+    `SELECT 1 FROM visitas WHERE user_id = ? AND patron_id = ? AND date(created_at) = ?`,
+    [userId, patronId, hoy],
+    (_, row) => {
+      if (row) return; // ya visitó hoy
+      const ip = (req.headers['x-forwarded-for'] || req.ip || '').split(',')[0].trim();
+      const geo = ip ? geoip.lookup(ip) : null;
+      const pais = geo?.country || null;
+      db.run(
+        'INSERT INTO visitas (id, patron_id, user_id, user_tier, ip, pais) VALUES (?,?,?,?,?,?)',
+        [crypto.randomUUID(), patronId, userId, userTier, ip, pais]
+      );
+    }
   );
 }
 
