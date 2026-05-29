@@ -488,6 +488,8 @@ export default function Admin() {
   const [dmcaCargando, setDmcaCargando] = useState(false);
   const [analytics, setAnalytics] = useState(null);
   const [analyticsCargando, setAnalyticsCargando] = useState(false);
+  const [usuarios, setUsuarios] = useState(null);
+  const [usuariosCargando, setUsuariosCargando] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [mensaje, setMensaje] = useState(null); // { tipo: 'ok'|'error', texto }
   const [busquedaAdmin, setBusquedaAdmin] = useState('');
@@ -898,6 +900,21 @@ export default function Admin() {
           </button>
           <button
             onClick={async () => {
+              setMostrando('usuarios');
+              if (!usuarios) {
+                setUsuariosCargando(true);
+                try {
+                  const res = await api.get('/admin/usuarios', { headers: authHeader });
+                  setUsuarios(res.data.usuarios || []);
+                } catch { }
+                finally { setUsuariosCargando(false); }
+              }
+            }}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded text-sm font-medium transition ${mostrando === 'usuarios' ? 'bg-blue-700 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
+            👥 Usuarios
+          </button>
+          <button
+            onClick={async () => {
               setMostrando('analytics');
               if (!analytics) {
                 setAnalyticsCargando(true);
@@ -1303,6 +1320,89 @@ export default function Admin() {
               </>
             );
           })()}
+        </div>
+      )}
+
+      {/* Panel Usuarios */}
+      {mostrando === 'usuarios' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold">👥 Usuarios registrados</h2>
+            <button onClick={async () => {
+              setUsuariosCargando(true);
+              try { const res = await api.get('/admin/usuarios', { headers: authHeader }); setUsuarios(res.data.usuarios || []); }
+              catch { } finally { setUsuariosCargando(false); }
+            }} className="text-xs text-gray-400 hover:text-white transition">↺ Actualizar</button>
+          </div>
+
+          {usuariosCargando ? (
+            <div className="flex justify-center py-12"><Loader className="w-8 h-8 animate-spin text-crochet-primary" /></div>
+          ) : !usuarios ? (
+            <div className="text-center py-12 text-gray-500">No se pudieron cargar los usuarios.</div>
+          ) : (
+            <>
+              {/* Resumen */}
+              <div className="grid grid-cols-3 gap-3 mb-2">
+                <div className="bg-gray-800 rounded-xl p-3 text-center">
+                  <p className="text-2xl font-bold text-white">{usuarios.length}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Total</p>
+                </div>
+                <div className="bg-gray-800 rounded-xl p-3 text-center">
+                  <p className="text-2xl font-bold text-gray-300">{usuarios.filter(u => u.tier === 'free').length}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Free</p>
+                </div>
+                <div className="bg-gray-800 rounded-xl p-3 text-center">
+                  <p className="text-2xl font-bold text-yellow-400">{usuarios.filter(u => u.tier === 'premium').length}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Premium</p>
+                </div>
+              </div>
+
+              {/* Tabla */}
+              <div className="bg-gray-800 rounded-xl overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-700 text-left">
+                        <th className="px-4 py-3 text-xs text-gray-400 font-semibold">Email</th>
+                        <th className="px-4 py-3 text-xs text-gray-400 font-semibold">Plan</th>
+                        <th className="px-4 py-3 text-xs text-gray-400 font-semibold text-center">Patrones abiertos</th>
+                        <th className="px-4 py-3 text-xs text-gray-400 font-semibold text-center">En lista</th>
+                        <th className="px-4 py-3 text-xs text-gray-400 font-semibold">Registro</th>
+                        <th className="px-4 py-3 text-xs text-gray-400 font-semibold">Vence</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {usuarios.map((u, i) => (
+                        <tr key={u.id} className={`border-b border-gray-700/50 hover:bg-gray-700/30 transition ${i % 2 === 0 ? '' : 'bg-gray-800/50'}`}>
+                          <td className="px-4 py-2.5 text-gray-200 font-mono text-xs">{u.email}</td>
+                          <td className="px-4 py-2.5">
+                            <span className={`text-xs px-2 py-0.5 rounded font-semibold ${u.tier === 'premium' ? 'bg-yellow-600 text-white' : 'bg-gray-600 text-gray-300'}`}>
+                              {u.tier}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5 text-center">
+                            <span className={`font-semibold ${u.patrones_abiertos >= 3 ? 'text-crochet-primary' : 'text-gray-300'}`}>
+                              {u.patrones_abiertos}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5 text-center text-gray-400">{u.en_lista}</td>
+                          <td className="px-4 py-2.5 text-gray-400 text-xs">{new Date(u.created_at).toLocaleDateString('es-MX')}</td>
+                          <td className="px-4 py-2.5 text-xs">
+                            {u.subscription_expires_at
+                              ? <span className={new Date(u.subscription_expires_at) > new Date() ? 'text-green-400' : 'text-red-400'}>
+                                  {new Date(u.subscription_expires_at).toLocaleDateString('es-MX')}
+                                </span>
+                              : <span className="text-gray-600">—</span>
+                            }
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
 

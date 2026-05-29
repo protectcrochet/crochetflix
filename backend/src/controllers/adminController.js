@@ -1244,3 +1244,26 @@ exports.fixAutorTelegram = async (req, res) => {
     res.status(500).json({ error: 'Error interno' });
   }
 };
+
+exports.listarUsuarios = async (req, res) => {
+  try {
+    const usuarios = await new Promise((resolve, reject) => {
+      db.all(
+        `SELECT
+           u.id, u.email, u.tier, u.created_at, u.subscription_expires_at,
+           COUNT(DISTINCT pr.patron_id) as patrones_abiertos,
+           COUNT(DISTINCT ml.patron_id) as en_lista
+         FROM users u
+         LEFT JOIN progreso pr ON pr.user_id = u.id
+         LEFT JOIN mi_lista ml ON ml.user_id = u.id
+         GROUP BY u.id
+         ORDER BY u.created_at DESC`,
+        [],
+        (err, rows) => { if (err) reject(err); else resolve(rows); }
+      );
+    });
+    res.json({ usuarios });
+  } catch (err) {
+    res.status(500).json({ error: 'Error interno' });
+  }
+};
