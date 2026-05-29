@@ -483,9 +483,11 @@ export default function Admin() {
   const [secret, setSecret] = useState(() => localStorage.getItem('admin_secret') || '');
   const [autenticado, setAutenticado] = useState(false);
   const [patrones, setPatrones] = useState([]);
-  const [mostrando, setMostrando] = useState('lista'); // 'lista' | 'nuevo' | 'dmca'
+  const [mostrando, setMostrando] = useState('lista'); // 'lista' | 'nuevo' | 'dmca' | 'analytics'
   const [dmcaClaims, setDmcaClaims] = useState([]);
   const [dmcaCargando, setDmcaCargando] = useState(false);
+  const [analytics, setAnalytics] = useState(null);
+  const [analyticsCargando, setAnalyticsCargando] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [mensaje, setMensaje] = useState(null); // { tipo: 'ok'|'error', texto }
   const [busquedaAdmin, setBusquedaAdmin] = useState('');
@@ -893,6 +895,21 @@ export default function Admin() {
             className={`flex items-center gap-1.5 px-3 py-2 rounded text-sm font-medium transition ${mostrando === 'dmca' ? 'bg-red-700 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
             <ShieldCheck className="w-4 h-4" />
             DMCA
+          </button>
+          <button
+            onClick={async () => {
+              setMostrando('analytics');
+              if (!analytics) {
+                setAnalyticsCargando(true);
+                try {
+                  const res = await api.get('/admin/analytics', { headers: authHeader });
+                  setAnalytics(res.data);
+                } catch { }
+                finally { setAnalyticsCargando(false); }
+              }
+            }}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded text-sm font-medium transition ${mostrando === 'analytics' ? 'bg-green-700 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
+            📊 Métricas
           </button>
           <button onClick={cerrarSesion} className="text-gray-400 hover:text-white p-2">
             <LogOut className="w-5 h-5" />
@@ -1309,6 +1326,117 @@ export default function Admin() {
               <DmcaClaimCard key={c.id} claim={c} authHeader={authHeader}
                 onUpdate={updated => setDmcaClaims(prev => prev.map(x => x.id === c.id ? { ...x, ...updated } : x))} />
             ))
+          )}
+        </div>
+      )}
+
+      {mostrando === 'analytics' && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold">📊 Métricas</h2>
+            <button onClick={async () => {
+              setAnalyticsCargando(true);
+              try { const res = await api.get('/admin/analytics', { headers: authHeader }); setAnalytics(res.data); }
+              catch { } finally { setAnalyticsCargando(false); }
+            }} className="text-xs text-gray-400 hover:text-white transition">↺ Actualizar</button>
+          </div>
+
+          {analyticsCargando ? (
+            <div className="flex justify-center py-12"><Loader className="w-8 h-8 animate-spin text-crochet-primary" /></div>
+          ) : analytics ? (
+            <>
+              {/* Tarjetas principales */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {[
+                  { label: 'Visitas hoy', value: analytics.visitasHoy, color: 'text-blue-400' },
+                  { label: 'Visitas esta semana', value: analytics.visitasSemana, color: 'text-cyan-400' },
+                  { label: 'Usuarios free', value: analytics.usuariosFree, color: 'text-gray-300' },
+                  { label: 'Usuarios premium', value: analytics.usuariosPremium, color: 'text-yellow-400' },
+                ].map(({ label, value, color }) => (
+                  <div key={label} className="bg-gray-800 rounded-xl p-4 text-center">
+                    <p className={`text-3xl font-bold ${color}`}>{value?.toLocaleString()}</p>
+                    <p className="text-xs text-gray-400 mt-1">{label}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Fila secundaria */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {[
+                  { label: 'Total visitas', value: analytics.totalVisitas },
+                  { label: 'Total usuarios', value: analytics.usuariosTotal },
+                  { label: 'Registros hoy', value: analytics.registrosHoy },
+                  { label: 'Registros esta semana', value: analytics.registrosSemana },
+                ].map(({ label, value }) => (
+                  <div key={label} className="bg-gray-800/50 rounded-xl p-3 text-center">
+                    <p className="text-xl font-bold text-white">{value?.toLocaleString()}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{label}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Gráfica últimos 7 días */}
+              {analytics.visitasPorDia?.length > 0 && (() => {
+                const ultimos7 = analytics.visitasPorDia.slice(-7);
+                const max = Math.max(...ultimos7.map(d => d.visitas), 1);
+                return (
+                  <div className="bg-gray-800 rounded-xl p-4">
+                    <h3 className="text-sm font-semibold text-gray-300 mb-3">Visitas últimos 7 días</h3>
+                    <div className="flex items-end gap-1 h-24">
+                      {ultimos7.map(d => (
+                        <div key={d.dia} className="flex-1 flex flex-col items-center gap-1">
+                          <div
+                            className="w-full bg-crochet-primary/70 rounded-t"
+                            style={{ height: `${Math.round((d.visitas / max) * 100)}%`, minHeight: d.visitas > 0 ? 4 : 0 }}
+                            title={`${d.dia}: ${d.visitas} visitas`}
+                          />
+                          <p className="text-xs text-gray-600 hidden sm:block">{d.dia.slice(5)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Top patrones */}
+                <div className="bg-gray-800 rounded-xl p-4">
+                  <h3 className="text-sm font-semibold text-gray-300 mb-3">🔥 Top patrones más vistos</h3>
+                  {analytics.topPatrones.length === 0 ? (
+                    <p className="text-gray-500 text-sm">Sin datos aún</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {analytics.topPatrones.map((p, i) => (
+                        <div key={p.patron_id} className="flex items-center gap-2 text-sm">
+                          <span className="text-gray-500 w-5 text-right">{i + 1}.</span>
+                          <span className="flex-1 truncate text-gray-200">{p.titulo || p.patron_id}</span>
+                          <span className="text-crochet-primary font-semibold shrink-0">{p.visitas}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Países */}
+                <div className="bg-gray-800 rounded-xl p-4">
+                  <h3 className="text-sm font-semibold text-gray-300 mb-3">🌎 Países</h3>
+                  {analytics.paises.length === 0 ? (
+                    <p className="text-gray-500 text-sm">Sin datos aún</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {analytics.paises.map(p => (
+                        <div key={p.pais} className="flex items-center gap-2 text-sm">
+                          <span className="flex-1 text-gray-200">{p.pais}</span>
+                          <span className="text-gray-400 font-semibold">{p.visitas}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-12 text-gray-500">No se pudieron cargar las métricas.</div>
           )}
         </div>
       )}

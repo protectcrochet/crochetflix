@@ -882,6 +882,58 @@ ${JSON.stringify(datos.map(d => ({ id: d.id, titulo_actual: d.titulo, texto_pdf:
   }
 };
 
+exports.analytics = async (req, res) => {
+  try {
+    const hoy = new Date().toISOString().slice(0, 10);
+    const hace7 = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+    const hace30 = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+
+    const [
+      totalVisitas, visitasHoy, visitasSemana,
+      usuariosTotal, usuariosFree, usuariosPremium,
+      registrosHoy, registrosSemana,
+      topPatrones, paises, visitasPorDia,
+    ] = await Promise.all([
+      new Promise(r => db.get('SELECT COUNT(*) as n FROM visitas', [], (_, row) => r(row?.n || 0))),
+      new Promise(r => db.get("SELECT COUNT(*) as n FROM visitas WHERE date(created_at) = ?", [hoy], (_, row) => r(row?.n || 0))),
+      new Promise(r => db.get("SELECT COUNT(*) as n FROM visitas WHERE date(created_at) >= ?", [hace7], (_, row) => r(row?.n || 0))),
+      new Promise(r => db.get('SELECT COUNT(*) as n FROM users', [], (_, row) => r(row?.n || 0))),
+      new Promise(r => db.get("SELECT COUNT(*) as n FROM users WHERE tier = 'free'", [], (_, row) => r(row?.n || 0))),
+      new Promise(r => db.get("SELECT COUNT(*) as n FROM users WHERE tier = 'premium'", [], (_, row) => r(row?.n || 0))),
+      new Promise(r => db.get("SELECT COUNT(*) as n FROM users WHERE date(created_at) = ?", [hoy], (_, row) => r(row?.n || 0))),
+      new Promise(r => db.get("SELECT COUNT(*) as n FROM users WHERE date(created_at) >= ?", [hace7], (_, row) => r(row?.n || 0))),
+      new Promise(r => db.all(
+        `SELECT v.patron_id, p.titulo, COUNT(*) as visitas
+         FROM visitas v LEFT JOIN patrones p ON p.id = v.patron_id
+         WHERE v.patron_id IS NOT NULL
+         GROUP BY v.patron_id ORDER BY visitas DESC LIMIT 10`,
+        [], (_, rows) => r(rows || [])
+      )),
+      new Promise(r => db.all(
+        `SELECT pais, COUNT(*) as visitas FROM visitas
+         WHERE pais IS NOT NULL GROUP BY pais ORDER BY visitas DESC LIMIT 15`,
+        [], (_, rows) => r(rows || [])
+      )),
+      new Promise(r => db.all(
+        `SELECT date(created_at) as dia, COUNT(*) as visitas
+         FROM visitas WHERE date(created_at) >= ?
+         GROUP BY dia ORDER BY dia ASC`,
+        [hace30], (_, rows) => r(rows || [])
+      )),
+    ]);
+
+    res.json({
+      totalVisitas, visitasHoy, visitasSemana,
+      usuariosTotal, usuariosFree, usuariosPremium,
+      registrosHoy, registrosSemana,
+      topPatrones, paises, visitasPorDia,
+    });
+  } catch (err) {
+    console.error('Error analytics:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+};
+
 exports.stats = async (req, res) => {
   try {
     const [totalRow, convertidosRow, verificadosRow, heroRow, tendenciaRow, pendientesRow, corruptosRow] = await Promise.all([

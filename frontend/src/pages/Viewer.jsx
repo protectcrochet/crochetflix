@@ -2,10 +2,12 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
+import { Crown } from 'lucide-react';
 import {
   ChevronLeft, ChevronRight, ZoomIn, ZoomOut,
   Download, Bookmark, Check, Lock, Loader
 } from 'lucide-react';
+import { PRECIOS, detectarMoneda } from '../utils/geoMoneda';
 
 export default function Viewer() {
   const { id } = useParams();
@@ -25,6 +27,10 @@ export default function Viewer() {
   const [error, setError] = useState('');
   const [paginaError, setPaginaError] = useState('');
   const [tieneAcceso, setTieneAcceso] = useState(false);
+  const [errorAcceso, setErrorAcceso] = useState(null);
+  const [patronesUsados, setPatronesUsados] = useState(0);
+  const [moneda, setMoneda] = useState('USD');
+  const [suscLoading, setSuscLoading] = useState(false);
   const [esPreview, setEsPreview] = useState(false);
   const [enMiLista, setEnMiLista] = useState(false);
   const [descargado, setDescargado] = useState(false);
@@ -76,11 +82,16 @@ export default function Viewer() {
       setPatron(res.data.patron);
       setTotalPaginas(res.data.patron.paginas);
       setTieneAcceso(res.data.tieneAcceso);
+      setErrorAcceso(res.data.errorAcceso || null);
+      setPatronesUsados(res.data.patronesUsados || 0);
       setEsPreview(res.data.esPreview);
       setProgreso(res.data.progreso);
       setPaginaActual(res.data.progreso.pagina_actual || 1);
       setEnMiLista(res.data.patron.en_mi_lista === 1);
       setDescargado(res.data.progreso.descargado_offline === 1);
+      if (!res.data.tieneAcceso && res.data.errorAcceso === 'limite_free') {
+        detectarMoneda().then(setMoneda);
+      }
     } catch (err) {
       setError(err.response?.data?.error || 'Error cargando patrón');
     } finally {
@@ -198,15 +209,64 @@ export default function Viewer() {
     );
   }
 
+  if (!tieneAcceso && errorAcceso === 'sin_registro') return (
+    <div className="flex flex-col items-center justify-center min-h-96 px-4 py-12 text-center">
+      <Lock className="w-16 h-16 text-gray-600 mb-4" />
+      <h2 className="text-xl font-bold mb-2">Crea una cuenta gratis</h2>
+      <p className="text-gray-400 mb-1">Regístrate gratis y accede a tus primeros <strong className="text-white">3 patrones</strong> sin costo.</p>
+      <p className="text-gray-500 text-sm mb-6">No necesitas tarjeta de crédito.</p>
+      <div className="flex gap-3 flex-wrap justify-center">
+        <button onClick={() => navigate(`/register?redirect=/patron/${id}`)} className="btn-primary">Registrarme gratis</button>
+        <button onClick={() => navigate(`/login?redirect=/patron/${id}`)} className="btn-secondary">Iniciar sesión</button>
+      </div>
+    </div>
+  );
+
+  if (!tieneAcceso && errorAcceso === 'limite_free') {
+    const precio = PRECIOS[moneda] || PRECIOS['USD'];
+    const suscribirse = async () => {
+      setSuscLoading(true);
+      try {
+        const res = await api.post('/stripe/checkout', { plan: 'mensual' });
+        window.location.href = res.data.checkout_url;
+      } catch { setSuscLoading(false); }
+    };
+    return (
+      <div className="flex flex-col items-center justify-center min-h-96 px-4 py-12 text-center max-w-md mx-auto">
+        <Crown className="w-16 h-16 text-yellow-400 mb-4" />
+        <h2 className="text-2xl font-bold mb-2">Has visto tus 3 patrones gratuitos</h2>
+        <p className="text-gray-400 mb-6">
+          Para seguir explorando todos los patrones, activa tu suscripción Premium.
+        </p>
+
+        <div className="w-full bg-gray-800 border border-yellow-600/40 rounded-2xl p-6 mb-6">
+          <p className="text-xs text-yellow-400 font-semibold uppercase tracking-wide mb-1">Premium mensual</p>
+          <p className="text-4xl font-bold text-white mb-1">{precio.mensual}</p>
+          <p className="text-gray-500 text-sm mb-4">por mes · cancela cuando quieras</p>
+          <ul className="text-left text-sm text-gray-300 space-y-2 mb-5">
+            <li>✅ Acceso a <strong>todos los patrones</strong></li>
+            <li>✅ Sin publicidad</li>
+            <li>✅ Descarga hasta 5 patrones offline</li>
+            <li>✅ Guarda tu progreso de lectura</li>
+          </ul>
+          <button onClick={suscribirse} disabled={suscLoading}
+            className="w-full py-3 bg-yellow-500 hover:bg-yellow-400 text-black font-bold rounded-xl transition disabled:opacity-50">
+            {suscLoading ? <Loader className="w-5 h-5 animate-spin inline" /> : `Suscribirme por ${precio.mensual}/mes`}
+          </button>
+        </div>
+
+        <p className="text-xs text-gray-600 mb-2">¿Ya eres premium? <button onClick={() => navigate('/perfil')} className="text-crochet-primary hover:underline">Revisa tu cuenta</button></p>
+        <button onClick={() => navigate(-1)} className="text-sm text-gray-500 hover:text-gray-300">← Volver al catálogo</button>
+      </div>
+    );
+  }
+
   if (!tieneAcceso) return (
     <div className="flex flex-col items-center justify-center h-96 px-4">
       <Lock className="w-16 h-16 text-gray-600 mb-4" />
-      <h2 className="text-xl font-bold mb-2">Crea una cuenta gratis</h2>
-      <p className="text-gray-400 text-center mb-4">Regístrate gratis y accede a todos los patrones sin límites.</p>
-      <div className="flex gap-3">
-        <button onClick={() => navigate('/register')} className="btn-primary">Registrarme gratis</button>
-        <button onClick={() => navigate('/login')} className="btn-secondary">Iniciar sesión</button>
-      </div>
+      <h2 className="text-xl font-bold mb-2">Acceso restringido</h2>
+      <p className="text-gray-400 text-center mb-4">No tienes acceso a este patrón.</p>
+      <button onClick={() => navigate('/perfil')} className="btn-primary">Ver mi suscripción</button>
     </div>
   );
 

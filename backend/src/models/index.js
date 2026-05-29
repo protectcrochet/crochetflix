@@ -135,6 +135,17 @@ function initTables() {
       proof_url TEXT
     )`);
 
+    // Registro de visitas para analytics
+    db.run(`CREATE TABLE IF NOT EXISTS visitas (
+      id TEXT PRIMARY KEY,
+      patron_id TEXT,
+      user_id TEXT,
+      user_tier TEXT DEFAULT 'anon',
+      ip TEXT,
+      pais TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
     console.log('✅ Tablas inicializadas');
   });
 }

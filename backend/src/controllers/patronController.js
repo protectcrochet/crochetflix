@@ -97,33 +97,34 @@ exports.detalle = async (req, res) => {
       return res.status(404).json({ error: 'Patrón no encontrado' });
     }
 
-    // Verificar si tiene acceso
+    // ── Lógica de acceso ────────────────────────────────────────────────────
     let tieneAcceso = false;
-    let esPreview = false;
+    let errorAcceso = null;
+    let patronesUsados = 0;
 
-    if (patron.es_preview) {
-      // Verificar si ya usó su preview mensual
-      const mesActual = new Date().toISOString().slice(0, 7); // YYYY-MM
-      const previewUsado = await new Promise((resolve, reject) => {
-        db.get(
-          'SELECT * FROM preview_mensual WHERE user_id = ? AND mes_anio = ?',
-          [userId, mesActual],
-          (err, row) => {
-            if (err) reject(err);
-            resolve(row);
-          }
-        );
-      });
-
-      if (!previewUsado || previewUsado.patron_id === id) {
-        tieneAcceso = true;
-        esPreview = true;
-      }
-    }
-
-    // Acceso libre para usuarios registrados (temporalmente sin suscripción requerida)
-    if (!tieneAcceso && userId) {
+    if (!userId) {
+      tieneAcceso = false;
+      errorAcceso = 'sin_registro';
+    } else if (req.userTier === 'premium') {
       tieneAcceso = true;
+    } else {
+      // Free: permitir hasta 3 patrones únicos
+      const yaAccedido = await new Promise(r =>
+        db.get('SELECT 1 FROM progreso WHERE user_id = ? AND patron_id = ?', [userId, id], (_, row) => r(row))
+      );
+      if (yaAccedido) {
+        tieneAcceso = true;
+      } else {
+        patronesUsados = await new Promise(r =>
+          db.get('SELECT COUNT(DISTINCT patron_id) as n FROM progreso WHERE user_id = ?', [userId], (_, row) => r(row?.n || 0))
+        );
+        if (patronesUsados < 3) {
+          tieneAcceso = true;
+        } else {
+          tieneAcceso = false;
+          errorAcceso = 'limite_free';
+        }
+      }
     }
 
     // Progreso del usuario
@@ -141,7 +142,9 @@ exports.detalle = async (req, res) => {
     res.json({
       patron,
       tieneAcceso,
-      esPreview,
+      errorAcceso,
+      patronesUsados,
+      esPreview: false,
       progreso
     });
 

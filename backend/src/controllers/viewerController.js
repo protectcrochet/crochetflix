@@ -3,8 +3,20 @@ const path = require('path');
 const fs = require('fs');
 const { execSync } = require('child_process');
 const crypto = require('crypto');
+const geoip = require('geoip-lite');
 
 const UPLOADS_DIR = path.join(__dirname, '../../uploads/patrones');
+
+function registrarVisita(patronId, userId, userTier, req) {
+  const ip = (req.headers['x-forwarded-for'] || req.ip || '').split(',')[0].trim();
+  const geo = ip ? geoip.lookup(ip) : null;
+  const pais = geo?.country || null;
+  const id = crypto.randomUUID();
+  db.run(
+    'INSERT INTO visitas (id, patron_id, user_id, user_tier, ip, pais) VALUES (?,?,?,?,?,?)',
+    [id, patronId, userId, userTier, ip, pais]
+  );
+}
 
 function convertirPDFLazy(patronId) {
   const outDir = path.join(UPLOADS_DIR, patronId);
@@ -70,48 +82,42 @@ exports.getPagina = async (req, res) => {
       return res.status(404).json({ error: 'Patrón no encontrado' });
     }
 
+    // ── Lógica de acceso ────────────────────────────────────────────────────
+    if (!userId) {
+      return res.status(401).json({ error: 'sin_registro' });
+    }
+
+    const userTier = req.userTier || 'free';
     let tieneAcceso = false;
 
-    // Verificar preview mensual
-    if (patron.es_preview) {
-      const mesActual = new Date().toISOString().slice(0, 7);
-      const previewUsado = await new Promise((resolve, reject) => {
-        db.get(
-          'SELECT * FROM preview_mensual WHERE user_id = ? AND mes_anio = ?',
-          [userId, mesActual],
-          (err, row) => {
-            if (err) reject(err);
-            resolve(row);
-          }
+    if (userTier === 'premium') {
+      tieneAcceso = true;
+    } else {
+      // Free: permitir hasta 3 patrones únicos
+      const yaAccedido = await new Promise(r =>
+        db.get('SELECT 1 FROM progreso WHERE user_id = ? AND patron_id = ?', [userId, patronId], (_, row) => r(row))
+      );
+      if (yaAccedido) {
+        tieneAcceso = true;
+      } else {
+        const cuenta = await new Promise(r =>
+          db.get('SELECT COUNT(DISTINCT patron_id) as n FROM progreso WHERE user_id = ?', [userId], (_, row) => r(row?.n || 0))
         );
-      });
-
-      if (!previewUsado) {
-        // Registrar uso de preview
-        await new Promise((resolve, reject) => {
-          db.run(
-            'INSERT OR REPLACE INTO preview_mensual (user_id, patron_id, mes_anio) VALUES (?, ?, ?)',
-            [userId, patronId, mesActual],
-            function(err) {
-              if (err) reject(err);
-              resolve();
-            }
-          );
-        });
-        tieneAcceso = true;
-      } else if (previewUsado.patron_id === patronId) {
-        tieneAcceso = true;
+        if (cuenta < 3) {
+          tieneAcceso = true;
+        } else {
+          registrarVisita(patronId, userId, userTier, req);
+          return res.status(403).json({ error: 'limite_free', patronesUsados: cuenta });
+        }
       }
     }
 
-    // Acceso libre para usuarios registrados (temporalmente sin suscripción requerida)
-    if (!tieneAcceso && userId) {
-      tieneAcceso = true;
+    if (!tieneAcceso) {
+      return res.status(403).json({ error: 'sin_acceso' });
     }
 
-    if (!tieneAcceso) {
-      return res.status(403).json({ error: 'Acceso denegado. Suscríbete para ver este patrón.' });
-    }
+    // Registrar visita (no bloquea)
+    registrarVisita(patronId, userId, userTier, req);
 
     // Buscar archivo de página
     let pagina = await new Promise((resolve, reject) => {

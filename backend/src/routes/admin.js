@@ -49,6 +49,7 @@ const uploadCSV = multer({
 router.use(adminAuth);
 
 router.get('/stats', adminController.stats);
+router.get('/analytics', adminController.analytics);
 router.post('/patrones/normalizar-categorias', adminController.normalizarCategorias);
 router.post('/patrones/extraer-metadatos', adminController.extraerDiseñadoras);
 router.get('/patrones', adminController.listarPatrones);
