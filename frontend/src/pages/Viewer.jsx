@@ -31,6 +31,8 @@ export default function Viewer() {
   const [patronesUsados, setPatronesUsados] = useState(0);
   const [moneda, setMoneda] = useState('USD');
   const [suscLoading, setSuscLoading] = useState(false);
+  const [referidos, setReferidos] = useState(null);
+  const [copiado, setCopiado] = useState(false);
   const [esPreview, setEsPreview] = useState(false);
   const [enMiLista, setEnMiLista] = useState(false);
   const [descargado, setDescargado] = useState(false);
@@ -91,6 +93,7 @@ export default function Viewer() {
       setDescargado(res.data.progreso.descargado_offline === 1);
       if (!res.data.tieneAcceso && res.data.errorAcceso === 'limite_free') {
         detectarMoneda().then(setMoneda);
+        api.get('/auth/referidos').then(r => setReferidos(r.data)).catch(() => {});
       }
     } catch (err) {
       setError(err.response?.data?.error || 'Error cargando patrón');
@@ -261,6 +264,34 @@ export default function Viewer() {
             {suscLoading ? <Loader className="w-5 h-5 animate-spin inline" /> : `Suscribirme por ${precio.mensual}/mes`}
           </button>
         </div>
+
+        {/* Referidos */}
+        {referidos && (
+          <div className="w-full bg-gray-800/60 border border-gray-700 rounded-2xl p-5 mb-4 text-left">
+            <p className="font-semibold text-sm text-white mb-1">🎁 ¿No quieres pagar? Invita amigas</p>
+            <p className="text-xs text-gray-400 mb-3">Por cada 3 amigas que se suscriban, ganas <strong className="text-white">1 mes Premium gratis</strong>.</p>
+            <div className="flex gap-1.5 mb-2">
+              {[1,2,3].map(n => (
+                <div key={n} className={`flex-1 h-1.5 rounded-full ${referidos.convertidos >= n ? 'bg-yellow-400' : 'bg-gray-600'}`} />
+              ))}
+            </div>
+            <p className="text-xs text-gray-500 mb-3">{referidos.convertidos}/3 amigas suscritas</p>
+            <div className="flex gap-2">
+              <div className="flex-1 bg-gray-700 rounded px-2 py-1.5 text-xs text-gray-300 font-mono truncate">
+                {window.location.origin}/register?ref={referidos.codigo}
+              </div>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/register?ref=${referidos.codigo}`);
+                  setCopiado(true);
+                  setTimeout(() => setCopiado(false), 2000);
+                }}
+                className={`px-3 py-1.5 rounded text-xs font-semibold transition shrink-0 ${copiado ? 'bg-green-600 text-white' : 'bg-crochet-primary hover:opacity-90 text-white'}`}>
+                {copiado ? '¡Copiado!' : 'Copiar'}
+              </button>
+            </div>
+          </div>
+        )}
 
         <p className="text-xs text-gray-600 mb-2">¿Ya eres premium? <button onClick={() => navigate('/perfil')} className="text-crochet-primary hover:underline">Revisa tu cuenta</button></p>
         <button onClick={() => navigate(-1)} className="text-sm text-gray-500 hover:text-gray-300">← Volver al catálogo</button>
