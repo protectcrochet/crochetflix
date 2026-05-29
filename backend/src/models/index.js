@@ -60,6 +60,9 @@ function initTables() {
     db.run(`ALTER TABLE patrones ADD COLUMN pdf_corrupto INTEGER DEFAULT 0`, () => {});
     db.run(`ALTER TABLE patrones ADD COLUMN hero_position TEXT DEFAULT '50% 30%'`, () => {});
 
+    // Migración: primer acceso para allowance mensual
+    db.run(`ALTER TABLE progreso ADD COLUMN primer_acceso TIMESTAMP`, () => {});
+
     // Páginas de patrones
     db.run(`CREATE TABLE IF NOT EXISTS paginas (
       id TEXT PRIMARY KEY,

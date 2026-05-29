@@ -213,7 +213,7 @@ export default function Viewer() {
     <div className="flex flex-col items-center justify-center min-h-96 px-4 py-12 text-center">
       <Lock className="w-16 h-16 text-gray-600 mb-4" />
       <h2 className="text-xl font-bold mb-2">Crea una cuenta gratis</h2>
-      <p className="text-gray-400 mb-1">Regístrate gratis y accede a tus primeros <strong className="text-white">3 patrones</strong> sin costo.</p>
+      <p className="text-gray-400 mb-1">Regístrate gratis: <strong className="text-white">3 patrones de prueba</strong> y luego <strong className="text-white">1 nuevo gratis cada mes</strong>.</p>
       <p className="text-gray-500 text-sm mb-6">No necesitas tarjeta de crédito.</p>
       <div className="flex gap-3 flex-wrap justify-center">
         <button onClick={() => navigate(`/register?redirect=/patron/${id}`)} className="btn-primary">Registrarme gratis</button>
@@ -224,6 +224,10 @@ export default function Viewer() {
 
   if (!tieneAcceso && errorAcceso === 'limite_free') {
     const precio = PRECIOS[moneda] || PRECIOS['USD'];
+    const now = new Date();
+    const primeroDeSiguiente = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const diasFalta = Math.ceil((primeroDeSiguiente - now) / (1000 * 60 * 60 * 24));
+    const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
     const suscribirse = async () => {
       setSuscLoading(true);
       try {
@@ -234,9 +238,12 @@ export default function Viewer() {
     return (
       <div className="flex flex-col items-center justify-center min-h-96 px-4 py-12 text-center max-w-md mx-auto">
         <Crown className="w-16 h-16 text-yellow-400 mb-4" />
-        <h2 className="text-2xl font-bold mb-2">Has visto tus 3 patrones gratuitos</h2>
-        <p className="text-gray-400 mb-6">
-          Para seguir explorando todos los patrones, activa tu suscripción Premium.
+        <h2 className="text-2xl font-bold mb-2">Ya usaste tu patrón gratis de este mes</h2>
+        <p className="text-gray-400 mb-1">
+          Con tu cuenta gratuita tienes <strong className="text-white">3 patrones de prueba</strong> y luego <strong className="text-white">1 patrón nuevo cada mes</strong>.
+        </p>
+        <p className="text-gray-500 text-sm mb-6">
+          Tu próximo patrón gratis se desbloquea en <strong className="text-white">{diasFalta} {diasFalta === 1 ? 'día' : 'días'}</strong> (1 de {meses[primeroDeSiguiente.getMonth()]}).
         </p>
 
         <div className="w-full bg-gray-800 border border-yellow-600/40 rounded-2xl p-6 mb-6">

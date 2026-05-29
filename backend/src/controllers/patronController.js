@@ -108,7 +108,7 @@ exports.detalle = async (req, res) => {
     } else if (req.userTier === 'premium') {
       tieneAcceso = true;
     } else {
-      // Free: permitir hasta 3 patrones únicos
+      // Free: 3 pruebas únicas, luego 1 patrón nuevo por mes
       const yaAccedido = await new Promise(r =>
         db.get('SELECT 1 FROM progreso WHERE user_id = ? AND patron_id = ?', [userId, id], (_, row) => r(row))
       );
@@ -121,8 +121,19 @@ exports.detalle = async (req, res) => {
         if (patronesUsados < 3) {
           tieneAcceso = true;
         } else {
-          tieneAcceso = false;
-          errorAcceso = 'limite_free';
+          const patronesMes = await new Promise(r =>
+            db.get(
+              `SELECT COUNT(DISTINCT patron_id) as n FROM progreso
+               WHERE user_id = ? AND strftime('%Y-%m', COALESCE(primer_acceso, ultimo_acceso)) = strftime('%Y-%m', 'now')`,
+              [userId], (_, row) => r(row?.n || 0)
+            )
+          );
+          if (patronesMes < 1) {
+            tieneAcceso = true;
+          } else {
+            tieneAcceso = false;
+            errorAcceso = 'limite_free';
+          }
         }
       }
     }

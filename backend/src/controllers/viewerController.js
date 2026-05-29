@@ -93,7 +93,7 @@ exports.getPagina = async (req, res) => {
     if (userTier === 'premium') {
       tieneAcceso = true;
     } else {
-      // Free: permitir hasta 3 patrones únicos
+      // Free: 3 pruebas únicas, luego 1 patrón nuevo por mes
       const yaAccedido = await new Promise(r =>
         db.get('SELECT 1 FROM progreso WHERE user_id = ? AND patron_id = ?', [userId, patronId], (_, row) => r(row))
       );
@@ -106,8 +106,19 @@ exports.getPagina = async (req, res) => {
         if (cuenta < 3) {
           tieneAcceso = true;
         } else {
-          registrarVisita(patronId, userId, userTier, req);
-          return res.status(403).json({ error: 'limite_free', patronesUsados: cuenta });
+          const patronesMes = await new Promise(r =>
+            db.get(
+              `SELECT COUNT(DISTINCT patron_id) as n FROM progreso
+               WHERE user_id = ? AND strftime('%Y-%m', COALESCE(primer_acceso, ultimo_acceso)) = strftime('%Y-%m', 'now')`,
+              [userId], (_, row) => r(row?.n || 0)
+            )
+          );
+          if (patronesMes < 1) {
+            tieneAcceso = true;
+          } else {
+            registrarVisita(patronId, userId, userTier, req);
+            return res.status(403).json({ error: 'limite_free', patronesUsados: cuenta, patronesMes });
+          }
         }
       }
     }
@@ -159,11 +170,11 @@ exports.getPagina = async (req, res) => {
       return res.status(404).json({ error: 'Archivo no encontrado' });
     }
 
-    // Actualizar progreso
+    // Actualizar progreso (primer_acceso solo se guarda en el INSERT, no en el UPDATE)
     await new Promise((resolve, reject) => {
       db.run(
-        `INSERT INTO progreso (user_id, patron_id, pagina_actual, ultimo_acceso)
-         VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+        `INSERT INTO progreso (user_id, patron_id, pagina_actual, primer_acceso, ultimo_acceso)
+         VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
          ON CONFLICT(user_id, patron_id) DO UPDATE SET
          pagina_actual = excluded.pagina_actual,
          ultimo_acceso = CURRENT_TIMESTAMP`,
@@ -200,8 +211,8 @@ exports.guardarProgreso = async (req, res) => {
 
     await new Promise((resolve, reject) => {
       db.run(
-        `INSERT INTO progreso (user_id, patron_id, pagina_actual, ultimo_acceso)
-         VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+        `INSERT INTO progreso (user_id, patron_id, pagina_actual, primer_acceso, ultimo_acceso)
+         VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
          ON CONFLICT(user_id, patron_id) DO UPDATE SET
          pagina_actual = excluded.pagina_actual,
          ultimo_acceso = CURRENT_TIMESTAMP`,
