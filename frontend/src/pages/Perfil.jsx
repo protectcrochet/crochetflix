@@ -269,6 +269,46 @@ export default function Perfil() {
           </div>
         </div>
       )}
+
+      {/* Sección referidos */}
+      {referidos && (
+        <div className="bg-gray-800 rounded-xl p-5 space-y-3 mt-6">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">🎁</span>
+            <div>
+              <h3 className="font-semibold text-sm">Invita amigos y gana Premium gratis</h3>
+              <p className="text-xs text-gray-400">Por cada 3 amigos que se suscriban, ganas 1 mes gratis</p>
+            </div>
+          </div>
+
+          {/* Progreso */}
+          <div className="flex items-center gap-3">
+            {[1, 2, 3].map(n => (
+              <div key={n} className={`flex-1 h-2 rounded-full ${referidos.convertidos >= n ? 'bg-yellow-400' : 'bg-gray-600'}`} />
+            ))}
+          </div>
+          <p className="text-xs text-gray-400">
+            {referidos.convertidos >= 3
+              ? '🎉 ¡Ya ganaste 1 mes gratis!'
+              : `${referidos.convertidos}/3 amigos suscritos`}
+          </p>
+
+          {/* Link */}
+          <div className="flex gap-2">
+            <div className="flex-1 bg-gray-700 rounded px-3 py-2 text-xs text-gray-300 font-mono truncate">
+              {window.location.origin}/register?ref={referidos.codigo}
+            </div>
+            <button
+              onClick={copiarLink}
+              className={`px-3 py-2 rounded text-xs font-semibold transition ${copiado ? 'bg-green-600 text-white' : 'bg-crochet-primary hover:opacity-90 text-white'}`}>
+              {copiado ? '¡Copiado!' : 'Copiar'}
+            </button>
+          </div>
+          <p className="text-xs text-gray-500">
+            Tienes {referidos.total} {referidos.total === 1 ? 'persona' : 'personas'} que usaron tu código
+          </p>
+        </div>
+      )}
     </div>
   );
 }
