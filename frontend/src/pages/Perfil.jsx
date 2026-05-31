@@ -6,7 +6,7 @@ import { Crown, Check, Clock, Loader, CreditCard, Settings, CheckCircle, XCircle
 import { PRECIOS, detectarMoneda } from '../utils/geoMoneda';
 
 export default function Perfil() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [moneda, setMoneda] = useState('USD');
@@ -24,6 +24,15 @@ export default function Perfil() {
       navigate('/login?redirect=/perfil', { replace: true });
     }
   }, [user, authLoading]);
+
+  // Refrescar usuario tras pago exitoso — el webhook puede tardar unos segundos
+  useEffect(() => {
+    if (pagoParam === 'exitoso') {
+      const t1 = setTimeout(() => refreshUser(), 3000);
+      const t2 = setTimeout(() => refreshUser(), 8000);
+      return () => { clearTimeout(t1); clearTimeout(t2); };
+    }
+  }, [pagoParam]);
 
   useEffect(() => {
     if (user) {
