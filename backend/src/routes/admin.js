@@ -86,6 +86,7 @@ router.delete('/patrones/:id', adminController.eliminarPatron);
 
 router.get('/usuarios', adminController.listarUsuarios);
 router.get('/usuarios/:id', adminController.verUsuario);
+router.patch('/usuarios/:id/tier', adminController.cambiarTierUsuario);
 router.delete('/usuarios/:id', adminController.eliminarUsuario);
 router.get('/dmca', dmcaController.listClaims);
 router.patch('/dmca/:id', dmcaController.updateClaim);

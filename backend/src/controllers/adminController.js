@@ -1315,3 +1315,24 @@ exports.eliminarUsuario = async (req, res) => {
     res.status(500).json({ error: 'Error interno' });
   }
 };
+
+exports.cambiarTierUsuario = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { tier } = req.body; // 'premium' | 'free'
+    if (!['premium', 'free'].includes(tier)) return res.status(400).json({ error: 'tier debe ser premium o free' });
+    const expires = tier === 'premium'
+      ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+      : null;
+    await new Promise((resolve, reject) => {
+      db.run(
+        `UPDATE users SET tier = ?, subscription_expires_at = ? WHERE id = ?`,
+        [tier, expires, id],
+        function(err) { if (err) reject(err); else resolve(); }
+      );
+    });
+    res.json({ tier, subscription_expires_at: expires });
+  } catch (err) {
+    res.status(500).json({ error: 'Error interno' });
+  }
+};

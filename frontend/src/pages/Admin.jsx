@@ -1409,7 +1409,22 @@ export default function Admin() {
                               : <span className="text-gray-600">—</span>
                             }
                           </td>
-                          <td className="px-4 py-2.5">
+                          <td className="px-4 py-2.5 flex gap-1">
+                            <button
+                              onClick={async () => {
+                                const nuevoTier = u.tier === 'premium' ? 'free' : 'premium';
+                                const msg = nuevoTier === 'premium'
+                                  ? `¿Activar Premium manual a ${u.email}? (30 días)`
+                                  : `¿Quitar Premium a ${u.email}?`;
+                                if (!confirm(msg)) return;
+                                try {
+                                  const res = await api.patch(`/admin/usuarios/${u.id}/tier`, { tier: nuevoTier }, { headers: authHeader });
+                                  setUsuarios(prev => prev.map(x => x.id === u.id ? { ...x, tier: res.data.tier, subscription_expires_at: res.data.subscription_expires_at } : x));
+                                } catch (err) { alert(err.response?.data?.error || 'Error'); }
+                              }}
+                              className={`transition p-1 text-sm ${u.tier === 'premium' ? 'text-yellow-500 hover:text-gray-400' : 'text-gray-600 hover:text-yellow-400'}`}
+                              title={u.tier === 'premium' ? 'Quitar Premium' : 'Activar Premium'}
+                            >{u.tier === 'premium' ? '⭐' : '☆'}</button>
                             <button
                               onClick={async () => {
                                 if (!confirm(`¿Eliminar a ${u.email}? Se borrarán todos sus datos.`)) return;
