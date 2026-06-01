@@ -1,3 +1,5 @@
+process.env.TZ = 'America/Mexico_City';
+
 const app = require('./src/app');
 
 const PORT = process.env.PORT || 3001;
