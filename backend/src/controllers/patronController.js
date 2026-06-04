@@ -187,22 +187,16 @@ exports.toggleMiLista = async (req, res) => {
         db.run(
           'DELETE FROM mi_lista WHERE user_id = ? AND patron_id = ?',
           [userId, patronId],
-          function(err) {
-            if (err) reject(err);
-            resolve();
-          }
+          function(err) { if (err) reject(err); else resolve(); }
         );
       });
       res.json({ agregado: false });
     } else {
       await new Promise((resolve, reject) => {
         db.run(
-          'INSERT INTO mi_lista (user_id, patron_id) VALUES (?, ?)',
+          'INSERT OR IGNORE INTO mi_lista (user_id, patron_id) VALUES (?, ?)',
           [userId, patronId],
-          function(err) {
-            if (err) reject(err);
-            resolve();
-          }
+          function(err) { if (err) reject(err); else resolve(); }
         );
       });
       res.json({ agregado: true });
