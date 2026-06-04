@@ -29,7 +29,7 @@ function PatronCardGrid({ patron }) {
       </div>
       <div className="mt-2 px-0.5">
         <h3 className="font-semibold text-sm line-clamp-2 leading-tight">{patron.titulo}</h3>
-        <p className="text-gray-400 text-xs mt-0.5 truncate">{patron.diseñadora || patron.autor}</p>
+        {(() => { const d = patron.diseñadora && patron.diseñadora !== 'N/A' ? patron.diseñadora : (patron.autor && !['Diseñadora','Telegram'].includes(patron.autor) ? patron.autor : null); return d ? <p className="text-gray-400 text-xs mt-0.5 truncate">{d}</p> : null; })()}
         <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
           <span className="capitalize">{patron.dificultad}</span>
           <span>·</span>

@@ -319,6 +319,7 @@ export default function Viewer() {
         <div className="text-center">
           <h1 className="font-semibold text-sm sm:text-base truncate max-w-xs sm:max-w-md">{patron?.titulo}</h1>
           <p className="text-xs text-gray-500">
+            {(() => { const d = patron?.diseñadora && patron.diseñadora !== 'N/A' ? patron.diseñadora : (patron?.autor && !['Diseñadora','Telegram'].includes(patron.autor) ? patron.autor : null); return d ? <span className="text-gray-400 mr-2">{d} ·</span> : null; })()}
             Página {paginaActual} de {totalPaginas}
             {esPreview && <span className="text-green-400 ml-2">GRATIS</span>}
           </p>
