@@ -111,6 +111,9 @@ exports.login = async (req, res) => {
       return res.status(401).json({ error: 'Credenciales inválidas' });
     }
 
+    // Registrar sesión
+    db.run(`UPDATE users SET last_login_at = CURRENT_TIMESTAMP, login_count = COALESCE(login_count, 0) + 1 WHERE id = ?`, [user.id]);
+
     // Generar JWT
     const token = jwt.sign(
       { userId: user.id, email: user.email, tier: user.tier },

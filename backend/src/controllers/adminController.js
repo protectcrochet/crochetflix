@@ -1251,6 +1251,7 @@ exports.listarUsuarios = async (req, res) => {
       db.all(
         `SELECT
            u.id, u.email, u.tier, u.created_at, u.subscription_expires_at,
+           u.last_login_at, COALESCE(u.login_count, 0) as login_count,
            COUNT(DISTINCT pr.patron_id) as patrones_abiertos,
            COUNT(DISTINCT ml.patron_id) as en_lista
          FROM users u

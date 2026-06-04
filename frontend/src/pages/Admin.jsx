@@ -1367,9 +1367,11 @@ export default function Admin() {
                       <tr className="border-b border-gray-700 text-left">
                         <th className="px-4 py-3 text-xs text-gray-400 font-semibold">Email</th>
                         <th className="px-4 py-3 text-xs text-gray-400 font-semibold">Plan</th>
-                        <th className="px-4 py-3 text-xs text-gray-400 font-semibold text-center">Patrones abiertos</th>
-                        <th className="px-4 py-3 text-xs text-gray-400 font-semibold text-center">En lista</th>
+                        <th className="px-4 py-3 text-xs text-gray-400 font-semibold text-center">Patrones</th>
+                        <th className="px-4 py-3 text-xs text-gray-400 font-semibold text-center">Lista</th>
                         <th className="px-4 py-3 text-xs text-gray-400 font-semibold">Registro</th>
+                        <th className="px-4 py-3 text-xs text-gray-400 font-semibold">Última sesión</th>
+                        <th className="px-4 py-3 text-xs text-gray-400 font-semibold text-center">Sesiones</th>
                         <th className="px-4 py-3 text-xs text-gray-400 font-semibold">Vence</th>
                       </tr>
                     </thead>
@@ -1401,6 +1403,8 @@ export default function Admin() {
                           </td>
                           <td className="px-4 py-2.5 text-center text-gray-400">{u.en_lista}</td>
                           <td className="px-4 py-2.5 text-gray-400 text-xs">{new Date(u.created_at).toLocaleDateString('es-MX')}</td>
+                          <td className="px-4 py-2.5 text-xs text-gray-400">{u.last_login_at ? new Date(u.last_login_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : <span className="text-gray-600">—</span>}</td>
+                          <td className="px-4 py-2.5 text-center text-gray-400">{u.login_count || 0}</td>
                           <td className="px-4 py-2.5 text-xs">
                             {u.subscription_expires_at
                               ? <span className={new Date(u.subscription_expires_at) > new Date() ? 'text-green-400' : 'text-red-400'}>

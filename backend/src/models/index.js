@@ -67,6 +67,10 @@ function initTables() {
     db.run(`ALTER TABLE users ADD COLUMN referral_code TEXT`, () => {});
     db.run(`ALTER TABLE users ADD COLUMN referred_by TEXT`, () => {});
 
+    // Migración: tracking de sesiones
+    db.run(`ALTER TABLE users ADD COLUMN last_login_at TIMESTAMP`, () => {});
+    db.run(`ALTER TABLE users ADD COLUMN login_count INTEGER DEFAULT 0`, () => {});
+
     db.run(`CREATE TABLE IF NOT EXISTS referidos (
       id TEXT PRIMARY KEY,
       referrer_id TEXT NOT NULL,
