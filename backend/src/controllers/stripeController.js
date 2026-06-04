@@ -29,7 +29,9 @@ async function getOrCreateCustomer(userId) {
 }
 
 async function activarPremium(userId, subscriptionId, periodEnd) {
-  const expiresAt = new Date(periodEnd * 1000).toISOString();
+  const expiresAt = periodEnd
+    ? new Date(periodEnd * 1000).toISOString()
+    : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
   await dbRun(
     `UPDATE users SET tier = 'premium', stripe_subscription_id = ?, subscription_expires_at = ? WHERE id = ?`,
     [subscriptionId, expiresAt, userId]
@@ -132,8 +134,10 @@ exports.webhook = async (req, res) => {
         const session = event.data.object;
         if (session.mode !== 'subscription') break;
         const userId = session.metadata?.userId;
-        if (!userId) break;
+        if (!userId) { console.log('[stripe] checkout.session.completed sin userId en metadata'); break; }
+        console.log(`[stripe] session.subscription=${session.subscription}`);
         const sub = await stripe.subscriptions.retrieve(session.subscription);
+        console.log(`[stripe] sub.status=${sub.status} sub.current_period_end=${sub.current_period_end}`);
         await activarPremium(userId, sub.id, sub.current_period_end);
         await verificarRecompensaReferido(userId);
         break;
