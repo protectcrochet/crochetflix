@@ -59,6 +59,7 @@ router.post('/patrones/reparar-thumbnails', adminController.repararThumbnails);
 router.post('/patrones/fix-autor', adminController.fixAutorTelegram);
 router.post('/patrones/extraer-metadatos-fondo', adminController.extraerMetadatosFondo);
 router.post('/patrones/extraer-metadatos-groq', adminController.extraerMetadatosGroqFondo);
+router.post('/patrones/extraer-metadatos-openai', adminController.extraerMetadatosOpenAIFondo);
 router.post('/patrones/categorizar-fondo', adminController.categorizarFondo);
 router.post('/patrones/categorizar', adminController.categorizarConIA);
 router.post('/patrones/importar', (req, res, next) => {

@@ -5,6 +5,7 @@ const { execSync } = require('child_process');
 const { v4: uuidv4 } = require('uuid');
 const Anthropic = require('@anthropic-ai/sdk');
 const Groq = require('groq-sdk');
+const OpenAI = require('openai');
 
 const UPLOADS_DIR = path.join(__dirname, '../../uploads/patrones');
 
@@ -12,9 +13,11 @@ const UPLOADS_DIR = path.join(__dirname, '../../uploads/patrones');
 let metadatosRunning = false;
 let categoriasRunning = false;
 let groqRunning = false;
+let openaiRunning = false;
 let metadatosProgreso = { actualizados: 0, restantes: null };
 let categoriasProgreso = { actualizados: 0, restantes: null };
 let groqProgreso = { actualizados: 0, restantes: null };
+let openaiProgreso = { actualizados: 0, restantes: null };
 
 // Convertir PDF a imágenes usando pdftoppm (poppler-utils)
 function convertirPDF(pdfPath, outputDir) {
@@ -669,6 +672,104 @@ exports.extraerMetadatosGroqFondo = async (req, res) => {
     .finally(() => { groqRunning = false; });
 };
 
+// ── Job en segundo plano: extracción de metadatos con OpenAI ────────────────
+async function _runExtraccionOpenAI(apiKey) {
+  const openai = new OpenAI({ apiKey });
+  const LOTE = 20;
+  let totalActualizados = 0;
+
+  const WHERE_PENDIENTE = `autor IN ('Telegram', 'Diseñadora') AND
+    (diseñadora IS NULL OR diseñadora = '' OR diseñadora = 'N/A' OR diseñadora = 'Diseñadora')`;
+
+  while (true) {
+    const pendientes = await new Promise((resolve, reject) => {
+      db.all(`SELECT id, titulo FROM patrones WHERE ${WHERE_PENDIENTE} LIMIT 60`,
+        [], (err, rows) => { if (err) reject(err); else resolve(rows); });
+    });
+    if (pendientes.length === 0) break;
+
+    const archivosFlat = fs.readdirSync(UPLOADS_DIR);
+
+    for (let i = 0; i < pendientes.length; i += LOTE) {
+      const lote = pendientes.slice(i, i + LOTE);
+      const datos = lote.map(p => {
+        const pdfPath = localizarPDF(p.id, archivosFlat);
+        const texto = pdfPath ? extraerTextoPDF(pdfPath) : '';
+        return { id: p.id, titulo: p.titulo, texto };
+      });
+
+      const prompt = `Analiza estos patrones de crochet. Extrae el nombre real del patrón y el nombre de la diseñadora leyendo el texto del PDF.
+
+Responde SOLO con un JSON array válido, sin texto adicional ni bloques de código markdown:
+[{"id":"...","titulo_limpio":"Nombre real","diseñadora":"Nombre o null","idioma":"es|en|pt|fr|de|it|otro"}]
+
+Reglas título: usa el nombre oficial del PDF (primera página), máx 80 caracteres. Si no hay título claro, mejora el actual quitando guiones bajos, hashes y sufijo "_pdf". Si el título es solo números o IDs de Telegram, ponlo como "Sin título".
+Reglas diseñadora: si aparece nombre de persona, marca, tienda o usuario → ponlo. Sin pistas → null. No pongas "Desconocida" ni descripciones.
+Reglas idioma: detecta el idioma del texto. PDF vacío → es por defecto.
+
+Patrones:
+${JSON.stringify(datos.map(d => ({ id: d.id, titulo_actual: d.titulo, texto_pdf: d.texto.slice(0, 800) })), null, 2)}`;
+
+      try {
+        const completion = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 2000,
+          temperature: 0.1,
+        });
+        const texto = completion.choices[0].message.content.trim();
+        const jsonStr = texto.startsWith('[') ? texto : texto.match(/\[[\s\S]*\]/)?.[0];
+        if (!jsonStr) throw new Error('Sin JSON en respuesta');
+        const resultados = JSON.parse(jsonStr);
+
+        for (const r of resultados) {
+          if (!r.id) continue;
+          const diseñadora = r.diseñadora && r.diseñadora !== 'null' ? r.diseñadora : 'N/A';
+          await new Promise((resolve, reject) => {
+            db.run(
+              `UPDATE patrones SET diseñadora = ?, titulo = COALESCE(NULLIF(?, ''), titulo), idioma = ? WHERE id = ?`,
+              [diseñadora, r.titulo_limpio?.trim() || null, r.idioma || 'es', r.id],
+              function(err) { if (err) reject(err); else { totalActualizados += this.changes; resolve(); } }
+            );
+          });
+        }
+        console.log(`[openai] Lote procesado: ${resultados.length} patrones`);
+      } catch (e) {
+        console.error('[openai] Error en lote:', e.message);
+        if (e.status === 429) {
+          console.log('[openai] Rate limit — esperando 20s...');
+          await new Promise(r => setTimeout(r, 20000));
+        }
+      }
+      await new Promise(r => setTimeout(r, 500));
+    }
+
+    const restantes = await new Promise(r => {
+      db.get(`SELECT COUNT(*) as n FROM patrones WHERE ${WHERE_PENDIENTE}`,
+        [], (_, row) => r(row?.n || 0));
+    });
+    openaiProgreso = { actualizados: totalActualizados, restantes };
+    console.log(`[openai] Ciclo completo — actualizados: ${totalActualizados}, restantes: ${restantes}`);
+  }
+
+  console.log(`[openai] Finalizado — ${totalActualizados} patrones actualizados`);
+  openaiProgreso = { actualizados: totalActualizados, restantes: 0 };
+}
+
+exports.extraerMetadatosOpenAIFondo = async (req, res) => {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return res.status(503).json({ error: 'Falta OPENAI_API_KEY en .env' });
+  if (openaiRunning) return res.json({ message: 'Ya está corriendo en el servidor', running: true, progreso: openaiProgreso });
+
+  openaiRunning = true;
+  openaiProgreso = { actualizados: 0, restantes: null };
+  res.json({ message: 'Extracción OpenAI iniciada. Puedes cerrar la laptop.', running: true });
+
+  _runExtraccionOpenAI(apiKey)
+    .catch(err => console.error('[openai] Error fatal:', err.message))
+    .finally(() => { openaiRunning = false; });
+};
+
 // ── Job en segundo plano: categorización con IA ─────────────────────────────
 async function _runCategorizacion(apiKey) {
   const anthropic = new Anthropic({ apiKey });
@@ -984,9 +1085,11 @@ exports.stats = async (req, res) => {
       metadatosRunning,
       categoriasRunning,
       groqRunning,
+      openaiRunning,
       metadatosProgreso,
       categoriasProgreso,
       groqProgreso,
+      openaiProgreso,
     });
   } catch (err) {
     res.status(500).json({ error: 'Error interno' });
