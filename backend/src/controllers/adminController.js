@@ -703,8 +703,8 @@ async function _runExtraccionOpenAI(apiKey) {
 Responde SOLO con un JSON array válido, sin texto adicional ni bloques de código markdown:
 [{"id":"...","titulo_limpio":"Nombre real","diseñadora":"Nombre o null","idioma":"es|en|pt|fr|de|it|otro"}]
 
-Reglas título: usa el nombre oficial del PDF (primera página), máx 80 caracteres. Si no hay título claro, mejora el actual quitando guiones bajos, hashes y sufijo "_pdf". Si el título es solo números o IDs de Telegram, ponlo como "Sin título".
-Reglas diseñadora: si aparece nombre de persona, marca, tienda o usuario → ponlo. Sin pistas → null. No pongas "Desconocida" ni descripciones.
+Reglas título: PRIMERO busca el nombre real del patrón en el texto del PDF (primera página). Si lo encuentras úsalo. Si el PDF no tiene título claro, limpia el título actual quitando guiones bajos, hashes, números de Telegram y sufijo "_pdf". Si después de limpiar queda solo números o texto sin sentido, pon "Sin título".
+Reglas diseñadora: PRIMERO busca el nombre en el texto del PDF (firma, marca de agua, créditos). Si lo encuentras úsalo. Sin pistas claras → null. No inventes ni pongas "Desconocida".
 Reglas idioma: detecta el idioma del texto. PDF vacío → es por defecto.
 
 Patrones:
