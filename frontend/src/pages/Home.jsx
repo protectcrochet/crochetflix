@@ -172,7 +172,6 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, [busqueda, buscar]);
 
-  const patronesNuevos = patrones.filter(p => p.es_preview === 0).slice(0, 10);
   const patronesPreview = patrones.filter(p => p.es_preview === 1);
 
   if (loading) return (
@@ -278,9 +277,8 @@ export default function Home() {
             </section>
           )}
 
-          <Carrusel titulo="✨ Descubre hoy" patrones={patronesAleatorios} />
           <Carrusel titulo="🔥 Tendencia" patrones={patronesTendencia} loop autoScroll />
-          <Carrusel titulo="🆕 Nuevos patrones" patrones={patronesNuevos} />
+          <Carrusel titulo="🆕 Nuevos patrones" patrones={patronesAleatorios} />
           <Carrusel titulo="🎁 Gratis este mes" patrones={patronesPreview} />
 
           {(!user || user.tier === 'free') && (

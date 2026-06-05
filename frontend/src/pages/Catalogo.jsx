@@ -60,7 +60,6 @@ export default function Catalogo() {
   const [totalPaginas, setTotalPaginas] = useState(1);
   const [loading, setLoading] = useState(true);
   const [cargandoMas, setCargandoMas] = useState(false);
-  const [aleatorios, setAleatorios] = useState([]);
 
   const [busqueda, setBusqueda] = useState('');
   const [busquedaFiltro, setBusquedaFiltro] = useState('');
@@ -82,17 +81,6 @@ export default function Catalogo() {
     setPage(1);
     cargar(1, true);
   }, [busquedaFiltro, categoria, dificultad, idioma, orden]);
-
-  useEffect(() => {
-    const horaKey = `aleatorio_cat_${new Date().toISOString().slice(0, 13)}`;
-    const cached = sessionStorage.getItem(horaKey);
-    if (cached) { setAleatorios(JSON.parse(cached)); return; }
-    api.get('/patrones', { params: { orden: 'aleatorio', limit: 20 } }).then(res => {
-      const data = res.data.patrones || [];
-      sessionStorage.setItem(horaKey, JSON.stringify(data));
-      setAleatorios(data);
-    }).catch(() => {});
-  }, []);
 
   const cargar = async (pagina, resetear = false) => {
     if (pagina === 1) setLoading(true); else setCargandoMas(true);
@@ -153,26 +141,6 @@ export default function Catalogo() {
           </button>
         )}
       </div>
-
-      {/* Descubre hoy */}
-      {aleatorios.length > 0 && !busquedaFiltro && (
-        <div className="mb-6">
-          <h2 className="text-base font-semibold mb-3">✨ Descubre hoy</h2>
-          <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
-            {aleatorios.map(p => (
-              <Link key={p.id} to={`/patron/${p.id}`} className="flex-none w-32 group">
-                <div className="relative aspect-[3/4] rounded-lg overflow-hidden bg-gray-800">
-                  <img src={p.thumbnail_path || ''} alt={p.titulo}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    loading="lazy" onError={e => { e.currentTarget.style.display = 'none'; }} />
-                  {p.es_preview === 1 && <div className="absolute top-1 left-1"><span className="bg-green-600 text-xs px-1.5 py-0.5 rounded font-bold">GRATIS</span></div>}
-                </div>
-                <p className="text-xs font-medium mt-1 line-clamp-2 leading-tight">{p.titulo}</p>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Filtros */}
       <div className="flex gap-3 mb-6 flex-wrap items-center">
