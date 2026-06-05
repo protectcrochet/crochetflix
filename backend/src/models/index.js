@@ -165,6 +165,16 @@ function initTables() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`);
 
+    // Traducciones (caché de patrones traducidos)
+    db.run(`CREATE TABLE IF NOT EXISTS traducciones (
+      id TEXT PRIMARY KEY,
+      patron_id TEXT NOT NULL,
+      idioma TEXT NOT NULL,
+      texto_traducido TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(patron_id, idioma)
+    )`);
+
     console.log('✅ Tablas inicializadas');
   });
 }

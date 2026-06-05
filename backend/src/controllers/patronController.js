@@ -1,4 +1,8 @@
 const db = require('../models');
+const crypto = require('crypto');
+
+const dbGet = (sql, params) => new Promise((res, rej) => db.get(sql, params, (err, row) => err ? rej(err) : res(row)));
+const dbRun = (sql, params) => new Promise((res, rej) => db.run(sql, params, function(err) { err ? rej(err) : res(this); }));
 
 // Listar patrones (con info de preview gratis)
 exports.listar = async (req, res) => {
@@ -206,5 +210,65 @@ exports.toggleMiLista = async (req, res) => {
   } catch (err) {
     console.error('Error toggle mi lista:', err);
     res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+// Traducir patrón (solo premium, con caché)
+exports.traducir = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { idioma } = req.body;
+
+    if (req.userTier !== 'premium') {
+      return res.status(403).json({ error: 'Solo disponible para usuarios premium' });
+    }
+
+    const IDIOMAS_VALIDOS = ['es', 'en', 'pt', 'ru', 'fr'];
+    if (!IDIOMAS_VALIDOS.includes(idioma)) {
+      return res.status(400).json({ error: 'Idioma no soportado' });
+    }
+
+    const patron = await dbGet('SELECT titulo, texto_pdf, idioma FROM patrones WHERE id = ? AND activo = 1', [id]);
+    if (!patron) return res.status(404).json({ error: 'Patrón no encontrado' });
+
+    if (patron.idioma === idioma) {
+      return res.json({ texto: patron.texto_pdf || '', cached: true, mismoIdioma: true });
+    }
+
+    const cached = await dbGet('SELECT texto_traducido FROM traducciones WHERE patron_id = ? AND idioma = ?', [id, idioma]);
+    if (cached) return res.json({ texto: cached.texto_traducido, cached: true });
+
+    if (!process.env.OPENAI_API_KEY) {
+      return res.status(503).json({ error: 'Servicio de traducción no disponible' });
+    }
+
+    const textoOriginal = (patron.texto_pdf || '').slice(0, 3000);
+    if (!textoOriginal.trim()) {
+      return res.status(400).json({ error: 'Este patrón no tiene texto disponible para traducir' });
+    }
+
+    const OpenAI = require('openai');
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const NOMBRES = { es: 'español', en: 'inglés', pt: 'portugués', ru: 'ruso', fr: 'francés' };
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{
+        role: 'user',
+        content: `Traduce el siguiente texto de un patrón de crochet al ${NOMBRES[idioma]}. Mantén los términos técnicos de crochet correctos en el idioma destino. Solo devuelve el texto traducido, sin explicaciones ni comentarios.\n\n${textoOriginal}`
+      }],
+      max_tokens: 2000,
+    });
+
+    const traduccion = completion.choices[0].message.content.trim();
+    const newId = crypto.randomBytes(8).toString('hex');
+    await dbRun('INSERT OR REPLACE INTO traducciones (id, patron_id, idioma, texto_traducido) VALUES (?, ?, ?, ?)',
+      [newId, id, idioma, traduccion]);
+
+    res.json({ texto: traduccion, cached: false });
+
+  } catch (err) {
+    console.error('Error traduciendo patrón:', err);
+    res.status(500).json({ error: 'Error al traducir' });
   }
 };

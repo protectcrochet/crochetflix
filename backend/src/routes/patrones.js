@@ -10,5 +10,6 @@ router.get('/:id', authOptional, patronController.detalle);
 
 // Protegido
 router.post('/mi-lista', authMiddleware, patronController.toggleMiLista);
+router.post('/:id/traducir', authMiddleware, patronController.traducir);
 
 module.exports = router;

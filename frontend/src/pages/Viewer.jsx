@@ -2,11 +2,19 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
-import { Crown } from 'lucide-react';
+import { Crown, Globe, X as XIcon } from 'lucide-react';
 import {
   ChevronLeft, ChevronRight, ZoomIn, ZoomOut,
   Download, Bookmark, Check, Lock, Loader
 } from 'lucide-react';
+
+const IDIOMAS_TRAD = [
+  { v: 'es', l: '🇪🇸 Español' },
+  { v: 'en', l: '🇺🇸 Inglés' },
+  { v: 'pt', l: '🇧🇷 Portugués' },
+  { v: 'ru', l: '🇷🇺 Ruso' },
+  { v: 'fr', l: '🇫🇷 Francés' },
+];
 import { PRECIOS, detectarMoneda } from '../utils/geoMoneda';
 
 export default function Viewer() {
@@ -37,6 +45,12 @@ export default function Viewer() {
   const [enMiLista, setEnMiLista] = useState(false);
   const [descargado, setDescargado] = useState(false);
   const [progreso, setProgreso] = useState({ pagina_actual: 1, completado: false });
+
+  const [tradPanel, setTradPanel] = useState(false);
+  const [idiomaTraduccion, setIdiomaTraduccion] = useState('es');
+  const [textoTraducido, setTextoTraducido] = useState('');
+  const [traduciendo, setTraduciendo] = useState(false);
+  const traduccionesCache = useRef({});
 
   // Touch refs
   const touchStartX = useRef(null);
@@ -187,6 +201,22 @@ export default function Viewer() {
     catch (err) { alert(err.response?.data?.error || 'Error'); }
   };
 
+  const traducir = async (idioma) => {
+    const key = `${id}_${idioma}`;
+    if (traduccionesCache.current[key]) { setTextoTraducido(traduccionesCache.current[key]); return; }
+    setTraduciendo(true);
+    setTextoTraducido('');
+    try {
+      const res = await api.post(`/patrones/${id}/traducir`, { idioma });
+      traduccionesCache.current[key] = res.data.texto;
+      setTextoTraducido(res.data.texto);
+    } catch (err) {
+      setTextoTraducido(`Error: ${err.response?.data?.error || 'No se pudo traducir'}`);
+    } finally {
+      setTraduciendo(false);
+    }
+  };
+
   const marcarCompletado = async () => {
     try { await api.post('/viewer/completar', { patronId: id }); setProgreso(p => ({ ...p, completado: true })); }
     catch (err) { console.error('Error:', err); }
@@ -325,6 +355,12 @@ export default function Viewer() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {user?.tier === 'premium' && (
+            <button onClick={() => setTradPanel(v => !v)} title="Traducir patrón"
+              className={`p-2 hover:bg-gray-800 rounded ${tradPanel ? 'text-crochet-primary' : ''}`}>
+              <Globe className="w-5 h-5" />
+            </button>
+          )}
           <button onClick={toggleMiLista} className="p-2 hover:bg-gray-800 rounded">
             <Bookmark className={`w-5 h-5 ${enMiLista ? 'fill-crochet-primary text-crochet-primary' : ''}`} />
           </button>
@@ -453,6 +489,33 @@ export default function Viewer() {
           )}
         </div>
       </div>
+
+      {/* Panel de traducción */}
+      {tradPanel && (
+        <div className="fixed inset-x-0 bottom-0 z-50 bg-gray-900 border-t border-gray-700 rounded-t-2xl shadow-2xl max-h-[60vh] flex flex-col">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 shrink-0">
+            <span className="font-semibold text-sm flex items-center gap-2"><Globe className="w-4 h-4 text-crochet-primary" /> Traducción del patrón</span>
+            <button onClick={() => setTradPanel(false)} className="p-1 hover:bg-gray-800 rounded"><XIcon className="w-4 h-4" /></button>
+          </div>
+          <div className="px-4 py-3 flex items-center gap-2 shrink-0 border-b border-gray-800">
+            <select value={idiomaTraduccion}
+              onChange={e => { setIdiomaTraduccion(e.target.value); setTextoTraducido(''); }}
+              className="bg-gray-800 border border-gray-700 rounded-full px-3 py-1.5 text-sm focus:outline-none">
+              {IDIOMAS_TRAD.map(i => <option key={i.v} value={i.v}>{i.l}</option>)}
+            </select>
+            <button onClick={() => traducir(idiomaTraduccion)} disabled={traduciendo}
+              className="btn-primary text-sm px-4 py-1.5 flex items-center gap-1 disabled:opacity-50">
+              {traduciendo ? <><Loader className="w-3 h-3 animate-spin" /> Traduciendo...</> : 'Traducir'}
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto px-4 py-3 text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">
+            {!textoTraducido && !traduciendo && (
+              <p className="text-gray-500 text-center py-6">Selecciona el idioma y presiona "Traducir"</p>
+            )}
+            {textoTraducido}
+          </div>
+        </div>
+      )}
 
       {/* Enlace DMCA flotante derecho */}
       <a
