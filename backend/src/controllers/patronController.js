@@ -45,6 +45,7 @@ exports.listar = async (req, res) => {
     switch (req.query.orden) {
       case 'az': sql += ' ORDER BY p.titulo ASC'; break;
       case 'paginas': sql += ' ORDER BY p.paginas DESC'; break;
+      case 'aleatorio': sql += ' ORDER BY RANDOM()'; break;
       default: sql += ' ORDER BY p.created_at DESC';
     }
 

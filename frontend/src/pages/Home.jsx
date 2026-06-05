@@ -114,13 +114,26 @@ export default function Home() {
   const [resultados, setResultados] = useState(null);
   const [buscando, setBuscando] = useState(false);
   const [continua, setContinua] = useState([]);
+  const [patronesAleatorios, setPatronesAleatorios] = useState([]);
 
-  useEffect(() => { cargarPatrones(); }, []);
+  useEffect(() => { cargarPatrones(); cargarAleatorios(); }, []);
 
   useEffect(() => {
     if (!user) { setContinua([]); return; }
     api.get('/auth/historial').then(r => setContinua(r.data.patrones || [])).catch(() => {});
   }, [user]);
+
+  const cargarAleatorios = async () => {
+    const horaKey = `aleatorio_${new Date().toISOString().slice(0, 13)}`;
+    const cached = sessionStorage.getItem(horaKey);
+    if (cached) { setPatronesAleatorios(JSON.parse(cached)); return; }
+    try {
+      const res = await api.get('/patrones', { params: { orden: 'aleatorio', limit: 20 } });
+      const data = res.data.patrones || [];
+      sessionStorage.setItem(horaKey, JSON.stringify(data));
+      setPatronesAleatorios(data);
+    } catch {}
+  };
 
   const cargarPatrones = async () => {
     try {
@@ -265,6 +278,7 @@ export default function Home() {
             </section>
           )}
 
+          <Carrusel titulo="✨ Descubre hoy" patrones={patronesAleatorios} />
           <Carrusel titulo="🔥 Tendencia" patrones={patronesTendencia} loop autoScroll />
           <Carrusel titulo="🆕 Nuevos patrones" patrones={patronesNuevos} />
           <Carrusel titulo="🎁 Gratis este mes" patrones={patronesPreview} />
