@@ -124,7 +124,9 @@ export default function Home() {
   }, [user]);
 
   const cargarAleatorios = async () => {
-    const horaKey = `aleatorio_${new Date().toISOString().slice(0, 13)}`;
+    const mx = new Date(Date.now() - 6 * 60 * 60 * 1000);
+    const slot = `${mx.toISOString().slice(0, 10)}_${mx.getUTCHours() >= 15 ? 'tarde' : 'manana'}`;
+    const horaKey = `aleatorio_${slot}`;
     const cached = sessionStorage.getItem(horaKey);
     if (cached) { setPatronesAleatorios(JSON.parse(cached)); return; }
     try {
