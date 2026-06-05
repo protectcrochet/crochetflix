@@ -84,9 +84,7 @@ export default function Catalogo() {
   }, [busquedaFiltro, categoria, dificultad, idioma, orden]);
 
   useEffect(() => {
-    const mx = new Date(Date.now() - 6 * 60 * 60 * 1000);
-    const slot = `${mx.toISOString().slice(0, 10)}_${mx.getUTCHours() >= 15 ? 'tarde' : 'manana'}`;
-    const horaKey = `aleatorio_cat_${slot}`;
+    const horaKey = `aleatorio_cat_${new Date().toISOString().slice(0, 13)}`;
     const cached = sessionStorage.getItem(horaKey);
     if (cached) { setAleatorios(JSON.parse(cached)); return; }
     api.get('/patrones', { params: { orden: 'aleatorio', limit: 20 } }).then(res => {
