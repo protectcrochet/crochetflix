@@ -6,7 +6,7 @@ import { Search, X, ChevronLeft } from 'lucide-react';
 const CATEGORIAS = ['todas', 'amigurumi', 'ropa', 'accesorios', 'decoracion', 'hogar', 'navidad', 'halloween', 'animales', 'general', 'otro'];
 const DIFICULTADES = ['todas', 'principiante', 'intermedio', 'avanzado'];
 const IDIOMAS = [{ v: '', l: 'Todos' }, { v: 'es', l: '🇪🇸 Español' }, { v: 'en', l: '🇺🇸 Inglés' }, { v: 'pt', l: '🇧🇷 Portugués' }, { v: 'fr', l: '🇫🇷 Francés' }, { v: 'de', l: '🇩🇪 Alemán' }, { v: 'it', l: '🇮🇹 Italiano' }];
-const ORDENES = [{ v: 'recientes', l: 'Más recientes' }, { v: 'az', l: 'A–Z' }, { v: 'paginas', l: 'Más páginas' }];
+const ORDENES = [{ v: 'aleatorio', l: 'Descubrir' }, { v: 'recientes', l: 'Más recientes' }, { v: 'az', l: 'A–Z' }, { v: 'paginas', l: 'Más páginas' }];
 const POR_PAGINA = 24;
 
 function PatronCardGrid({ patron }) {
@@ -68,7 +68,7 @@ export default function Catalogo() {
   const [categoria, setCategoria] = useState('todas');
   const [dificultad, setDificultad] = useState('todas');
   const [idioma, setIdioma] = useState('');
-  const [orden, setOrden] = useState('recientes');
+  const [orden, setOrden] = useState('aleatorio');
 
   const handleBusqueda = (valor) => {
     setBusqueda(valor);
