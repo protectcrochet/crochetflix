@@ -1,7 +1,9 @@
 const db = require('../models');
 const path = require('path');
 const fs = require('fs');
-const { execSync } = require('child_process');
+const os = require('os');
+const crypto = require('crypto');
+const { execSync, exec } = require('child_process');
 const { v4: uuidv4 } = require('uuid');
 const Anthropic = require('@anthropic-ai/sdk');
 const Groq = require('groq-sdk');
@@ -484,7 +486,7 @@ async function _runExtraccionMetadatos(apiKey) {
       const lote = pendientes.slice(i, i + LOTE);
       const datos = lote.map(p => {
         const pdfPath = localizarPDF(p.id, archivosFlat);
-        const texto = pdfPath ? extraerTextoPDF(pdfPath) : '';
+        const texto = pdfPath ? await extraerTextoPDF(pdfPath) : '';
         return { id: p.id, titulo: p.titulo, texto };
       });
 
@@ -588,7 +590,7 @@ async function _runExtraccionGroq(apiKey) {
       const lote = pendientes.slice(i, i + LOTE);
       const datos = lote.map(p => {
         const pdfPath = localizarPDF(p.id, archivosFlat);
-        const texto = pdfPath ? extraerTextoPDF(pdfPath) : '';
+        const texto = pdfPath ? await extraerTextoPDF(pdfPath) : '';
         return { id: p.id, titulo: p.titulo, texto };
       });
 
@@ -709,7 +711,7 @@ async function _runExtraccionOpenAI(apiKey, force = false) {
       const lote = pendientes.slice(i, i + LOTE);
       const datos = lote.map(p => {
         const pdfPath = localizarPDF(p.id, archivosFlat);
-        const texto = pdfPath ? extraerTextoPDF(pdfPath) : '';
+        const texto = pdfPath ? await extraerTextoPDF(pdfPath) : '';
         return { id: p.id, titulo: p.titulo, texto };
       });
 
@@ -890,10 +892,28 @@ exports.normalizarCategorias = async (req, res) => {
 };
 
 // Extrae texto de las primeras 2 páginas de un PDF
-function extraerTextoPDF(pdfPath) {
+function runCmd(cmd, timeout) {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error('timeout')), timeout);
+    exec(cmd, (err, stdout) => { clearTimeout(t); err ? reject(err) : resolve(stdout); });
+  });
+}
+
+async function extraerTextoPDF(pdfPath) {
   try {
-    const texto = execSync(`pdftotext -f 1 -l 2 "${pdfPath}" -`, { timeout: 15000 }).toString();
-    return texto.slice(0, 1500).trim();
+    const texto = execSync(`pdftotext -f 1 -l 2 "${pdfPath}" -`, { timeout: 15000 }).toString().trim();
+    if (texto) return texto.slice(0, 1500);
+    // PDF escaneado — intentar OCR en página 1
+    const tmpId = crypto.randomBytes(6).toString('hex');
+    const tmpImg = path.join(os.tmpdir(), `crfl_adm_${tmpId}`);
+    await runCmd(`pdftoppm -f 1 -l 1 -r 150 "${pdfPath}" "${tmpImg}"`, 25000);
+    const imgs = fs.readdirSync(os.tmpdir()).filter(f => f.startsWith(`crfl_adm_${tmpId}`) && !f.endsWith('.txt'));
+    if (!imgs.length) return '';
+    const imgPath = path.join(os.tmpdir(), imgs[0]);
+    await runCmd(`tesseract "${imgPath}" "${tmpImg}_out" -l spa+eng --oem 3 --psm 6`, 45000);
+    const ocr = fs.readFileSync(`${tmpImg}_out.txt`, 'utf8').trim();
+    try { fs.unlinkSync(imgPath); fs.unlinkSync(`${tmpImg}_out.txt`); } catch {}
+    return ocr.slice(0, 1500);
   } catch {
     return '';
   }
@@ -942,7 +962,7 @@ exports.extraerDiseñadoras = async (req, res) => {
       // Extraer texto PDF de cada patrón del lote
       const datos = lote.map(p => {
         const pdfPath = localizarPDF(p.id, archivosFlat);
-        const texto = pdfPath ? extraerTextoPDF(pdfPath) : '';
+        const texto = pdfPath ? await extraerTextoPDF(pdfPath) : '';
         return { id: p.id, titulo: p.titulo, texto };
       });
 
