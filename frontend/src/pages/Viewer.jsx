@@ -75,7 +75,7 @@ export default function Viewer() {
   const [progreso, setProgreso] = useState({ pagina_actual: 1, completado: false });
 
   const [tradPanel, setTradPanel] = useState(false);
-  const [idiomaTraduccion, setIdiomaTraduccion] = useState('es');
+  const [idiomaTraduccion, setIdiomaTraduccion] = useState(null);
   const [textoTraducido, setTextoTraducido] = useState('');
   const [traduciendo, setTraduciendo] = useState(false);
   const traduccionesCache = useRef({});
@@ -514,7 +514,7 @@ export default function Viewer() {
           {user?.tier === 'premium' && (
             <>
               <div className="w-px h-6 bg-gray-700 mx-2" />
-              <button onClick={() => { setTradPanel(v => !v); setTextoTraducido(''); }}
+              <button onClick={() => { setTradPanel(v => !v); setTextoTraducido(''); setIdiomaTraduccion(null); }}
                 className={`text-sm px-3 py-1 rounded-full border transition ${tradPanel ? 'border-crochet-primary text-crochet-primary' : 'border-gray-600 text-gray-400 hover:border-gray-400'}`}>
                 Traducir
               </button>
@@ -551,13 +551,18 @@ export default function Viewer() {
               <XIcon className="w-4 h-4" />
             </button>
           </div>
-          <div className="flex justify-center gap-5 px-4 pb-4 shrink-0">
-            {IDIOMAS_TRAD.map(i => (
-              <button key={i.v} onClick={() => { setIdiomaTraduccion(i.v); traducir(i.v, paginaActual); }}
-                className={`text-3xl transition-transform hover:scale-110 active:scale-95 ${idiomaTraduccion === i.v && textoTraducido ? 'opacity-100 scale-110' : 'opacity-60'}`}>
-                {i.flag}
-              </button>
-            ))}
+          <div className="flex flex-col items-center gap-2 px-4 pb-3 shrink-0">
+            {!idiomaTraduccion && (
+              <p className="text-xs text-gray-500">¿A qué idioma traducimos esta página?</p>
+            )}
+            <div className="flex justify-center gap-5">
+              {IDIOMAS_TRAD.map(i => (
+                <button key={i.v} onClick={() => { setIdiomaTraduccion(i.v); traducir(i.v, paginaActual); }}
+                  className={`text-3xl transition-transform hover:scale-110 active:scale-95 ${idiomaTraduccion === i.v ? 'opacity-100 scale-110' : 'opacity-50'}`}>
+                  {i.flag}
+                </button>
+              ))}
+            </div>
           </div>
           {(traduciendo || textoTraducido) && (
             <div className="flex-1 overflow-y-auto px-4 pb-6 border-t border-gray-800 pt-3">
