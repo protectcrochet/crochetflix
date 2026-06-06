@@ -484,14 +484,12 @@ async function _runExtraccionMetadatos(apiKey) {
 
     for (let i = 0; i < pendientes.length; i += LOTE) {
       const lote = pendientes.slice(i, i + LOTE);
-      const datos = lote.map(p => {
+      const datos = await Promise.all(lote.map(async p => {
         const pdfPath = localizarPDF(p.id, archivosFlat);
         const texto = pdfPath ? await extraerTextoPDF(pdfPath) : '';
         return { id: p.id, titulo: p.titulo, texto };
-      });
+      }));
 
-      try {
-        const msg = await anthropic.messages.create({
           model: 'claude-haiku-4-5-20251001',
           max_tokens: 1500,
           messages: [{ role: 'user', content: `Analiza estos patrones de crochet. Extrae el nombre real del patrón y el nombre de la diseñadora/diseñador leyendo el contenido del PDF.
@@ -588,11 +586,11 @@ async function _runExtraccionGroq(apiKey) {
 
     for (let i = 0; i < pendientes.length; i += LOTE) {
       const lote = pendientes.slice(i, i + LOTE);
-      const datos = lote.map(p => {
+      const datos = await Promise.all(lote.map(async p => {
         const pdfPath = localizarPDF(p.id, archivosFlat);
         const texto = pdfPath ? await extraerTextoPDF(pdfPath) : '';
         return { id: p.id, titulo: p.titulo, texto };
-      });
+      }));
 
       const prompt = `Analiza estos patrones de crochet. Extrae el nombre real del patrón y el nombre de la diseñadora leyendo el texto del PDF.
 
@@ -709,11 +707,11 @@ async function _runExtraccionOpenAI(apiKey, force = false) {
 
     for (let i = 0; i < pendientes.length; i += LOTE) {
       const lote = pendientes.slice(i, i + LOTE);
-      const datos = lote.map(p => {
+      const datos = await Promise.all(lote.map(async p => {
         const pdfPath = localizarPDF(p.id, archivosFlat);
         const texto = pdfPath ? await extraerTextoPDF(pdfPath) : '';
         return { id: p.id, titulo: p.titulo, texto };
-      });
+      }));
 
       const prompt = `Analiza estos patrones de crochet. Extrae el nombre real del patrón y el nombre de la diseñadora leyendo el texto del PDF.
 
@@ -960,11 +958,11 @@ exports.extraerDiseñadoras = async (req, res) => {
       const lote = pendientes.slice(i, i + LOTE);
 
       // Extraer texto PDF de cada patrón del lote
-      const datos = lote.map(p => {
+      const datos = await Promise.all(lote.map(async p => {
         const pdfPath = localizarPDF(p.id, archivosFlat);
         const texto = pdfPath ? await extraerTextoPDF(pdfPath) : '';
         return { id: p.id, titulo: p.titulo, texto };
-      });
+      }));
 
       const msg = await anthropic.messages.create({
         model: 'claude-haiku-4-5-20251001',
