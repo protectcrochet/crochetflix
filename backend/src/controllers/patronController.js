@@ -291,7 +291,17 @@ exports.traducir = async (req, res) => {
       model: 'llama-3.1-8b-instant',
       messages: [{
         role: 'user',
-        content: `Traduce el siguiente texto de una página de patrón de crochet al ${NOMBRES[idioma]}. Usa la terminología correcta de crochet. Conserva el formato y la numeración. Solo devuelve el texto traducido, sin explicaciones.\n\n${textoOriginal}`
+        content: `Traduce el siguiente texto de una página de patrón de crochet al ${NOMBRES[idioma]}. Conserva el formato y la numeración. Solo devuelve el texto traducido, sin explicaciones.
+
+Usa SIEMPRE las abreviaturas oficiales de crochet en ${NOMBRES[idioma]}:
+${idioma === 'es' ? `sc→pb, dc→pa, hdc→mp, tr→ptr, sl st→pd, ch→cad, inc→aum, dec→dism, sc2tog→pb2jun, dc2tog→pa2jun, BLO→hta, FLO→hte, MR→am, rnd→vta, rep→rep, st→p, sp→esp, yo→hp` :
+  idioma === 'en' ? `pb→sc, pa→dc, mp→hdc, ptr→tr, pd→sl st, cad→ch, aum→inc, dism→dec, hta→BLO, hte→FLO, am→MR, vta→rnd` :
+  idioma === 'pt' ? `sc→pb, dc→pa, hdc→mpp, tr→tpp, sl st→corr, ch→cad, inc→aum, dec→dim, rnd→vol, st→p` :
+  idioma === 'fr' ? `sc→ms, dc→bs, hdc→demi-bs, tr→bs long, sl st→mc, ch→ml, inc→aug, dec→dim, rnd→rg, st→m` :
+  idioma === 'ru' ? `sc→сбн, dc→стн, hdc→ссн, tr→стн с накидом, sl st→сс, ch→вп, inc→прибавка, dec→убавка, rnd→ряд` : ''}
+
+Texto:
+${textoOriginal}`
       }],
       max_tokens: 1500,
     });

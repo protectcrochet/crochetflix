@@ -500,7 +500,7 @@ export default function Viewer() {
 
       {/* Panel de traducción */}
       {tradPanel && (
-        <div className="fixed inset-x-0 bottom-0 z-50 bg-gray-900 border-t border-gray-700 rounded-t-2xl shadow-2xl max-h-[75vh] flex flex-col">
+        <div className="fixed inset-x-0 bottom-0 z-50 bg-gray-900 border-t border-gray-700 rounded-t-2xl shadow-2xl h-[42vh] flex flex-col">
           <div className="flex items-center justify-between px-4 py-3 shrink-0">
             <button onClick={() => setPaginaActual(p => Math.max(1, p - 1))} disabled={paginaActual === 1}
               className="p-2 hover:bg-gray-800 rounded disabled:opacity-30">
