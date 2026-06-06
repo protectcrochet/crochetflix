@@ -496,9 +496,9 @@ export default function Viewer() {
 
       {/* Panel de traducción */}
       {tradPanel && (
-        <div className="fixed inset-x-0 bottom-0 z-50 bg-gray-900 border-t border-gray-700 rounded-t-2xl shadow-2xl max-h-[60vh] flex flex-col">
+        <div className="fixed inset-x-0 bottom-0 z-50 bg-gray-900 border-t border-gray-700 rounded-t-2xl shadow-2xl max-h-[75vh] flex flex-col">
           <div className="flex items-center justify-between px-4 py-3 shrink-0">
-            <span className="text-sm font-semibold text-gray-300">Elige el idioma</span>
+            <span className="text-sm font-semibold text-gray-300">Traducir patrón</span>
             <button onClick={() => setTradPanel(false)} className="p-1 hover:bg-gray-800 rounded">
               <XIcon className="w-4 h-4" />
             </button>
@@ -506,16 +506,43 @@ export default function Viewer() {
           <div className="flex justify-center gap-5 px-4 pb-4 shrink-0">
             {IDIOMAS_TRAD.map(i => (
               <button key={i.v} onClick={() => { setIdiomaTraduccion(i.v); traducir(i.v); }}
-                className={`text-3xl transition-transform hover:scale-110 active:scale-95 ${idiomaTraduccion === i.v && textoTraducido ? 'ring-2 ring-crochet-primary rounded-full' : ''}`}>
+                className={`text-3xl transition-transform hover:scale-110 active:scale-95 ${idiomaTraduccion === i.v && textoTraducido ? 'opacity-100 scale-110' : 'opacity-60'}`}>
                 {i.flag}
               </button>
             ))}
           </div>
           {(traduciendo || textoTraducido) && (
-            <div className="flex-1 overflow-y-auto px-4 pb-4 text-sm text-gray-300 leading-relaxed whitespace-pre-wrap border-t border-gray-800 pt-3">
-              {traduciendo
-                ? <div className="flex items-center gap-2 text-gray-500 py-4 justify-center"><Loader className="w-4 h-4 animate-spin" /> Traduciendo...</div>
-                : textoTraducido}
+            <div className="flex-1 overflow-y-auto px-4 pb-6 border-t border-gray-800 pt-4">
+              {traduciendo ? (
+                <div className="flex items-center gap-2 text-gray-500 py-8 justify-center">
+                  <Loader className="w-4 h-4 animate-spin" /> Traduciendo...
+                </div>
+              ) : (() => {
+                try {
+                  const data = JSON.parse(textoTraducido);
+                  const secciones = [
+                    { key: 'materiales', icon: '🧶', titulo: 'Materiales' },
+                    { key: 'talla', icon: '📐', titulo: 'Talla / Medidas' },
+                    { key: 'abreviaturas', icon: '📖', titulo: 'Abreviaturas' },
+                    { key: 'instrucciones', icon: '📋', titulo: 'Instrucciones' },
+                    { key: 'notas', icon: '💡', titulo: 'Notas' },
+                  ];
+                  return (
+                    <div className="space-y-3">
+                      {secciones.filter(s => data[s.key]).map(s => (
+                        <div key={s.key} className="bg-gray-800 rounded-xl p-4">
+                          <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">
+                            {s.icon} {s.titulo}
+                          </p>
+                          <p className="text-sm text-gray-200 leading-relaxed whitespace-pre-wrap">{data[s.key]}</p>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                } catch {
+                  return <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">{textoTraducido}</p>;
+                }
+              })()}
             </div>
           )}
         </div>

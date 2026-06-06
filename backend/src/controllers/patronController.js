@@ -285,12 +285,32 @@ exports.traducir = async (req, res) => {
       model: 'llama-3.1-8b-instant',
       messages: [{
         role: 'user',
-        content: `Traduce el siguiente texto de un patrón de crochet al ${NOMBRES[idioma]}. Mantén los términos técnicos de crochet correctos en el idioma destino. Solo devuelve el texto traducido, sin explicaciones ni comentarios.\n\n${textoOriginal}`
+        content: `Eres un asistente experto en patrones de crochet. Analiza este texto extraído de un patrón PDF y devuelve SOLO un JSON válido, sin explicaciones ni texto adicional.
+
+Instrucciones:
+- Ignora avisos de copyright, índices, créditos y texto administrativo
+- Traduce el contenido útil al ${NOMBRES[idioma]}
+- Usa terminología correcta de crochet en ${NOMBRES[idioma]}
+- Si una sección no aparece en el texto, omite esa clave del JSON
+
+Formato de respuesta (JSON puro):
+{
+  "materiales": "hilo, aguja, relleno y otros materiales necesarios",
+  "talla": "medidas o talla del resultado final",
+  "abreviaturas": "lista de puntos y abreviaturas usados",
+  "instrucciones": "pasos del patrón numerados o por sección",
+  "notas": "consejos o notas adicionales del diseñador"
+}
+
+Texto del patrón:
+${textoOriginal}`
       }],
       max_tokens: 2000,
     });
 
-    const traduccion = completion.choices[0].message.content.trim();
+    let traduccion = completion.choices[0].message.content.trim();
+    // Limpiar markdown si Groq lo envuelve en ```json
+    traduccion = traduccion.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
     const newId = crypto.randomBytes(8).toString('hex');
     await dbRun('INSERT OR REPLACE INTO traducciones (id, patron_id, idioma, texto_traducido) VALUES (?, ?, ?, ?)',
       [newId, id, idioma, traduccion]);
