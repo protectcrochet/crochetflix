@@ -3,7 +3,7 @@ import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
 import Carrusel from '../components/Carrusel';
 import PatronCard from '../components/PatronCard';
-import { Play, Crown, Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Play, Crown, Search, X, ChevronLeft, ChevronRight, Globe } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 function HeroCarrusel({ patrones }) {
@@ -115,8 +115,15 @@ export default function Home() {
   const [buscando, setBuscando] = useState(false);
   const [continua, setContinua] = useState([]);
   const [patronesAleatorios, setPatronesAleatorios] = useState([]);
+  const [popupTraduccion, setPopupTraduccion] = useState(false);
 
   useEffect(() => { cargarPatrones(); cargarAleatorios(); }, []);
+
+  useEffect(() => {
+    if (user && user.tier === 'free' && !sessionStorage.getItem('popup_trad_visto')) {
+      setTimeout(() => setPopupTraduccion(true), 1500);
+    }
+  }, [user]);
 
   useEffect(() => {
     if (!user) { setContinua([]); return; }
@@ -298,6 +305,50 @@ export default function Home() {
             </section>
           )}
         </>
+      )}
+
+      {/* Popup nueva función: traducción */}
+      {popupTraduccion && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-gray-900 border border-gray-700 rounded-2xl max-w-sm w-full p-6 relative shadow-2xl">
+            <button
+              onClick={() => { setPopupTraduccion(false); sessionStorage.setItem('popup_trad_visto', '1'); }}
+              className="absolute top-4 right-4 text-gray-500 hover:text-white transition">
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center justify-center w-12 h-12 rounded-full bg-crochet-primary/20 mb-4">
+              <Globe className="w-6 h-6 text-crochet-primary" />
+            </div>
+
+            <h2 className="text-lg font-bold mb-2">¡Teje sin barreras!</h2>
+            <p className="text-gray-400 text-sm leading-relaxed mb-4">
+              Con <strong className="text-white">Premium</strong> puedes traducir cualquier patrón a tu idioma — página por página, con la terminología correcta de crochet.
+            </p>
+
+            <div className="flex gap-3 text-2xl justify-center mb-5">
+              🇪🇸 🇺🇸 🇧🇷 🇫🇷 🇷🇺
+            </div>
+
+            <ul className="text-xs text-gray-400 space-y-1.5 mb-5">
+              <li>✓ Traducción automática página por página</li>
+              <li>✓ Abreviaturas en tu idioma (pb, pa, aum, dism…)</li>
+              <li>✓ 5 patrones nuevos por semana incluidos</li>
+            </ul>
+
+            <Link to="/perfil"
+              onClick={() => { setPopupTraduccion(false); sessionStorage.setItem('popup_trad_visto', '1'); }}
+              className="btn-primary w-full text-center block py-3 font-semibold">
+              Suscribirme ahora
+            </Link>
+
+            <button
+              onClick={() => { setPopupTraduccion(false); sessionStorage.setItem('popup_trad_visto', '1'); }}
+              className="w-full text-center text-xs text-gray-600 hover:text-gray-400 mt-3 transition">
+              Ahora no
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
