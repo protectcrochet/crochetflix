@@ -120,7 +120,7 @@ export default function Home() {
   useEffect(() => { cargarPatrones(); cargarAleatorios(); }, []);
 
   useEffect(() => {
-    if (user && user.tier === 'free' && !sessionStorage.getItem('popup_trad_visto')) {
+    if (user && !sessionStorage.getItem('popup_trad_visto')) {
       setTimeout(() => setPopupTraduccion(true), 1500);
     }
   }, [user]);
@@ -323,7 +323,10 @@ export default function Home() {
 
             <h2 className="text-lg font-bold mb-2">¡Teje sin barreras!</h2>
             <p className="text-gray-400 text-sm leading-relaxed mb-4">
-              Con <strong className="text-white">Premium</strong> puedes traducir cualquier patrón a tu idioma — página por página, con la terminología correcta de crochet.
+              {user?.tier === 'premium'
+                ? <>¡Ya tienes esta función activa! Abre cualquier patrón, toca <strong className="text-white">Traducir</strong> y elige tu idioma.</>
+                : <>Con <strong className="text-white">Premium</strong> puedes traducir cualquier patrón a tu idioma — página por página, con la terminología correcta de crochet.</>
+              }
             </p>
 
             <div className="flex gap-3 text-2xl justify-center mb-5">
@@ -333,19 +336,27 @@ export default function Home() {
             <ul className="text-xs text-gray-400 space-y-1.5 mb-5">
               <li>✓ Traducción automática página por página</li>
               <li>✓ Abreviaturas en tu idioma (pb, pa, aum, dism…)</li>
-              <li>✓ 5 patrones nuevos por semana incluidos</li>
+              <li>✓ 5 patrones por semana incluidos</li>
             </ul>
 
-            <Link to="/perfil"
-              onClick={() => { setPopupTraduccion(false); sessionStorage.setItem('popup_trad_visto', '1'); }}
-              className="btn-primary w-full text-center block py-3 font-semibold">
-              Suscribirme ahora
-            </Link>
+            {user?.tier === 'premium' ? (
+              <Link to="/catalogo"
+                onClick={() => { setPopupTraduccion(false); sessionStorage.setItem('popup_trad_visto', '1'); }}
+                className="btn-primary w-full text-center block py-3 font-semibold">
+                Ir al catálogo a probarlo
+              </Link>
+            ) : (
+              <Link to="/perfil"
+                onClick={() => { setPopupTraduccion(false); sessionStorage.setItem('popup_trad_visto', '1'); }}
+                className="btn-primary w-full text-center block py-3 font-semibold">
+                Suscribirme ahora
+              </Link>
+            )}
 
             <button
               onClick={() => { setPopupTraduccion(false); sessionStorage.setItem('popup_trad_visto', '1'); }}
               className="w-full text-center text-xs text-gray-600 hover:text-gray-400 mt-3 transition">
-              Ahora no
+              {user?.tier === 'premium' ? 'Cerrar' : 'Ahora no'}
             </button>
           </div>
         </div>
