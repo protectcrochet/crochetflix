@@ -5,6 +5,7 @@ import Carrusel from '../components/Carrusel';
 import PatronCard from '../components/PatronCard';
 import { Play, Crown, Search, X, ChevronLeft, ChevronRight, Globe } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { PRECIOS, detectarMoneda } from '../utils/geoMoneda';
 
 function HeroCarrusel({ patrones }) {
   const [idx, setIdx] = useState(0);
@@ -116,8 +117,9 @@ export default function Home() {
   const [continua, setContinua] = useState([]);
   const [patronesAleatorios, setPatronesAleatorios] = useState([]);
   const [popupTraduccion, setPopupTraduccion] = useState(false);
+  const [moneda, setMoneda] = useState('USD');
 
-  useEffect(() => { cargarPatrones(); cargarAleatorios(); }, []);
+  useEffect(() => { cargarPatrones(); cargarAleatorios(); detectarMoneda().then(setMoneda); }, []);
 
   useEffect(() => {
     if (user && !sessionStorage.getItem('popup_trad_visto')) {
@@ -292,7 +294,7 @@ export default function Home() {
             <section className="px-4 py-8">
               <div className="max-w-2xl mx-auto text-center bg-gradient-to-r from-crochet-primary/20 to-purple-900/20 rounded-2xl p-8">
                 <h2 className="text-2xl font-bold mb-2">Desbloquea todo el catálogo</h2>
-                <p className="text-gray-400 mb-4">Más de {totalPatrones.toLocaleString()} patrones profesionales por solo $100 MXN/mes</p>
+                <p className="text-gray-400 mb-4">Más de {totalPatrones.toLocaleString()} patrones profesionales por solo {PRECIOS[moneda]?.mensual}/mes</p>
                 <ul className="text-left text-sm text-gray-300 mb-6 space-y-2 max-w-md mx-auto">
                   <li>✓ Acceso ilimitado a todos los patrones</li>
                   <li>✓ Traducción de patrones al idioma que elijas (5 por semana)</li>
