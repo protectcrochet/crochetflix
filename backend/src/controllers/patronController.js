@@ -320,7 +320,7 @@ exports.traducir = async (req, res) => {
     const NOMBRES = { es: 'español mexicano', en: 'inglés', pt: 'portugués', ru: 'ruso', fr: 'francés' };
 
     const completion = await groq.chat.completions.create({
-      model: 'llama-3.1-8b-instant',
+      model: 'llama-3.3-70b-versatile',
       messages: [{
         role: 'user',
         content: `Traduce el siguiente texto de una página de patrón de crochet al ${NOMBRES[idioma]}. Conserva el formato y la numeración. Solo devuelve el texto traducido, sin explicaciones.
