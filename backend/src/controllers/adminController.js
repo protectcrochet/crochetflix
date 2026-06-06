@@ -680,7 +680,7 @@ async function _runExtraccionOpenAI(apiKey, force = false) {
 
   const WHERE_SIN_DISEÑADORA = `(diseñadora IS NULL OR diseñadora = '' OR diseñadora = 'N/A' OR diseñadora = 'Diseñadora')`;
   const WHERE_TITULO_SUCIO = `(
-    titulo LIKE '%\_%' ESCAPE '\' OR
+    INSTR(titulo, '_') > 0 OR
     titulo LIKE '%.pdf%' OR
     titulo GLOB '*[0-9][0-9][0-9][0-9][0-9]*' OR
     titulo LIKE '#%' OR
