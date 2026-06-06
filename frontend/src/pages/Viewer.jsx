@@ -211,7 +211,12 @@ export default function Viewer() {
       traduccionesCache.current[key] = res.data.texto;
       setTextoTraducido(res.data.texto);
     } catch (err) {
-      setTextoTraducido(`Error: ${err.response?.data?.error || 'No se pudo traducir'}`);
+      const data = err.response?.data;
+      if (data?.error === 'limite_traduccion') {
+        setTextoTraducido(`⚠️ ${data.mensaje}`);
+      } else {
+        setTextoTraducido(`Error: ${data?.error || 'No se pudo traducir'}`);
+      }
     } finally {
       setTraduciendo(false);
     }

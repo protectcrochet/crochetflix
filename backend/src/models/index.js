@@ -175,6 +175,15 @@ function initTables() {
       UNIQUE(patron_id, idioma)
     )`);
 
+    // Uso semanal de traducción por usuario
+    db.run(`CREATE TABLE IF NOT EXISTS traducciones_uso (
+      user_id TEXT NOT NULL,
+      patron_id TEXT NOT NULL,
+      semana TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(user_id, patron_id, semana)
+    )`);
+
     // Traducciones por página
     db.run(`CREATE TABLE IF NOT EXISTS traducciones_paginas (
       id TEXT PRIMARY KEY,

@@ -268,11 +268,43 @@ exports.traducir = async (req, res) => {
     const patron = await dbGet('SELECT titulo FROM patrones WHERE id = ? AND activo = 1', [id]);
     if (!patron) return res.status(404).json({ error: 'Patrón no encontrado' });
 
+    // Caché: si ya existe esta página traducida, devolver sin contar límite
     const cached = await dbGet(
       'SELECT texto_traducido FROM traducciones_paginas WHERE patron_id = ? AND pagina = ? AND idioma = ?',
       [id, pagina, idioma]
     );
     if (cached) return res.json({ texto: cached.texto_traducido, cached: true });
+
+    // Límite semanal: 5 patrones distintos por semana
+    const LIMITE = 5;
+    const semana = new Date().toISOString().slice(0, 10).replace(/-\d\d$/, '') +
+      '-W' + String(Math.ceil(new Date().getDate() / 7)).padStart(2, '0');
+
+    // ¿Ya tradujo páginas de este patrón esta semana? → no cuenta como nuevo patrón
+    const yaUsado = await dbGet(
+      'SELECT 1 FROM traducciones_uso WHERE user_id = ? AND patron_id = ? AND semana = ?',
+      [req.userId, id, semana]
+    );
+
+    if (!yaUsado) {
+      const usados = await dbGet(
+        'SELECT COUNT(DISTINCT patron_id) as n FROM traducciones_uso WHERE user_id = ? AND semana = ?',
+        [req.userId, semana]
+      );
+      if ((usados?.n || 0) >= LIMITE) {
+        return res.status(403).json({
+          error: 'limite_traduccion',
+          mensaje: `Alcanzaste el límite de ${LIMITE} patrones traducidos esta semana. Se renueva el lunes.`,
+          usados: usados?.n || 0,
+          limite: LIMITE
+        });
+      }
+      // Registrar uso
+      await dbRun(
+        'INSERT OR IGNORE INTO traducciones_uso (user_id, patron_id, semana) VALUES (?, ?, ?)',
+        [req.userId, id, semana]
+      );
+    }
 
     if (!process.env.GROQ_API_KEY) {
       return res.status(503).json({ error: 'Servicio de traducción no disponible' });
