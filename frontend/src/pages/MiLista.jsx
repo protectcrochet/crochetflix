@@ -13,10 +13,8 @@ export default function MiLista() {
 
   const cargarMiLista = async () => {
     try {
-      // Usamos el endpoint de patrones con filtro implícito de mi_lista
-      const res = await api.get('/patrones');
-      const miLista = res.data.patrones.filter(p => p.en_mi_lista === 1);
-      setPatrones(miLista);
+      const res = await api.get('/patrones', { params: { mi_lista: '1', limit: 500 } });
+      setPatrones(res.data.patrones || []);
     } catch (err) {
       console.error('Error:', err);
     } finally {

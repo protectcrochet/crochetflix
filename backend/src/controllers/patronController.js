@@ -45,6 +45,12 @@ exports.listar = async (req, res) => {
       sql += ' AND p.idioma = ?';
       params.push(req.query.idioma);
     }
+    if (req.query.mi_lista === '1') {
+      sql += ' AND ml.patron_id IS NOT NULL';
+    }
+    if (req.query.offline === '1') {
+      sql += ' AND pr.descargado_offline = 1';
+    }
 
     switch (req.query.orden) {
       case 'az': sql += ' ORDER BY p.titulo ASC'; break;
@@ -55,7 +61,7 @@ exports.listar = async (req, res) => {
 
     // Paginación
     const page = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 24));
+    const limit = Math.min(500, Math.max(1, parseInt(req.query.limit) || 24));
 
     const total = await new Promise((resolve, reject) => {
       const countSql = sql.replace(
@@ -219,7 +225,10 @@ exports.traducir = async (req, res) => {
     const { id } = req.params;
     const { idioma } = req.body;
 
-    if (req.userTier !== 'premium') {
+    const userRow = await dbGet('SELECT tier, subscription_expires_at FROM users WHERE id = ?', [req.userId]);
+    const isPremium = userRow?.tier === 'premium' &&
+      (!userRow.subscription_expires_at || new Date(userRow.subscription_expires_at) > new Date());
+    if (!isPremium) {
       return res.status(403).json({ error: 'Solo disponible para usuarios premium' });
     }
 

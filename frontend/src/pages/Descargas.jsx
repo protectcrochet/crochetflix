@@ -13,9 +13,8 @@ export default function Descargas() {
 
   const cargarDescargas = async () => {
     try {
-      const res = await api.get('/patrones');
-      const descargados = res.data.patrones.filter(p => p.offline === 1);
-      setPatrones(descargados);
+      const res = await api.get('/patrones', { params: { offline: '1', limit: 500 } });
+      setPatrones(res.data.patrones || []);
     } catch (err) {
       console.error('Error:', err);
     } finally {
