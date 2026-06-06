@@ -175,6 +175,17 @@ function initTables() {
       UNIQUE(patron_id, idioma)
     )`);
 
+    // Traducciones por página
+    db.run(`CREATE TABLE IF NOT EXISTS traducciones_paginas (
+      id TEXT PRIMARY KEY,
+      patron_id TEXT NOT NULL,
+      pagina INTEGER NOT NULL,
+      idioma TEXT NOT NULL,
+      texto_traducido TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(patron_id, pagina, idioma)
+    )`);
+
     console.log('✅ Tablas inicializadas');
   });
 }

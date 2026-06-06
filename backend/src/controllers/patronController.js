@@ -6,21 +6,22 @@ const { execSync } = require('child_process');
 
 const UPLOADS_DIR = path.join(__dirname, '../../uploads/patrones');
 
-function extraerTextoPDF(patronId) {
+function localizarPDF(patronId) {
+  const patronDir = path.join(UPLOADS_DIR, patronId);
+  if (fs.existsSync(patronDir)) {
+    const pdf = fs.readdirSync(patronDir).find(f => f.endsWith('.pdf'));
+    if (pdf) return path.join(patronDir, pdf);
+  }
+  const shortId = patronId.replace('patron-', '');
+  const flat = fs.readdirSync(UPLOADS_DIR).find(f => f.startsWith(shortId) && f.endsWith('.pdf'));
+  return flat ? path.join(UPLOADS_DIR, flat) : null;
+}
+
+function extraerTextoPagina(patronId, pagina) {
   try {
-    let pdfPath = null;
-    const patronDir = path.join(UPLOADS_DIR, patronId);
-    if (fs.existsSync(patronDir)) {
-      const pdf = fs.readdirSync(patronDir).find(f => f.endsWith('.pdf'));
-      if (pdf) pdfPath = path.join(patronDir, pdf);
-    }
-    if (!pdfPath) {
-      const shortId = patronId.replace('patron-', '');
-      const flat = fs.readdirSync(UPLOADS_DIR).find(f => f.startsWith(shortId) && f.endsWith('.pdf'));
-      if (flat) pdfPath = path.join(UPLOADS_DIR, flat);
-    }
+    const pdfPath = localizarPDF(patronId);
     if (!pdfPath) return '';
-    return execSync(`pdftotext -f 1 -l 3 "${pdfPath}" -`, { timeout: 15000 }).toString().slice(0, 3000).trim();
+    return execSync(`pdftotext -f ${pagina} -l ${pagina} "${pdfPath}" -`, { timeout: 15000 }).toString().trim();
   } catch {
     return '';
   }
@@ -262,19 +263,24 @@ exports.traducir = async (req, res) => {
       return res.status(400).json({ error: 'Idioma no soportado' });
     }
 
-    const patron = await dbGet('SELECT titulo, idioma FROM patrones WHERE id = ? AND activo = 1', [id]);
+    const pagina = parseInt(req.body.pagina) || 1;
+
+    const patron = await dbGet('SELECT titulo FROM patrones WHERE id = ? AND activo = 1', [id]);
     if (!patron) return res.status(404).json({ error: 'Patrón no encontrado' });
 
-    const cached = await dbGet('SELECT texto_traducido FROM traducciones WHERE patron_id = ? AND idioma = ?', [id, idioma]);
+    const cached = await dbGet(
+      'SELECT texto_traducido FROM traducciones_paginas WHERE patron_id = ? AND pagina = ? AND idioma = ?',
+      [id, pagina, idioma]
+    );
     if (cached) return res.json({ texto: cached.texto_traducido, cached: true });
 
     if (!process.env.GROQ_API_KEY) {
       return res.status(503).json({ error: 'Servicio de traducción no disponible' });
     }
 
-    const textoOriginal = extraerTextoPDF(id);
+    const textoOriginal = extraerTextoPagina(id, pagina);
     if (!textoOriginal) {
-      return res.status(400).json({ error: 'Este patrón no tiene texto disponible para traducir' });
+      return res.status(400).json({ error: 'Esta página no tiene texto para traducir' });
     }
 
     const Groq = require('groq-sdk');
@@ -285,35 +291,17 @@ exports.traducir = async (req, res) => {
       model: 'llama-3.1-8b-instant',
       messages: [{
         role: 'user',
-        content: `Eres un asistente experto en patrones de crochet. Analiza este texto extraído de un patrón PDF y devuelve SOLO un JSON válido, sin explicaciones ni texto adicional.
-
-Instrucciones:
-- Ignora avisos de copyright, índices, créditos y texto administrativo
-- Traduce el contenido útil al ${NOMBRES[idioma]}
-- Usa terminología correcta de crochet en ${NOMBRES[idioma]}
-- Si una sección no aparece en el texto, omite esa clave del JSON
-
-Formato de respuesta (JSON puro):
-{
-  "materiales": "hilo, aguja, relleno y otros materiales necesarios",
-  "talla": "medidas o talla del resultado final",
-  "abreviaturas": "lista de puntos y abreviaturas usados",
-  "instrucciones": "pasos del patrón numerados o por sección",
-  "notas": "consejos o notas adicionales del diseñador"
-}
-
-Texto del patrón:
-${textoOriginal}`
+        content: `Traduce el siguiente texto de una página de patrón de crochet al ${NOMBRES[idioma]}. Usa la terminología correcta de crochet. Conserva el formato y la numeración. Solo devuelve el texto traducido, sin explicaciones.\n\n${textoOriginal}`
       }],
-      max_tokens: 2000,
+      max_tokens: 1500,
     });
 
-    let traduccion = completion.choices[0].message.content.trim();
-    // Limpiar markdown si Groq lo envuelve en ```json
-    traduccion = traduccion.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
+    const traduccion = completion.choices[0].message.content.trim();
     const newId = crypto.randomBytes(8).toString('hex');
-    await dbRun('INSERT OR REPLACE INTO traducciones (id, patron_id, idioma, texto_traducido) VALUES (?, ?, ?, ?)',
-      [newId, id, idioma, traduccion]);
+    await dbRun(
+      'INSERT OR REPLACE INTO traducciones_paginas (id, patron_id, pagina, idioma, texto_traducido) VALUES (?, ?, ?, ?, ?)',
+      [newId, id, pagina, idioma, traduccion]
+    );
 
     res.json({ texto: traduccion, cached: false });
 

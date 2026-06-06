@@ -201,13 +201,13 @@ export default function Viewer() {
     catch (err) { alert(err.response?.data?.error || 'Error'); }
   };
 
-  const traducir = async (idioma) => {
-    const key = `${id}_${idioma}`;
+  const traducir = async (idioma, pagina) => {
+    const key = `${id}_${idioma}_${pagina}`;
     if (traduccionesCache.current[key]) { setTextoTraducido(traduccionesCache.current[key]); return; }
     setTraduciendo(true);
     setTextoTraducido('');
     try {
-      const res = await api.post(`/patrones/${id}/traducir`, { idioma });
+      const res = await api.post(`/patrones/${id}/traducir`, { idioma, pagina });
       traduccionesCache.current[key] = res.data.texto;
       setTextoTraducido(res.data.texto);
     } catch (err) {
@@ -216,6 +216,10 @@ export default function Viewer() {
       setTraduciendo(false);
     }
   };
+
+  useEffect(() => {
+    if (tradPanel && idiomaTraduccion) traducir(idiomaTraduccion, paginaActual);
+  }, [paginaActual, tradPanel]);
 
   const marcarCompletado = async () => {
     try { await api.post('/viewer/completar', { patronId: id }); setProgreso(p => ({ ...p, completado: true })); }
@@ -498,14 +502,16 @@ export default function Viewer() {
       {tradPanel && (
         <div className="fixed inset-x-0 bottom-0 z-50 bg-gray-900 border-t border-gray-700 rounded-t-2xl shadow-2xl max-h-[75vh] flex flex-col">
           <div className="flex items-center justify-between px-4 py-3 shrink-0">
-            <span className="text-sm font-semibold text-gray-300">Traducir patrón</span>
+            <span className="text-sm font-semibold text-gray-300">
+              Página {paginaActual} — traducción
+            </span>
             <button onClick={() => setTradPanel(false)} className="p-1 hover:bg-gray-800 rounded">
               <XIcon className="w-4 h-4" />
             </button>
           </div>
           <div className="flex justify-center gap-5 px-4 pb-4 shrink-0">
             {IDIOMAS_TRAD.map(i => (
-              <button key={i.v} onClick={() => { setIdiomaTraduccion(i.v); traducir(i.v); }}
+              <button key={i.v} onClick={() => { setIdiomaTraduccion(i.v); traducir(i.v, paginaActual); }}
                 className={`text-3xl transition-transform hover:scale-110 active:scale-95 ${idiomaTraduccion === i.v && textoTraducido ? 'opacity-100 scale-110' : 'opacity-60'}`}>
                 {i.flag}
               </button>
@@ -515,34 +521,11 @@ export default function Viewer() {
             <div className="flex-1 overflow-y-auto px-4 pb-6 border-t border-gray-800 pt-4">
               {traduciendo ? (
                 <div className="flex items-center gap-2 text-gray-500 py-8 justify-center">
-                  <Loader className="w-4 h-4 animate-spin" /> Traduciendo...
+                  <Loader className="w-4 h-4 animate-spin" /> Traduciendo página {paginaActual}...
                 </div>
-              ) : (() => {
-                try {
-                  const data = JSON.parse(textoTraducido);
-                  const secciones = [
-                    { key: 'materiales', icon: '🧶', titulo: 'Materiales' },
-                    { key: 'talla', icon: '📐', titulo: 'Talla / Medidas' },
-                    { key: 'abreviaturas', icon: '📖', titulo: 'Abreviaturas' },
-                    { key: 'instrucciones', icon: '📋', titulo: 'Instrucciones' },
-                    { key: 'notas', icon: '💡', titulo: 'Notas' },
-                  ];
-                  return (
-                    <div className="space-y-3">
-                      {secciones.filter(s => data[s.key]).map(s => (
-                        <div key={s.key} className="bg-gray-800 rounded-xl p-4">
-                          <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">
-                            {s.icon} {s.titulo}
-                          </p>
-                          <p className="text-sm text-gray-200 leading-relaxed whitespace-pre-wrap">{data[s.key]}</p>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                } catch {
-                  return <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">{textoTraducido}</p>;
-                }
-              })()}
+              ) : (
+                <p className="text-sm text-gray-200 leading-relaxed whitespace-pre-wrap">{textoTraducido}</p>
+              )}
             </div>
           )}
         </div>
