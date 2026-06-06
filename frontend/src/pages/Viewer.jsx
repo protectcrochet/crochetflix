@@ -289,6 +289,7 @@ export default function Viewer() {
           <p className="text-gray-500 text-sm mb-4">por mes · cancela cuando quieras</p>
           <ul className="text-left text-sm text-gray-300 space-y-2 mb-5">
             <li>✅ Acceso a <strong>todos los patrones</strong></li>
+            <li>✅ Traducción de patrones al idioma que elijas (5 por semana)</li>
             <li>✅ Sin publicidad</li>
             <li>✅ Vista offline de tus patrones favoritos</li>
             <li>✅ Guarda tu progreso de lectura</li>
