@@ -17,6 +17,34 @@ const IDIOMAS_TRAD = [
 ];
 import { PRECIOS, detectarMoneda } from '../utils/geoMoneda';
 
+const RE_VUELTA = /^((?:vta|rnd|row|vuelta|round|р(?:яд)?|rg)\.?\s*\d+|\d+[\.:\)])\s*/i;
+const RE_HEADER = /^(CABEZA|CUERPO|PATAS?|BRAZOS?|OREJAS?|OJOS?|COLA|RELLENO|MATERIALES?|INSTRUCCIONES?|HEAD|BODY|LEGS?|ARMS?|EARS?|EYES?|TAIL|FILLING|HEAD PIECE|BODY PIECE)[:\s]/i;
+
+function LineaPatron({ linea }) {
+  const t = linea.trim();
+  if (!t) return null;
+
+  // Section header
+  if (RE_HEADER.test(t) || (t === t.toUpperCase() && t.length > 4 && t.length < 70 && !/^\d/.test(t))) {
+    return <p className="text-xs font-bold text-crochet-primary mt-4 mb-0.5 tracking-wide uppercase">{t}</p>;
+  }
+
+  // Round/row line
+  const m = t.match(RE_VUELTA);
+  if (m) {
+    const num = m[0].trim().replace(/[:.]$/, '');
+    const resto = t.slice(m[0].length);
+    return (
+      <div className="flex gap-2 items-baseline py-0.5">
+        <span className="shrink-0 text-[11px] font-bold text-yellow-400 min-w-[2.75rem] leading-5">{num}</span>
+        <span className="text-sm text-gray-100 leading-relaxed">{resto}</span>
+      </div>
+    );
+  }
+
+  return <p className="text-sm text-gray-300 leading-relaxed py-0.5">{t}</p>;
+}
+
 export default function Viewer() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -532,13 +560,17 @@ export default function Viewer() {
             ))}
           </div>
           {(traduciendo || textoTraducido) && (
-            <div className="flex-1 overflow-y-auto px-4 pb-6 border-t border-gray-800 pt-4">
+            <div className="flex-1 overflow-y-auto px-4 pb-6 border-t border-gray-800 pt-3">
               {traduciendo ? (
                 <div className="flex items-center gap-2 text-gray-500 py-8 justify-center">
                   <Loader className="w-4 h-4 animate-spin" /> Traduciendo página {paginaActual}...
                 </div>
               ) : (
-                <p className="text-sm text-gray-200 leading-relaxed whitespace-pre-wrap">{textoTraducido}</p>
+                <div className="divide-y divide-gray-800/40">
+                  {textoTraducido.split('\n').map((linea, i) => (
+                    <LineaPatron key={i} linea={linea} />
+                  ))}
+                </div>
               )}
             </div>
           )}
