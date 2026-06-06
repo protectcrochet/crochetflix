@@ -353,29 +353,127 @@ exports.traducir = async (req, res) => {
 
     const Groq = require('groq-sdk');
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-    const NOMBRES = { es: 'español mexicano', en: 'inglés', pt: 'portugués', ru: 'ruso', fr: 'francés' };
+    const GUIA = {
+      es: `Traduce al ESPAÑOL MEXICANO. Convierte TODAS las abreviaturas al estándar mexicano:
+
+sc / single crochet → pb
+dc / double crochet → pa
+hdc / half double crochet → mpa
+tr / treble crochet → pad
+dtr / double treble → patr
+sl st / slip stitch → pd
+ch / chain → cad
+inc / increase → aum
+dec / decrease → dism
+sc2tog → pb2jun
+dc2tog → pa2jun
+BLO / back loop only → hta
+FLO / front loop only → hte
+magic ring / MR / magic circle → anillo mágico
+yo / yarn over → hp
+sp / space → esp
+RS / right side → LD
+WS / wrong side → LR
+rnd / round / row → vta
+rep / repeat → rep
+sts / stitches (conteo) → p  ← SOLO en conteos entre paréntesis, ej: (54 sts)→(54p)
+
+CRÍTICO: "pb" es la instrucción de tejido (acción). "p" SOLO para conteos finales entre paréntesis. NUNCA escribas "p" sola como instrucción.`,
+
+      en: `Translate to ENGLISH (US crochet terms). Convert ALL abbreviations to US standard:
+
+pb (punto bajo) → sc
+pa (punto alto) → dc
+mpa (medio punto alto) → hdc
+pad (punto alto doble) → tr
+patr (punto alto triple) → dtr
+pd (punto deslizado) → sl st
+cad (cadena) → ch
+aum (aumento) → inc
+dism (disminución) → dec
+pb2jun → sc2tog
+pa2jun → dc2tog
+hta (hebra trasera) → BLO
+hte (hebra delantera) → FLO
+anillo mágico / am → MR (magic ring)
+hp (hebra sobre aguja) → yo
+esp (espacio) → sp
+LD → RS (right side)
+LR → WS (wrong side)
+vta / vuelta → rnd
+rep → rep
+pts / p (conteo) → sts  ← only in stitch counts in parentheses, e.g. (54p)→(54 sts)
+
+If the source already uses English abbreviations (sc, dc, inc, etc.), keep them. Only translate Spanish words and abbreviations.`,
+
+      pt: `Traduz para o PORTUGUÊS BRASILEIRO. Converte TODAS as abreviações para o padrão brasileiro:
+
+sc / pb → pb (ponto baixo)
+dc / pa → pa (ponto alto)
+hdc / mpa → mp (meio ponto)
+tr / pad → ptr (ponto triplo)
+dtr / patr → pdt (ponto duplo triplo)
+sl st / pd → pp (ponto preso)
+ch / cad → cad (corrente)
+inc / aum → aum (aumento)
+dec / dism → dim (diminuição)
+sc2tog / pb2jun → 2pbj (2 pontos baixos juntos)
+BLO / hta → ALT (alça de trás)
+FLO / hte → ALD (alça da frente)
+magic ring / anillo mágico / MR → AM (argola mágica)
+yo / hp → lp (laçada sobre o gancho)
+rnd / vta → v (volta)
+rep → rep
+sts / pts → pts (pontos)`,
+
+      fr: `Traduis en FRANÇAIS. Convertis TOUTES les abréviations au standard français (système UK) :
+
+sc / pb → ms (maille serrée)
+dc / pa → br (bride)
+hdc / mpa → db (demi-bride)
+tr / pad → br2 (bride double)
+dtr / patr → br3 (bride triple)
+sl st / pd → mc (maille coulée)
+ch / cad → ml (maille en l'air)
+inc / aum → aug (augmentation)
+dec / dism → dim (diminution)
+sc2tog / pb2jun → 2ms ens. (2 mailles serrées ensemble)
+BLO / hta → BRD (brin du dos)
+FLO / hte → BRE (brin de l'endroit)
+magic ring / anillo mágico / MR → AM (anneau magique)
+yo / hp → jf (jeté de fil)
+rnd / vta → rg (rang/tour)
+rep → rép
+sts / pts → m (mailles)`,
+
+      ru: `Переводи на РУССКИЙ ЯЗЫК. Конвертируй ВСЕ сокращения в российский стандарт:
+
+sc / pb → сбн (столбик без накида)
+dc / pa → стн (столбик с накидом)
+hdc / mpa → ппн (полустолбик с накидом)
+tr / pad → с2н (столбик с 2 накидами)
+dtr / patr → с3н (столбик с 3 накидами)
+sl st / pd → сс (соединительный столбик)
+ch / cad → вп (воздушная петля)
+inc / aum → пр (прибавка)
+dec / dism → уб (убавка)
+sc2tog / pb2jun → 2сбн вместе
+BLO / hta → за заднюю стенку (з.ст.)
+FLO / hte → за переднюю стенку (п.ст.)
+magic ring / anillo mágico / MR → КА (кольцо амигуруми)
+yo / hp → накид
+rnd / vta → ряд (or кр — круг, для кругового вязания)
+rep → повт.
+sts / pts → п (петли)`
+    };
 
     const completion = await groq.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
       messages: [{
         role: 'user',
-        content: `Traduce el siguiente texto de una página de patrón de crochet al ${NOMBRES[idioma]}. Conserva el formato y la numeración. Solo devuelve el texto traducido, sin explicaciones.
+        content: `${GUIA[idioma]}
 
-Usa SIEMPRE las abreviaturas oficiales de crochet en ${NOMBRES[idioma]}:
-${idioma === 'es' ? `
-INSTRUCCIONES (acciones):
-sc→pb, dc→pa, hdc→mpa, tr→pad, dtr→patr, sl st→pd, ch→cad, inc→aum, dec→dism, sc2tog→pb2jun, dc2tog→pa2jun, BLO→hta, FLO→hte, MR→anillo mágico, magic ring→anillo mágico, yo→hp, sp→esp, RS→LD, WS→LR
-
-CONTEO de puntos al final de vuelta (número entre paréntesis):
-(X st)→(Xp) o (Xpts) — ejemplo: (54 st)→(54p)
-
-IMPORTANTE: Cuando "sc" o "p" aparecen como acción en la instrucción, usa SIEMPRE "pb". Usa "p" solo para el conteo total al final de vuelta entre paréntesis. Nunca uses "p" sola como instrucción de tejido.
-
-rnd/row→vta, rep→rep` :
-  idioma === 'en' ? `pb→sc, pa→dc, mp→hdc, ptr→tr, pd→sl st, cad→ch, aum→inc, dism→dec, hta→BLO, hte→FLO, am→MR, vta→rnd` :
-  idioma === 'pt' ? `sc→pb, dc→pa, hdc→mpp, tr→tpp, sl st→corr, ch→cad, inc→aum, dec→dim, rnd→vol, st→p` :
-  idioma === 'fr' ? `sc→ms, dc→bs, hdc→demi-bs, tr→bs long, sl st→mc, ch→ml, inc→aug, dec→dim, rnd→rg, st→m` :
-  idioma === 'ru' ? `sc→сбн, dc→стн, hdc→ссн, tr→стн с накидом, sl st→сс, ch→вп, inc→прибавка, dec→убавка, rnd→ряд` : ''}
+Conserva EXACTAMENTE el mismo formato del original: mismos saltos de línea, misma numeración de vueltas, mismos paréntesis con conteos. Devuelve SOLO el texto traducido, sin explicaciones ni comentarios.
 
 Texto:
 ${textoOriginal}`
