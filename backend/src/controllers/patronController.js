@@ -326,7 +326,16 @@ exports.traducir = async (req, res) => {
         content: `Traduce el siguiente texto de una página de patrón de crochet al ${NOMBRES[idioma]}. Conserva el formato y la numeración. Solo devuelve el texto traducido, sin explicaciones.
 
 Usa SIEMPRE las abreviaturas oficiales de crochet en ${NOMBRES[idioma]}:
-${idioma === 'es' ? `sc→pb (punto bajo), dc→pa (punto alto), hdc→mpa (medio punto alto), tr→pad (punto alto doble), dtr→patr (punto alto triple), sl st→pd (punto deslizado), ch→cad (cadeneta), inc→aum (aumento), dec→dism (disminución), sc2tog→pb2jun, dc2tog→pa2jun, BLO→hta (hebra trasera), FLO→hte (hebra delantera), MR→am (anillo mágico), rnd→vta (vuelta), rep→rep (repetir), st→p (punto), sp→esp (espacio), yo→hp (hebra sobre el gancho), magic ring→anillo mágico, RS→LD (lado derecho), WS→LR (lado revés)` :
+${idioma === 'es' ? `
+INSTRUCCIONES (acciones):
+sc→pb, dc→pa, hdc→mpa, tr→pad, dtr→patr, sl st→pd, ch→cad, inc→aum, dec→dism, sc2tog→pb2jun, dc2tog→pa2jun, BLO→hta, FLO→hte, MR→anillo mágico, magic ring→anillo mágico, yo→hp, sp→esp, RS→LD, WS→LR
+
+CONTEO de puntos al final de vuelta (número entre paréntesis):
+(X st)→(Xp) o (Xpts) — ejemplo: (54 st)→(54p)
+
+IMPORTANTE: Cuando "sc" o "p" aparecen como acción en la instrucción, usa SIEMPRE "pb". Usa "p" solo para el conteo total al final de vuelta entre paréntesis. Nunca uses "p" sola como instrucción de tejido.
+
+rnd/row→vta, rep→rep` :
   idioma === 'en' ? `pb→sc, pa→dc, mp→hdc, ptr→tr, pd→sl st, cad→ch, aum→inc, dism→dec, hta→BLO, hte→FLO, am→MR, vta→rnd` :
   idioma === 'pt' ? `sc→pb, dc→pa, hdc→mpp, tr→tpp, sl st→corr, ch→cad, inc→aum, dec→dim, rnd→vol, st→p` :
   idioma === 'fr' ? `sc→ms, dc→bs, hdc→demi-bs, tr→bs long, sl st→mc, ch→ml, inc→aug, dec→dim, rnd→rg, st→m` :
