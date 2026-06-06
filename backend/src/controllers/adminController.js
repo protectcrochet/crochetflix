@@ -678,7 +678,10 @@ async function _runExtraccionOpenAI(apiKey, force = false) {
   const LOTE = 20;
   let totalActualizados = 0;
 
-  const WHERE_SIN_DISEÑADORA = `(diseñadora IS NULL OR diseñadora = '' OR diseñadora = 'N/A' OR diseñadora = 'Diseñadora' OR diseñadora = 'Disenadora')`;
+  // N/A = ya procesado, no se encontró diseñadora → no reintentar
+  // Solo reintentar los que nunca han sido tocados
+  const WHERE_SIN_DISEÑADORA_FORZADO = `(diseñadora IS NULL OR diseñadora = '' OR diseñadora = 'Diseñadora' OR diseñadora = 'Disenadora')`;
+  const WHERE_SIN_DISEÑADORA_NORMAL  = `(diseñadora IS NULL OR diseñadora = '' OR diseñadora = 'N/A' OR diseñadora = 'Diseñadora' OR diseñadora = 'Disenadora')`;
   const WHERE_TITULO_SUCIO = `(
     INSTR(titulo, '_') > 0 OR
     titulo LIKE '%.pdf%' OR
@@ -687,11 +690,11 @@ async function _runExtraccionOpenAI(apiKey, force = false) {
     length(titulo) < 4
   )`;
 
-  // Modo forzado: todos los activos sin diseñadora O con título sucio
-  // Modo normal: solo los del bot que nunca se han procesado
+  // Modo forzado: título sucio O nunca tocado (N/A no reintenta — ya se procesó)
+  // Modo normal: bot con diseñadora vacía o N/A
   const WHERE_PENDIENTE = force
-    ? `activo = 1 AND (${WHERE_SIN_DISEÑADORA} OR ${WHERE_TITULO_SUCIO})`
-    : `autor IN ('Telegram', 'Diseñadora') AND ${WHERE_SIN_DISEÑADORA}`;
+    ? `activo = 1 AND (${WHERE_SIN_DISEÑADORA_FORZADO} OR ${WHERE_TITULO_SUCIO})`
+    : `autor IN ('Telegram', 'Diseñadora') AND ${WHERE_SIN_DISEÑADORA_NORMAL}`;
 
   while (true) {
     const pendientes = await new Promise((resolve, reject) => {
