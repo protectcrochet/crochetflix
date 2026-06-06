@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const { execSync } = require('child_process');
+const { execSync, exec } = require('child_process');
 
 const UPLOADS_DIR = path.join(__dirname, '../../uploads/patrones');
 
@@ -20,34 +20,44 @@ function localizarPDF(patronId) {
 
 const TESSERACT_LANG = { es: 'spa', en: 'eng', pt: 'por', fr: 'fra', ru: 'rus' };
 
-function extraerTextoPaginaOCR(pdfPath, pagina, idiomaPatron) {
+function runAsync(cmd, timeout) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('timeout')), timeout);
+    exec(cmd, (err, stdout) => {
+      clearTimeout(timer);
+      if (err) reject(err); else resolve(stdout);
+    });
+  });
+}
+
+async function extraerTextoPaginaOCR(pdfPath, pagina, idiomaPatron) {
   const tmpId = crypto.randomBytes(6).toString('hex');
   const tmpImg = path.join(os.tmpdir(), `crfl_${tmpId}`);
   const ocrLang = TESSERACT_LANG[idiomaPatron] || 'spa+eng';
   try {
-    execSync(`pdftoppm -f ${pagina} -l ${pagina} -r 200 "${pdfPath}" "${tmpImg}"`, { timeout: 30000 });
-    const imgs = fs.readdirSync(os.tmpdir()).filter(f => f.startsWith(`crfl_${tmpId}`));
+    await runAsync(`pdftoppm -f ${pagina} -l ${pagina} -r 150 "${pdfPath}" "${tmpImg}"`, 25000);
+    const imgs = fs.readdirSync(os.tmpdir()).filter(f => f.startsWith(`crfl_${tmpId}`) && !f.endsWith('_out.txt'));
     if (!imgs.length) return '';
     const imgPath = path.join(os.tmpdir(), imgs[0]);
-    execSync(`tesseract "${imgPath}" "${tmpImg}_out" -l ${ocrLang} --oem 3 --psm 6`, { timeout: 60000 });
+    await runAsync(`tesseract "${imgPath}" "${tmpImg}_out" -l ${ocrLang} --oem 3 --psm 6`, 45000);
     const texto = fs.readFileSync(`${tmpImg}_out.txt`, 'utf8').trim();
     try { fs.unlinkSync(imgPath); } catch {}
     try { fs.unlinkSync(`${tmpImg}_out.txt`); } catch {}
     return texto;
   } catch {
-    try { fs.readdirSync(os.tmpdir()).filter(f => f.startsWith(`crfl_${tmpId}`)).forEach(f => fs.unlinkSync(path.join(os.tmpdir(), f))); } catch {}
+    try { fs.readdirSync(os.tmpdir()).filter(f => f.startsWith(`crfl_${tmpId}`)).forEach(f => { try { fs.unlinkSync(path.join(os.tmpdir(), f)); } catch {} }); } catch {}
     return '';
   }
 }
 
-function extraerTextoPagina(patronId, pagina, idiomaPatron) {
+async function extraerTextoPagina(patronId, pagina, idiomaPatron) {
   try {
     const pdfPath = localizarPDF(patronId);
     if (!pdfPath) return '';
     const texto = execSync(`pdftotext -f ${pagina} -l ${pagina} "${pdfPath}" -`, { timeout: 15000 }).toString().trim();
     if (texto) return texto;
-    // PDF has no text layer (image-based) — try OCR
-    return extraerTextoPaginaOCR(pdfPath, pagina, idiomaPatron);
+    // PDF has no text layer (image-based) — try OCR without blocking event loop
+    return await extraerTextoPaginaOCR(pdfPath, pagina, idiomaPatron);
   } catch {
     return '';
   }
@@ -336,7 +346,7 @@ exports.traducir = async (req, res) => {
       return res.status(503).json({ error: 'Servicio de traducción no disponible' });
     }
 
-    const textoOriginal = extraerTextoPagina(id, pagina, patron.idioma || 'es');
+    const textoOriginal = await extraerTextoPagina(id, pagina, patron.idioma || 'es');
     if (!textoOriginal) {
       return res.status(400).json({ error: 'Esta página no tiene texto para traducir' });
     }
