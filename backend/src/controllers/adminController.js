@@ -522,7 +522,8 @@ ${JSON.stringify(datos.map(d => ({ id: d.id, titulo_actual: d.titulo, texto_pdf:
         const resultados = JSON.parse(jsonStr);
         for (const r of resultados) {
           if (!r.id) continue;
-          const diseñadora = r.diseñadora && r.diseñadora !== 'null' ? r.diseñadora : 'N/A';
+          const _INVALIDOS = ['null', 'telegram', 'diseñadora', 'disenadora', 'desconocida', 'unknown', 'n/a'];
+          const diseñadora = r.diseñadora && !_INVALIDOS.includes(r.diseñadora.toLowerCase().trim()) ? r.diseñadora : 'N/A';
           await new Promise((resolve, reject) => {
             db.run(
               `UPDATE patrones SET diseñadora = ?, titulo = COALESCE(NULLIF(?, ''), titulo), idioma = ? WHERE id = ?`,
@@ -620,7 +621,8 @@ ${JSON.stringify(datos.map(d => ({ id: d.id, titulo_actual: d.titulo, texto_pdf:
 
         for (const r of resultados) {
           if (!r.id) continue;
-          const diseñadora = r.diseñadora && r.diseñadora !== 'null' ? r.diseñadora : 'N/A';
+          const _INVALIDOS = ['null', 'telegram', 'diseñadora', 'disenadora', 'desconocida', 'unknown', 'n/a'];
+          const diseñadora = r.diseñadora && !_INVALIDOS.includes(r.diseñadora.toLowerCase().trim()) ? r.diseñadora : 'N/A';
           await new Promise((resolve, reject) => {
             db.run(
               `UPDATE patrones SET diseñadora = ?, titulo = COALESCE(NULLIF(?, ''), titulo), idioma = ? WHERE id = ?`,
@@ -682,8 +684,8 @@ async function _runExtraccionOpenAI(apiKey, force = false) {
 
   // N/A = ya procesado, no se encontró diseñadora → no reintentar
   // Solo reintentar los que nunca han sido tocados
-  const WHERE_SIN_DISEÑADORA_FORZADO = `(diseñadora IS NULL OR diseñadora = '' OR diseñadora = 'Diseñadora' OR diseñadora = 'Disenadora')`;
-  const WHERE_SIN_DISEÑADORA_NORMAL  = `(diseñadora IS NULL OR diseñadora = '' OR diseñadora = 'N/A' OR diseñadora = 'Diseñadora' OR diseñadora = 'Disenadora')`;
+  const WHERE_SIN_DISEÑADORA_FORZADO = `(diseñadora IS NULL OR diseñadora = '' OR diseñadora = 'Diseñadora' OR diseñadora = 'Disenadora' OR diseñadora = 'Telegram')`;
+  const WHERE_SIN_DISEÑADORA_NORMAL  = `(diseñadora IS NULL OR diseñadora = '' OR diseñadora = 'N/A' OR diseñadora = 'Diseñadora' OR diseñadora = 'Disenadora' OR diseñadora = 'Telegram')`;
   const WHERE_TITULO_SUCIO = `(
     INSTR(titulo, '_') > 0 OR
     titulo LIKE '%.pdf%' OR
@@ -750,7 +752,8 @@ ${JSON.stringify(datos.map(d => ({ id: d.id, titulo_actual: d.titulo, texto_pdf:
 
         for (const r of resultados) {
           if (!r.id) continue;
-          const diseñadora = r.diseñadora && r.diseñadora !== 'null' ? r.diseñadora : 'N/A';
+          const _INVALIDOS = ['null', 'telegram', 'diseñadora', 'disenadora', 'desconocida', 'unknown', 'n/a'];
+          const diseñadora = r.diseñadora && !_INVALIDOS.includes(r.diseñadora.toLowerCase().trim()) ? r.diseñadora : 'N/A';
           await new Promise((resolve, reject) => {
             db.run(
               `UPDATE patrones SET diseñadora = ?, titulo = COALESCE(NULLIF(?, ''), titulo), idioma = ? WHERE id = ?`,
