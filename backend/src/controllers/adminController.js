@@ -678,7 +678,7 @@ async function _runExtraccionOpenAI(apiKey, force = false) {
   const LOTE = 20;
   let totalActualizados = 0;
 
-  const WHERE_SIN_DISEÑADORA = `(diseñadora IS NULL OR diseñadora = '' OR diseñadora = 'N/A' OR diseñadora = 'Diseñadora')`;
+  const WHERE_SIN_DISEÑADORA = `(diseñadora IS NULL OR diseñadora = '' OR diseñadora = 'N/A' OR diseñadora = 'Diseñadora' OR diseñadora = 'Disenadora')`;
   const WHERE_TITULO_SUCIO = `(
     INSTR(titulo, '_') > 0 OR
     titulo LIKE '%.pdf%' OR
@@ -715,8 +715,17 @@ async function _runExtraccionOpenAI(apiKey, force = false) {
 Responde SOLO con un JSON array válido, sin texto adicional ni bloques de código markdown:
 [{"id":"...","titulo_limpio":"Nombre real","diseñadora":"Nombre o null","idioma":"es|en|pt|fr|de|it|otro"}]
 
-Reglas título: PRIMERO busca el nombre real del patrón en el texto del PDF (primera página). Si lo encuentras úsalo. Si el PDF no tiene título claro, limpia el título actual quitando guiones bajos, hashes, números de Telegram y sufijo "_pdf". Si después de limpiar queda solo números o texto sin sentido, pon "Sin título".
-Reglas diseñadora: PRIMERO busca el nombre en el texto del PDF (firma, marca de agua, créditos). Si lo encuentras úsalo. Sin pistas claras → null. No inventes ni pongas "Desconocida".
+Reglas título:
+- PRIMERO busca el nombre real del patrón en el texto del PDF (primera página). Si lo encuentras úsalo.
+- Si no hay título claro en el PDF, limpia el título actual: quita guiones bajos, hashes, sufijo "_pdf", y ELIMINA fechas o timestamps (secuencias de 6+ dígitos como "20260604" o "211723 0000").
+- Capitaliza correctamente (mayúscula inicial en cada palabra importante).
+- Si tras limpiar queda solo números o texto sin sentido, pon "Sin título".
+
+Reglas diseñadora:
+- Busca nombre de persona, marca, tienda o usuario en el texto del PDF (firma, marca de agua, créditos, Instagram, Ravelry).
+- Si lo encuentras úsalo tal cual (respeta mayúsculas originales).
+- Si no hay ninguna pista clara → null. NUNCA pongas "Diseñadora", "Disenadora", "Desconocida" ni valores genéricos.
+
 Reglas idioma: detecta el idioma del texto. PDF vacío → es por defecto.
 
 Patrones:
