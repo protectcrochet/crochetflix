@@ -502,10 +502,18 @@ export default function Viewer() {
       {tradPanel && (
         <div className="fixed inset-x-0 bottom-0 z-50 bg-gray-900 border-t border-gray-700 rounded-t-2xl shadow-2xl max-h-[75vh] flex flex-col">
           <div className="flex items-center justify-between px-4 py-3 shrink-0">
+            <button onClick={() => setPaginaActual(p => Math.max(1, p - 1))} disabled={paginaActual === 1}
+              className="p-2 hover:bg-gray-800 rounded disabled:opacity-30">
+              <ChevronLeft className="w-5 h-5" />
+            </button>
             <span className="text-sm font-semibold text-gray-300">
-              Página {paginaActual} — traducción
+              Página {paginaActual} de {totalPaginas}
             </span>
-            <button onClick={() => setTradPanel(false)} className="p-1 hover:bg-gray-800 rounded">
+            <button onClick={() => setPaginaActual(p => Math.min(totalPaginas, p + 1))} disabled={paginaActual === totalPaginas}
+              className="p-2 hover:bg-gray-800 rounded disabled:opacity-30">
+              <ChevronRight className="w-5 h-5" />
+            </button>
+            <button onClick={() => setTradPanel(false)} className="p-1 hover:bg-gray-800 rounded ml-2">
               <XIcon className="w-4 h-4" />
             </button>
           </div>
