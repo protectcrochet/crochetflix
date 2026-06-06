@@ -678,20 +678,20 @@ async function _runExtraccionOpenAI(apiKey, force = false) {
   const LOTE = 20;
   let totalActualizados = 0;
 
-  // Título "sucio": tiene guiones bajos, empieza con hash, contiene ".pdf", es solo números, etc.
-  const WHERE_SUCIO = `(
-    titulo LIKE '%\\_%' ESCAPE '\\' OR
+  const WHERE_SIN_DISEÑADORA = `(diseñadora IS NULL OR diseñadora = '' OR diseñadora = 'N/A' OR diseñadora = 'Diseñadora')`;
+  const WHERE_TITULO_SUCIO = `(
+    titulo LIKE '%\_%' ESCAPE '\' OR
     titulo LIKE '%.pdf%' OR
-    titulo LIKE '%\_pdf%' ESCAPE '\\' OR
     titulo GLOB '*[0-9][0-9][0-9][0-9][0-9]*' OR
     titulo LIKE '#%' OR
     length(titulo) < 4
   )`;
 
+  // Modo forzado: todos los activos sin diseñadora O con título sucio
+  // Modo normal: solo los del bot que nunca se han procesado
   const WHERE_PENDIENTE = force
-    ? `activo = 1 AND ${WHERE_SUCIO}`
-    : `autor IN ('Telegram', 'Diseñadora') AND
-       (diseñadora IS NULL OR diseñadora = '' OR diseñadora = 'N/A' OR diseñadora = 'Diseñadora')`;
+    ? `activo = 1 AND (${WHERE_SIN_DISEÑADORA} OR ${WHERE_TITULO_SUCIO})`
+    : `autor IN ('Telegram', 'Diseñadora') AND ${WHERE_SIN_DISEÑADORA}`;
 
   while (true) {
     const pendientes = await new Promise((resolve, reject) => {
