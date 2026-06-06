@@ -247,7 +247,7 @@ exports.traducir = async (req, res) => {
     const cached = await dbGet('SELECT texto_traducido FROM traducciones WHERE patron_id = ? AND idioma = ?', [id, idioma]);
     if (cached) return res.json({ texto: cached.texto_traducido, cached: true });
 
-    if (!process.env.OPENAI_API_KEY) {
+    if (!process.env.GROQ_API_KEY) {
       return res.status(503).json({ error: 'Servicio de traducción no disponible' });
     }
 
@@ -256,12 +256,12 @@ exports.traducir = async (req, res) => {
       return res.status(400).json({ error: 'Este patrón no tiene texto disponible para traducir' });
     }
 
-    const OpenAI = require('openai');
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const Groq = require('groq-sdk');
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
     const NOMBRES = { es: 'español', en: 'inglés', pt: 'portugués', ru: 'ruso', fr: 'francés' };
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+    const completion = await groq.chat.completions.create({
+      model: 'llama-3.1-8b-instant',
       messages: [{
         role: 'user',
         content: `Traduce el siguiente texto de un patrón de crochet al ${NOMBRES[idioma]}. Mantén los términos técnicos de crochet correctos en el idioma destino. Solo devuelve el texto traducido, sin explicaciones ni comentarios.\n\n${textoOriginal}`
