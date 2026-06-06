@@ -486,8 +486,7 @@ async function _runExtraccionMetadatos(apiKey) {
       const lote = pendientes.slice(i, i + LOTE);
       const datos = [];
       for (const p of lote) {
-        const pdfPath = localizarPDF(p.id, archivosFlat);
-        const texto = pdfPath ? await extraerTextoPDF(pdfPath) : '';
+        const texto = await extraerTextoPatron(p.id, archivosFlat);
         datos.push({ id: p.id, titulo: p.titulo, texto });
       }
 
@@ -591,8 +590,7 @@ async function _runExtraccionGroq(apiKey) {
       const lote = pendientes.slice(i, i + LOTE);
       const datos = [];
       for (const p of lote) {
-        const pdfPath = localizarPDF(p.id, archivosFlat);
-        const texto = pdfPath ? await extraerTextoPDF(pdfPath) : '';
+        const texto = await extraerTextoPatron(p.id, archivosFlat);
         datos.push({ id: p.id, titulo: p.titulo, texto });
       }
 
@@ -713,8 +711,7 @@ async function _runExtraccionOpenAI(apiKey, force = false) {
       const lote = pendientes.slice(i, i + LOTE);
       const datos = [];
       for (const p of lote) {
-        const pdfPath = localizarPDF(p.id, archivosFlat);
-        const texto = pdfPath ? await extraerTextoPDF(pdfPath) : '';
+        const texto = await extraerTextoPatron(p.id, archivosFlat);
         datos.push({ id: p.id, titulo: p.titulo, texto });
       }
 
@@ -922,6 +919,27 @@ async function extraerTextoPDF(pdfPath) {
   }
 }
 
+async function extraerTextoJPG(imgPath) {
+  try {
+    const tmpId = crypto.randomBytes(6).toString('hex');
+    const tmpOut = path.join(os.tmpdir(), `crfl_jpg_${tmpId}`);
+    await runCmd(`tesseract "${imgPath}" "${tmpOut}" -l spa+eng --oem 3 --psm 6`, 45000);
+    const ocr = fs.readFileSync(`${tmpOut}.txt`, 'utf8').trim();
+    try { fs.unlinkSync(`${tmpOut}.txt`); } catch {}
+    return ocr.slice(0, 1500);
+  } catch {
+    return '';
+  }
+}
+
+async function extraerTextoPatron(patronId, archivosFlat) {
+  const pdfPath = localizarPDF(patronId, archivosFlat);
+  if (pdfPath) return extraerTextoPDF(pdfPath);
+  const jpg1 = path.join(UPLOADS_DIR, patronId, 'pagina_1.jpg');
+  if (fs.existsSync(jpg1)) return extraerTextoJPG(jpg1);
+  return '';
+}
+
 // Localiza el PDF de un patrón en el filesystem
 function localizarPDF(patronId, archivosFlat) {
   const patronDir = path.join(UPLOADS_DIR, patronId);
@@ -962,12 +980,11 @@ exports.extraerDiseñadoras = async (req, res) => {
     for (let i = 0; i < pendientes.length; i += LOTE) {
       const lote = pendientes.slice(i, i + LOTE);
 
-      // Extraer texto PDF de cada patrón del lote
-      const datos = await Promise.all(lote.map(async p => {
-        const pdfPath = localizarPDF(p.id, archivosFlat);
-        const texto = pdfPath ? await extraerTextoPDF(pdfPath) : '';
-        return { id: p.id, titulo: p.titulo, texto };
-      }));
+      const datos = [];
+      for (const p of lote) {
+        const texto = await extraerTextoPatron(p.id, archivosFlat);
+        datos.push({ id: p.id, titulo: p.titulo, texto });
+      }
 
       const msg = await anthropic.messages.create({
         model: 'claude-haiku-4-5-20251001',
