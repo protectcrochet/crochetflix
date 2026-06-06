@@ -490,6 +490,8 @@ async function _runExtraccionMetadatos(apiKey) {
         return { id: p.id, titulo: p.titulo, texto };
       }));
 
+      try {
+        const msg = await anthropic.messages.create({
           model: 'claude-haiku-4-5-20251001',
           max_tokens: 1500,
           messages: [{ role: 'user', content: `Analiza estos patrones de crochet. Extrae el nombre real del patrón y el nombre de la diseñadora/diseñador leyendo el contenido del PDF.
