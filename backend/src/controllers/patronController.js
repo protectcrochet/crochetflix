@@ -1,5 +1,25 @@
 const db = require('../models');
 const crypto = require('crypto');
+const path = require('path');
+const fs = require('fs');
+const { execSync } = require('child_process');
+
+const UPLOADS_DIR = path.join(__dirname, '../../uploads/patrones');
+
+function extraerTextoPDF(patronId) {
+  try {
+    const patronDir = path.join(UPLOADS_DIR, patronId);
+    let pdfPath = null;
+    if (fs.existsSync(patronDir)) {
+      const pdf = fs.readdirSync(patronDir).find(f => f.endsWith('.pdf'));
+      if (pdf) pdfPath = path.join(patronDir, pdf);
+    }
+    if (!pdfPath) return '';
+    return execSync(`pdftotext -f 1 -l 3 "${pdfPath}" -`, { timeout: 15000 }).toString().slice(0, 3000).trim();
+  } catch {
+    return '';
+  }
+}
 
 const dbGet = (sql, params) => new Promise((res, rej) => db.get(sql, params, (err, row) => err ? rej(err) : res(row)));
 const dbRun = (sql, params) => new Promise((res, rej) => db.run(sql, params, function(err) { err ? rej(err) : res(this); }));
@@ -237,12 +257,8 @@ exports.traducir = async (req, res) => {
       return res.status(400).json({ error: 'Idioma no soportado' });
     }
 
-    const patron = await dbGet('SELECT titulo, texto_pdf, idioma FROM patrones WHERE id = ? AND activo = 1', [id]);
+    const patron = await dbGet('SELECT titulo, idioma FROM patrones WHERE id = ? AND activo = 1', [id]);
     if (!patron) return res.status(404).json({ error: 'Patrón no encontrado' });
-
-    if (patron.idioma === idioma) {
-      return res.json({ texto: patron.texto_pdf || '', cached: true, mismoIdioma: true });
-    }
 
     const cached = await dbGet('SELECT texto_traducido FROM traducciones WHERE patron_id = ? AND idioma = ?', [id, idioma]);
     if (cached) return res.json({ texto: cached.texto_traducido, cached: true });
@@ -251,8 +267,8 @@ exports.traducir = async (req, res) => {
       return res.status(503).json({ error: 'Servicio de traducción no disponible' });
     }
 
-    const textoOriginal = (patron.texto_pdf || '').slice(0, 3000);
-    if (!textoOriginal.trim()) {
+    const textoOriginal = extraerTextoPDF(id);
+    if (!textoOriginal) {
       return res.status(400).json({ error: 'Este patrón no tiene texto disponible para traducir' });
     }
 
