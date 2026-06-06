@@ -353,69 +353,57 @@ exports.traducir = async (req, res) => {
 
     const Groq = require('groq-sdk');
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-    const GUIA = {
-      es: {
-        instruccion: 'Eres un traductor experto de patrones de crochet. Traduce el siguiente texto COMPLETAMENTE al español mexicano. CADA PALABRA debe quedar en español. No dejes ninguna palabra en otro idioma.',
-        abreviaturas: `Usa EXCLUSIVAMENTE estas abreviaturas oficiales mexicanas:
-sc→pb | dc→pa | hdc→mpa | tr→pad | dtr→patr | sl st→pd | ch→cad
-inc→aum | dec→dism | sc2tog→pb2jun | dc2tog→pa2jun
-BLO→hta | FLO→hte | magic ring/MR→anillo mágico | yo→hp | sp→esp
-RS→LD | WS→LR | rnd/round/row→vta | rep→rep
-Conteos entre paréntesis: (X sts)→(Xp) — "p" SOLO en conteos, nunca como instrucción de tejido; la instrucción es siempre "pb".`
-      },
+    const SYSTEM = {
+      es: `Eres un traductor profesional de patrones de crochet al español mexicano.
 
-      en: {
-        instruccion: 'You are an expert crochet pattern translator. Translate the following text COMPLETELY to English. EVERY WORD must be in English. Do not leave any word in Spanish or any other language.',
-        abreviaturas: `Use ONLY these official US crochet abbreviations:
-pb→sc | pa→dc | mpa→hdc | pad→tr | patr→dtr | pd→sl st | cad→ch
-aum→inc | dism→dec | pb2jun→sc2tog | pa2jun→dc2tog
-hta→BLO | hte→FLO | anillo mágico/am→MR (magic ring) | hp→yo | esp→sp
-LD→RS | LR→WS | vta/vuelta→rnd | rep→rep
-Stitch counts in parentheses: (Xp)→(X sts) — example: (54p)→(54 sts)`
-      },
+REGLAS:
+1. Traduce TODO el texto al español. Ninguna palabra puede quedar en otro idioma.
+2. Abreviaturas oficiales México: sc→pb, dc→pa, hdc→mpa, tr→pad, dtr→patr, sl st→pd, ch→cad, inc→aum, dec→dism, sc2tog→pb2jun, BLO→hta, FLO→hte, MR→anillo mágico, yo→hp, rnd→vta, rep→rep, sts→p (solo en conteos entre paréntesis).
+3. IMPORTANTE: "pb" es la instrucción de tejido. "p" solo aparece en conteos finales entre paréntesis: (54 sts)→(54p).
+4. Conserva el formato exacto: saltos de línea, numeración de vueltas, paréntesis con conteos.
+5. Responde ÚNICAMENTE con el texto traducido.`,
 
-      pt: {
-        instruccion: 'Você é um tradutor especialista de padrões de crochê. Traduza o texto a seguir COMPLETAMENTE para o português brasileiro. CADA PALAVRA deve estar em português. Não deixe nenhuma palavra em espanhol ou outro idioma.',
-        abreviaturas: `Use SOMENTE estas abreviações oficiais brasileiras:
-pb/sc→pb | pa/dc→pa | mpa/hdc→mp | pad/tr→ptr | patr/dtr→pdt | pd/sl st→pp | cad/ch→cad
-aum/inc→aum | dism/dec→dim | pb2jun→2pbj | pa2jun→2paj
-hta/BLO→ALT | hte/FLO→ALD | anillo mágico/MR→AM (argola mágica) | hp/yo→lp
-vta/rnd→v (volta) | rep→rep | pts/sts→pts`
-      },
+      en: `You are a professional crochet pattern translator to English.
 
-      fr: {
-        instruccion: 'Vous êtes un traducteur expert de patrons de crochet. Traduisez le texte suivant ENTIÈREMENT en français. CHAQUE MOT doit être en français. Ne laissez aucun mot en espagnol ou dans une autre langue.',
-        abreviaturas: `Utilisez UNIQUEMENT ces abréviations officielles françaises (système UK) :
-pb/sc→ms | pa/dc→br | mpa/hdc→db | pad/tr→br2 | patr/dtr→br3 | pd/sl st→mc | cad/ch→ml
-aum/inc→aug | dism/dec→dim | pb2jun→2ms ens. | pa2jun→2br ens.
-hta/BLO→BRD | hte/FLO→BRE | anillo mágico/MR→AM (anneau magique) | hp/yo→jf
-vta/rnd→rg (rang/tour) | rep→rép | pts/sts→m`
-      },
+RULES:
+1. Translate EVERYTHING to English. No Spanish (or any other language) words allowed in the output.
+2. US crochet abbreviations: pb→sc, pa→dc, mpa→hdc, pad→tr, patr→dtr, pd→sl st, cad→ch, aum→inc, dism→dec, pb2jun→sc2tog, hta→BLO, hte→FLO, anillo mágico→MR (magic ring), hp→yo, vta→rnd, rep→rep, p→sts (in stitch counts only).
+3. Stitch counts: (54p)→(54 sts).
+4. Preserve exact format: line breaks, round numbering, parentheses with counts.
+5. Reply ONLY with the translated text. No explanations, no comments.`,
 
-      ru: {
-        instruccion: 'Вы — эксперт по переводу схем вязания крючком. Переведите следующий текст ПОЛНОСТЬЮ на русский язык. КАЖДОЕ СЛОВО должно быть на русском. Не оставляйте ни одного слова на испанском или другом языке.',
-        abreviaturas: `Используйте ТОЛЬКО официальные российские сокращения:
-pb/sc→сбн | pa/dc→стн | mpa/hdc→ппн | pad/tr→с2н | patr/dtr→с3н | pd/sl st→сс | cad/ch→вп
-aum/inc→пр | dism/dec→уб | pb2jun→2сбн вм. | pa2jun→2стн вм.
-hta/BLO→з.ст. | hte/FLO→п.ст. | anillo mágico/MR→КА (кольцо амигуруми) | hp/yo→накид
-vta/rnd→ряд (кр — для кругового вязания) | rep→повт. | pts/sts→п`
-      }
+      pt: `Você é um tradutor profissional de padrões de crochê para o português brasileiro.
+
+REGRAS:
+1. Traduza TUDO para o português. Nenhuma palavra pode ficar em espanhol ou outro idioma.
+2. Abreviações brasileiras: pb→pb, pa→pa, mpa→mp, pad→ptr, pd→pp, cad→cad, aum→aum, dism→dim, MR→AM (argola mágica), vta→v (volta), rnd→v, rep→rep, sts→pts.
+3. Conserve o formato exato: quebras de linha, numeração de voltas, contagens entre parênteses.
+4. Responda APENAS com o texto traduzido.`,
+
+      fr: `Vous êtes un traducteur professionnel de patrons de crochet en français.
+
+RÈGLES :
+1. Traduisez TOUT en français. Aucun mot espagnol (ou autre langue) dans la réponse.
+2. Abréviations françaises (système UK) : pb→ms, pa→br, mpa→db, pad→br2, pd→mc, cad→ml, aum→aug, dism→dim, MR→AM (anneau magique), vta→rg (rang), rnd→rg, rep→rép, sts→m.
+3. Conservez le format exact : sauts de ligne, numérotation des rangs, comptages entre parenthèses.
+4. Répondez UNIQUEMENT avec le texte traduit.`,
+
+      ru: `Вы — профессиональный переводчик схем вязания крючком на русский язык.
+
+ПРАВИЛА:
+1. Переведите ВСЁ на русский. Ни одного испанского слова в ответе.
+2. Российские сокращения: pb→сбн, pa→стн, mpa→ппн, pad→с2н, pd→сс, cad→вп, aum→пр, dism→уб, MR→КА (кольцо амигуруми), vta→ряд, rnd→ряд, rep→повт., sts→п.
+3. Сохраняйте точный формат: переносы строк, нумерацию рядов, подсчёты в скобках.
+4. Отвечайте ТОЛЬКО переведённым текстом.`
     };
 
-    const g = GUIA[idioma];
     const completion = await groq.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
       messages: [
-        {
-          role: 'system',
-          content: `${g.instruccion}\n\n${g.abreviaturas}\n\nMantén exactamente el mismo formato del original: mismos saltos de línea, misma numeración de vueltas, mismos paréntesis con conteos. Responde SOLO con el texto traducido, sin explicaciones.`
-        },
-        {
-          role: 'user',
-          content: textoOriginal
-        }
+        { role: 'system', content: SYSTEM[idioma] },
+        { role: 'user', content: textoOriginal }
       ],
-      max_tokens: 1500,
+      max_tokens: 4096,
     });
 
     const traduccion = completion.choices[0].message.content.trim();
