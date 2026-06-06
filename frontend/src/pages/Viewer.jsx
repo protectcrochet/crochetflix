@@ -223,8 +223,8 @@ export default function Viewer() {
   };
 
   useEffect(() => {
-    if (tradPanel && idiomaTraduccion) traducir(idiomaTraduccion, paginaActual);
-  }, [paginaActual, tradPanel]);
+    if (tradPanel && idiomaTraduccion && textoTraducido) traducir(idiomaTraduccion, paginaActual);
+  }, [paginaActual]);
 
   const marcarCompletado = async () => {
     try { await api.post('/viewer/completar', { patronId: id }); setProgreso(p => ({ ...p, completado: true })); }
