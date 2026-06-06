@@ -617,9 +617,10 @@ export default function Admin() {
     }
   };
 
-  const extraerOpenAI = async () => {
+  const extraerOpenAI = async (force = false) => {
+    if (force && !confirm('¿Limpiar títulos de TODOS los patrones con nombres sucios? Puede tardar horas y consumir créditos de OpenAI.')) return;
     try {
-      const res = await api.post('/admin/patrones/extraer-metadatos-openai', {}, { headers: authHeader });
+      const res = await api.post('/admin/patrones/extraer-metadatos-openai', { force }, { headers: authHeader });
       setMensaje({ tipo: 'ok', texto: res.data.message });
       setTimeout(() => setMensaje(null), 4000);
     } catch (err) {
@@ -846,10 +847,15 @@ export default function Admin() {
             {stats?.groqRunning ? <Loader className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
             {stats?.groqRunning ? 'Groq…' : 'Groq ✨'}
           </button>
-          <button onClick={extraerOpenAI} disabled={stats?.openaiRunning} title="Extrae título y diseñadora con GPT-4o-mini (~$5 USD, termina en 1-2 días)"
+          <button onClick={() => extraerOpenAI(false)} disabled={stats?.openaiRunning} title="Extrae título y diseñadora con GPT-4o-mini (solo pendientes)"
             className="flex items-center gap-1.5 px-3 py-2 bg-green-700 hover:bg-green-600 rounded text-sm text-white transition disabled:opacity-50">
             {stats?.openaiRunning ? <Loader className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
             {stats?.openaiRunning ? 'OpenAI…' : 'OpenAI ⚡'}
+          </button>
+          <button onClick={() => extraerOpenAI(true)} disabled={stats?.openaiRunning} title="Limpia títulos sucios de TODOS los patrones (guiones bajos, números, .pdf, etc.)"
+            className="flex items-center gap-1.5 px-3 py-2 bg-green-900 hover:bg-green-800 border border-green-600 rounded text-sm text-white transition disabled:opacity-50">
+            {stats?.openaiRunning ? <Loader className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            {stats?.openaiRunning ? 'OpenAI…' : 'Limpiar todos ⚡'}
           </button>
           <button onClick={categorizarConIA} disabled={stats?.categoriasRunning} title="Categorizar patrones con IA (corre en el servidor)"
             className="flex items-center gap-1.5 px-3 py-2 bg-purple-700 hover:bg-purple-600 rounded text-sm text-white transition disabled:opacity-50">

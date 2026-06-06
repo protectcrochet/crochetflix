@@ -673,13 +673,25 @@ exports.extraerMetadatosGroqFondo = async (req, res) => {
 };
 
 // ── Job en segundo plano: extracción de metadatos con OpenAI ────────────────
-async function _runExtraccionOpenAI(apiKey) {
+async function _runExtraccionOpenAI(apiKey, force = false) {
   const openai = new OpenAI({ apiKey });
   const LOTE = 20;
   let totalActualizados = 0;
 
-  const WHERE_PENDIENTE = `autor IN ('Telegram', 'Diseñadora') AND
-    (diseñadora IS NULL OR diseñadora = '' OR diseñadora = 'N/A' OR diseñadora = 'Diseñadora')`;
+  // Título "sucio": tiene guiones bajos, empieza con hash, contiene ".pdf", es solo números, etc.
+  const WHERE_SUCIO = `(
+    titulo LIKE '%\\_%' ESCAPE '\\' OR
+    titulo LIKE '%.pdf%' OR
+    titulo LIKE '%\_pdf%' ESCAPE '\\' OR
+    titulo GLOB '*[0-9][0-9][0-9][0-9][0-9]*' OR
+    titulo LIKE '#%' OR
+    length(titulo) < 4
+  )`;
+
+  const WHERE_PENDIENTE = force
+    ? `activo = 1 AND ${WHERE_SUCIO}`
+    : `autor IN ('Telegram', 'Diseñadora') AND
+       (diseñadora IS NULL OR diseñadora = '' OR diseñadora = 'N/A' OR diseñadora = 'Diseñadora')`;
 
   while (true) {
     const pendientes = await new Promise((resolve, reject) => {
@@ -761,11 +773,12 @@ exports.extraerMetadatosOpenAIFondo = async (req, res) => {
   if (!apiKey) return res.status(503).json({ error: 'Falta OPENAI_API_KEY en .env' });
   if (openaiRunning) return res.json({ message: 'Ya está corriendo en el servidor', running: true, progreso: openaiProgreso });
 
+  const force = req.body?.force === true;
   openaiRunning = true;
   openaiProgreso = { actualizados: 0, restantes: null };
-  res.json({ message: 'Extracción OpenAI iniciada. Puedes cerrar la laptop.', running: true });
+  res.json({ message: force ? 'Limpieza forzada iniciada (todos los patrones con títulos sucios).' : 'Extracción OpenAI iniciada. Puedes cerrar la laptop.', running: true });
 
-  _runExtraccionOpenAI(apiKey)
+  _runExtraccionOpenAI(apiKey, force)
     .catch(err => console.error('[openai] Error fatal:', err.message))
     .finally(() => { openaiRunning = false; });
 };
