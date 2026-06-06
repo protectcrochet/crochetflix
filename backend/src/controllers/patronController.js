@@ -8,11 +8,16 @@ const UPLOADS_DIR = path.join(__dirname, '../../uploads/patrones');
 
 function extraerTextoPDF(patronId) {
   try {
-    const patronDir = path.join(UPLOADS_DIR, patronId);
     let pdfPath = null;
+    const patronDir = path.join(UPLOADS_DIR, patronId);
     if (fs.existsSync(patronDir)) {
       const pdf = fs.readdirSync(patronDir).find(f => f.endsWith('.pdf'));
       if (pdf) pdfPath = path.join(patronDir, pdf);
+    }
+    if (!pdfPath) {
+      const shortId = patronId.replace('patron-', '');
+      const flat = fs.readdirSync(UPLOADS_DIR).find(f => f.startsWith(shortId) && f.endsWith('.pdf'));
+      if (flat) pdfPath = path.join(UPLOADS_DIR, flat);
     }
     if (!pdfPath) return '';
     return execSync(`pdftotext -f 1 -l 3 "${pdfPath}" -`, { timeout: 15000 }).toString().slice(0, 3000).trim();
