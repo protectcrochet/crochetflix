@@ -2,18 +2,18 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
-import { Crown, Globe, X as XIcon } from 'lucide-react';
+import { Crown } from 'lucide-react';
 import {
   ChevronLeft, ChevronRight, ZoomIn, ZoomOut,
-  Download, Bookmark, Check, Lock, Loader
+  Download, Bookmark, Check, Lock, Loader, X as XIcon
 } from 'lucide-react';
 
 const IDIOMAS_TRAD = [
-  { v: 'es', l: '🇪🇸 Español' },
-  { v: 'en', l: '🇺🇸 Inglés' },
-  { v: 'pt', l: '🇧🇷 Portugués' },
-  { v: 'ru', l: '🇷🇺 Ruso' },
-  { v: 'fr', l: '🇫🇷 Francés' },
+  { v: 'es', flag: '🇪🇸' },
+  { v: 'en', flag: '🇺🇸' },
+  { v: 'pt', flag: '🇧🇷' },
+  { v: 'ru', flag: '🇷🇺' },
+  { v: 'fr', flag: '🇫🇷' },
 ];
 import { PRECIOS, detectarMoneda } from '../utils/geoMoneda';
 
@@ -355,12 +355,6 @@ export default function Viewer() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {user?.tier === 'premium' && (
-            <button onClick={() => setTradPanel(v => !v)} title="Traducir patrón"
-              className={`p-2 hover:bg-gray-800 rounded ${tradPanel ? 'text-crochet-primary' : ''}`}>
-              <Globe className="w-5 h-5" />
-            </button>
-          )}
           <button onClick={toggleMiLista} className="p-2 hover:bg-gray-800 rounded">
             <Bookmark className={`w-5 h-5 ${enMiLista ? 'fill-crochet-primary text-crochet-primary' : ''}`} />
           </button>
@@ -479,6 +473,16 @@ export default function Viewer() {
           <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
             className="p-2 hover:bg-gray-800 rounded text-sm text-gray-400">Reset</button>
 
+          {user?.tier === 'premium' && (
+            <>
+              <div className="w-px h-6 bg-gray-700 mx-2" />
+              <button onClick={() => { setTradPanel(v => !v); setTextoTraducido(''); }}
+                className={`text-sm px-3 py-1 rounded-full border transition ${tradPanel ? 'border-crochet-primary text-crochet-primary' : 'border-gray-600 text-gray-400 hover:border-gray-400'}`}>
+                Traducir
+              </button>
+            </>
+          )}
+
           {paginaActual === totalPaginas && !progreso.completado && (
             <>
               <div className="w-px h-6 bg-gray-700 mx-2" />
@@ -493,27 +497,27 @@ export default function Viewer() {
       {/* Panel de traducción */}
       {tradPanel && (
         <div className="fixed inset-x-0 bottom-0 z-50 bg-gray-900 border-t border-gray-700 rounded-t-2xl shadow-2xl max-h-[60vh] flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 shrink-0">
-            <span className="font-semibold text-sm flex items-center gap-2"><Globe className="w-4 h-4 text-crochet-primary" /> Traducción del patrón</span>
-            <button onClick={() => setTradPanel(false)} className="p-1 hover:bg-gray-800 rounded"><XIcon className="w-4 h-4" /></button>
-          </div>
-          <div className="px-4 py-3 flex items-center gap-2 shrink-0 border-b border-gray-800">
-            <select value={idiomaTraduccion}
-              onChange={e => { setIdiomaTraduccion(e.target.value); setTextoTraducido(''); }}
-              className="bg-gray-800 border border-gray-700 rounded-full px-3 py-1.5 text-sm focus:outline-none">
-              {IDIOMAS_TRAD.map(i => <option key={i.v} value={i.v}>{i.l}</option>)}
-            </select>
-            <button onClick={() => traducir(idiomaTraduccion)} disabled={traduciendo}
-              className="btn-primary text-sm px-4 py-1.5 flex items-center gap-1 disabled:opacity-50">
-              {traduciendo ? <><Loader className="w-3 h-3 animate-spin" /> Traduciendo...</> : 'Traducir'}
+          <div className="flex items-center justify-between px-4 py-3 shrink-0">
+            <span className="text-sm font-semibold text-gray-300">Elige el idioma</span>
+            <button onClick={() => setTradPanel(false)} className="p-1 hover:bg-gray-800 rounded">
+              <XIcon className="w-4 h-4" />
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto px-4 py-3 text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">
-            {!textoTraducido && !traduciendo && (
-              <p className="text-gray-500 text-center py-6">Selecciona el idioma y presiona "Traducir"</p>
-            )}
-            {textoTraducido}
+          <div className="flex justify-center gap-5 px-4 pb-4 shrink-0">
+            {IDIOMAS_TRAD.map(i => (
+              <button key={i.v} onClick={() => { setIdiomaTraduccion(i.v); traducir(i.v); }}
+                className={`text-3xl transition-transform hover:scale-110 active:scale-95 ${idiomaTraduccion === i.v && textoTraducido ? 'ring-2 ring-crochet-primary rounded-full' : ''}`}>
+                {i.flag}
+              </button>
+            ))}
           </div>
+          {(traduciendo || textoTraducido) && (
+            <div className="flex-1 overflow-y-auto px-4 pb-4 text-sm text-gray-300 leading-relaxed whitespace-pre-wrap border-t border-gray-800 pt-3">
+              {traduciendo
+                ? <div className="flex items-center gap-2 text-gray-500 py-4 justify-center"><Loader className="w-4 h-4 animate-spin" /> Traduciendo...</div>
+                : textoTraducido}
+            </div>
+          )}
         </div>
       )}
 
