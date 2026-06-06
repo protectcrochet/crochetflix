@@ -484,11 +484,12 @@ async function _runExtraccionMetadatos(apiKey) {
 
     for (let i = 0; i < pendientes.length; i += LOTE) {
       const lote = pendientes.slice(i, i + LOTE);
-      const datos = await Promise.all(lote.map(async p => {
+      const datos = [];
+      for (const p of lote) {
         const pdfPath = localizarPDF(p.id, archivosFlat);
         const texto = pdfPath ? await extraerTextoPDF(pdfPath) : '';
-        return { id: p.id, titulo: p.titulo, texto };
-      }));
+        datos.push({ id: p.id, titulo: p.titulo, texto });
+      }
 
       try {
         const msg = await anthropic.messages.create({
@@ -588,11 +589,12 @@ async function _runExtraccionGroq(apiKey) {
 
     for (let i = 0; i < pendientes.length; i += LOTE) {
       const lote = pendientes.slice(i, i + LOTE);
-      const datos = await Promise.all(lote.map(async p => {
+      const datos = [];
+      for (const p of lote) {
         const pdfPath = localizarPDF(p.id, archivosFlat);
         const texto = pdfPath ? await extraerTextoPDF(pdfPath) : '';
-        return { id: p.id, titulo: p.titulo, texto };
-      }));
+        datos.push({ id: p.id, titulo: p.titulo, texto });
+      }
 
       const prompt = `Analiza estos patrones de crochet. Extrae el nombre real del patrón y el nombre de la diseñadora leyendo el texto del PDF.
 
@@ -709,11 +711,12 @@ async function _runExtraccionOpenAI(apiKey, force = false) {
 
     for (let i = 0; i < pendientes.length; i += LOTE) {
       const lote = pendientes.slice(i, i + LOTE);
-      const datos = await Promise.all(lote.map(async p => {
+      const datos = [];
+      for (const p of lote) {
         const pdfPath = localizarPDF(p.id, archivosFlat);
         const texto = pdfPath ? await extraerTextoPDF(pdfPath) : '';
-        return { id: p.id, titulo: p.titulo, texto };
-      }));
+        datos.push({ id: p.id, titulo: p.titulo, texto });
+      }
 
       const prompt = `Analiza estos patrones de crochet. Extrae el nombre real del patrón y el nombre de la diseñadora leyendo el texto del PDF.
 
