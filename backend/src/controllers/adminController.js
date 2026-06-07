@@ -938,8 +938,14 @@ async function extraerTextoJPG(imgPath) {
 async function extraerTextoPatron(patronId, archivosFlat) {
   const pdfPath = localizarPDF(patronId, archivosFlat);
   if (pdfPath) return extraerTextoPDF(pdfPath);
-  const jpg1 = path.join(UPLOADS_DIR, patronId, 'pagina_1.jpg');
-  if (fs.existsSync(jpg1)) return extraerTextoJPG(jpg1);
+  const patronDir = path.join(UPLOADS_DIR, patronId);
+  for (const num of [1, 2, 3]) {
+    const jpg = path.join(patronDir, `pagina_${num}.jpg`);
+    if (fs.existsSync(jpg)) {
+      const texto = await extraerTextoJPG(jpg);
+      if (texto.length > 30) return texto;
+    }
+  }
   return '';
 }
 
