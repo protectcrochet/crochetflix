@@ -114,6 +114,9 @@ exports.crearPatron = async (req, res) => {
       patron: { id: patronId, titulo, paginas: paginas.length }
     });
 
+    // Extracción automática de metadatos en segundo plano
+    _procesarPatronNuevo(patronId, patronDir, titulo).catch(() => {});
+
   } catch (err) {
     // Limpiar directorio si algo falló
     fs.rmSync(patronDir, { recursive: true, force: true });
@@ -121,6 +124,48 @@ exports.crearPatron = async (req, res) => {
     res.status(500).json({ error: 'Error procesando el patrón: ' + err.message });
   }
 };
+
+async function _procesarPatronNuevo(patronId, patronDir, tituloOriginal) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return;
+  try {
+    const archivosFlat = fs.readdirSync(UPLOADS_DIR);
+    const texto = await extraerTextoPatron(patronId, archivosFlat);
+    const openai = new OpenAI({ apiKey });
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: `Analiza este patrón de crochet. Extrae el nombre real y la diseñadora del PDF.
+
+Responde SOLO con JSON válido sin markdown:
+{"titulo_limpio":"Nombre real del patrón","diseñadora":"Nombre o null","idioma":"es|en|pt|fr|de|it|otro"}
+
+Reglas título: usa el nombre oficial del PDF (primera página). Si no hay título claro, limpia el actual quitando guiones bajos, hashes, timestamps y sufijo "_pdf". Máx 80 caracteres.
+Reglas diseñadora: nombre de persona, marca, tienda o usuario. Sin pistas → null.
+
+Título actual: ${tituloOriginal}
+Texto PDF:
+${texto || '(sin texto legible)'}` }],
+      max_tokens: 200,
+      temperature: 0.1,
+    });
+    const raw = completion.choices[0].message.content.trim();
+    const jsonStr = raw.startsWith('{') ? raw : raw.match(/\{[\s\S]*\}/)?.[0];
+    if (!jsonStr) return;
+    const r = JSON.parse(jsonStr);
+    const _INVALIDOS = ['null', 'telegram', 'diseñadora', 'disenadora', 'desconocida', 'unknown', 'n/a'];
+    const diseñadora = r.diseñadora && !_INVALIDOS.includes(r.diseñadora.toLowerCase().trim()) ? r.diseñadora : null;
+    await new Promise((resolve, reject) => {
+      db.run(
+        `UPDATE patrones SET titulo=COALESCE(NULLIF(?,''),titulo), diseñadora=COALESCE(?,diseñadora), idioma=? WHERE id=?`,
+        [r.titulo_limpio?.trim() || null, diseñadora, r.idioma || 'es', patronId],
+        (err) => { if (err) reject(err); else resolve(); }
+      );
+    });
+    console.log(`[nuevo] Patrón ${patronId} procesado: "${r.titulo_limpio}" — ${diseñadora || 'sin diseñadora'}`);
+  } catch (e) {
+    console.error(`[nuevo] Error procesando ${patronId}:`, e.message);
+  }
+}
 
 exports.exportarCSV = async (req, res) => {
   try {
