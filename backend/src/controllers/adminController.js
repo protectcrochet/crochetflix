@@ -126,14 +126,14 @@ exports.crearPatron = async (req, res) => {
 };
 
 async function _procesarPatronNuevo(patronId, patronDir, tituloOriginal) {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) return;
   try {
     const archivosFlat = fs.readdirSync(UPLOADS_DIR);
     const texto = await extraerTextoPatron(patronId, archivosFlat);
-    const openai = new OpenAI({ apiKey });
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+    const groq = new Groq({ apiKey });
+    const completion = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
       messages: [{ role: 'user', content: `Analiza este patrón de crochet. Extrae el nombre real y la diseñadora del PDF.
 
 Responde SOLO con JSON válido sin markdown:
