@@ -294,53 +294,51 @@ export default function Viewer() {
 
   if (!tieneAcceso && errorAcceso === 'limite_free') {
     const precio = PRECIOS[moneda] || PRECIOS['USD'];
-    const now = new Date();
-    const primeroDeSiguiente = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    const diasFalta = Math.ceil((primeroDeSiguiente - now) / (1000 * 60 * 60 * 24));
-    const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
-    const suscribirse = async () => {
+    const suscribirse = async (plan = 'mensual') => {
       setSuscLoading(true);
       try {
-        const res = await api.post('/stripe/checkout', { plan: 'mensual' });
+        const res = await api.post('/stripe/checkout', { plan });
         window.location.href = res.data.checkout_url;
       } catch { setSuscLoading(false); }
     };
     return (
-      <div className="flex flex-col items-center justify-center min-h-96 px-4 py-12 text-center max-w-md mx-auto">
-        <Crown className="w-16 h-16 text-yellow-400 mb-4" />
-        <h2 className="text-2xl font-bold mb-2">Ya usaste tu patrón gratis de este mes</h2>
-        <p className="text-gray-400 mb-1">
-          Con tu cuenta gratuita tienes <strong className="text-white">3 patrones de prueba</strong> y luego <strong className="text-white">1 patrón nuevo cada mes</strong>.
-        </p>
-        <p className="text-gray-500 text-sm mb-6">
-          Tu próximo patrón gratis se desbloquea en <strong className="text-white">{diasFalta} {diasFalta === 1 ? 'día' : 'días'}</strong> (1 de {meses[primeroDeSiguiente.getMonth()]}).
+      <div className="flex flex-col items-center justify-center min-h-screen px-4 py-12 text-center max-w-md mx-auto">
+        <div className="mb-2">
+          <span className="bg-yellow-500/20 text-yellow-400 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">✨ Precio de lanzamiento</span>
+        </div>
+        <Crown className="w-14 h-14 text-yellow-400 my-4" />
+        <h2 className="text-2xl font-bold mb-2">¡Tus 3 patrones gratuitos ya están agotados!</h2>
+        <p className="text-gray-400 mb-6">
+          Pero no tienes que parar aquí — únete a las <strong className="text-white">+{Math.max(12, 12)} suscriptoras Premium</strong> y accede a los <strong className="text-white">+8,000 patrones</strong> del catálogo completo, sin límites.
         </p>
 
-        <div className="w-full bg-gray-800 border border-yellow-600/40 rounded-2xl p-6 mb-6">
+        <div className="w-full bg-gray-800 border border-yellow-500/50 rounded-2xl p-6 mb-4 relative overflow-hidden">
+          <div className="absolute top-3 right-3 bg-yellow-500 text-black text-[10px] font-bold px-2 py-0.5 rounded-full">LANZAMIENTO</div>
           <p className="text-xs text-yellow-400 font-semibold uppercase tracking-wide mb-1">Premium mensual</p>
-          <p className="text-4xl font-bold text-white mb-1">{precio.mensual}</p>
+          <p className="text-4xl font-bold text-white mb-0.5">{precio.mensual}</p>
           <p className="text-gray-500 text-sm mb-4">por mes · cancela cuando quieras</p>
           <ul className="text-left text-sm text-gray-300 space-y-2 mb-5">
-            <li>✅ Acceso a <strong>todos los patrones</strong></li>
-            <li>✅ Traducción de patrones al idioma que elijas (5 por semana)</li>
-            <li>✅ Sin publicidad</li>
-            <li>✅ Vista offline de tus patrones favoritos</li>
+            <li>✅ Acceso ilimitado a <strong>+8,000 patrones</strong></li>
+            <li>✅ Nuevos patrones cada semana</li>
+            <li>✅ Traducción automática al idioma que elijas</li>
+            <li>✅ Descarga patrones para ver sin internet</li>
             <li>✅ Guarda tu progreso de lectura</li>
           </ul>
-          <button onClick={suscribirse} disabled={suscLoading}
-            className="w-full py-3 bg-yellow-500 hover:bg-yellow-400 text-black font-bold rounded-xl transition disabled:opacity-50">
-            {suscLoading ? <Loader className="w-5 h-5 animate-spin inline" /> : `Suscribirme por ${precio.mensual}/mes`}
+          <button onClick={() => suscribirse('mensual')} disabled={suscLoading}
+            className="w-full py-3.5 bg-yellow-500 hover:bg-yellow-400 text-black font-bold rounded-xl transition disabled:opacity-50 text-base">
+            {suscLoading ? <Loader className="w-5 h-5 animate-spin inline" /> : `Quiero acceso ilimitado — ${precio.mensual}/mes`}
           </button>
+          <p className="text-xs text-gray-500 mt-3">Sin compromiso · Cancela en cualquier momento</p>
         </div>
 
         {/* Referidos */}
         {referidos && (
           <div className="w-full bg-gray-800/60 border border-gray-700 rounded-2xl p-5 mb-4 text-left">
             <p className="font-semibold text-sm text-white mb-1">🎁 ¿No quieres pagar? Invita amigas</p>
-            <p className="text-xs text-gray-400 mb-3">Por cada 3 amigas que se suscriban, ganas <strong className="text-white">1 mes Premium gratis</strong>.</p>
+            <p className="text-xs text-gray-400 mb-3">Por cada <strong className="text-white">3 amigas</strong> que se suscriban, ganas <strong className="text-white">1 mes Premium gratis</strong>.</p>
             <div className="flex gap-1.5 mb-2">
               {[1,2,3].map(n => (
-                <div key={n} className={`flex-1 h-1.5 rounded-full ${referidos.convertidos >= n ? 'bg-yellow-400' : 'bg-gray-600'}`} />
+                <div key={n} className={`flex-1 h-2 rounded-full ${referidos.convertidos >= n ? 'bg-yellow-400' : 'bg-gray-600'}`} />
               ))}
             </div>
             <p className="text-xs text-gray-500 mb-3">{referidos.convertidos}/3 amigas suscritas</p>
@@ -378,6 +376,26 @@ export default function Viewer() {
 
   return (
     <div className="h-screen flex flex-col select-none">
+      {/* Banner: último patrón gratis o límite alcanzado */}
+      {user && user.tier !== 'premium' && !esPreview && patronesUsados >= 2 && (
+        <div className="bg-gradient-to-r from-yellow-600 to-yellow-500 text-black text-xs font-semibold px-4 py-2 flex items-center justify-between gap-2 shrink-0">
+          <span>
+            {patronesUsados === 2
+              ? '⚠️ Este es tu último patrón gratuito — después necesitarás Premium para seguir.'
+              : '🎉 ¡Terminaste tus 3 patrones gratuitos! Suscríbete para seguir disfrutando sin límites.'}
+          </span>
+          <button
+            onClick={async () => {
+              try {
+                const res = await api.post('/stripe/checkout', { plan: 'mensual' });
+                window.location.href = res.data.checkout_url;
+              } catch {}
+            }}
+            className="shrink-0 bg-black text-yellow-400 font-bold px-3 py-1 rounded-lg text-xs hover:bg-gray-900 transition">
+            Suscribirme
+          </button>
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 bg-gray-900 border-b border-gray-800 shrink-0">
         <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-gray-400 hover:text-white">
