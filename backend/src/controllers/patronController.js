@@ -311,10 +311,13 @@ exports.traducir = async (req, res) => {
     );
     if (cached) return res.json({ texto: cached.texto_traducido, cached: true });
 
-    // Límite semanal: 5 patrones distintos por semana
+    // Límite semanal: 5 patrones distintos por semana (lunes a domingo)
     const LIMITE = 5;
-    const semana = new Date().toISOString().slice(0, 10).replace(/-\d\d$/, '') +
-      '-W' + String(Math.ceil(new Date().getDate() / 7)).padStart(2, '0');
+    const hoy = new Date();
+    const diaSemana = hoy.getDay() === 0 ? 6 : hoy.getDay() - 1; // 0=lunes, 6=domingo
+    const lunes = new Date(hoy);
+    lunes.setDate(hoy.getDate() - diaSemana);
+    const semana = lunes.toISOString().slice(0, 10); // YYYY-MM-DD del lunes
 
     // ¿Ya tradujo páginas de este patrón esta semana? → no cuenta como nuevo patrón
     const yaUsado = await dbGet(
