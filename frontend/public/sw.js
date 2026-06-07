@@ -29,6 +29,29 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// Interceptar PDF compartido desde otras apps
+self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  const url = new URL(request.url);
+
+  if (url.pathname === '/share-pdf' && request.method === 'POST') {
+    event.respondWith((async () => {
+      try {
+        const formData = await request.formData();
+        const file = formData.get('pdf');
+        if (file) {
+          const cache = await caches.open('crochetflix-share');
+          await cache.put('/shared-pdf', new Response(await file.arrayBuffer(), {
+            headers: { 'Content-Type': 'application/pdf', 'X-Filename': file.name }
+          }));
+        }
+      } catch {}
+      return Response.redirect('/admin?share=1', 303);
+    })());
+    return;
+  }
+});
+
 // Fetch: estrategia network-first para API, cache-first para assets
 self.addEventListener('fetch', (event) => {
   const { request } = event;

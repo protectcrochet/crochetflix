@@ -554,6 +554,25 @@ export default function Admin() {
     return () => clearInterval(intervalo);
   }, [autenticado]);
 
+  useEffect(() => {
+    if (!autenticado) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('share') !== '1') return;
+    window.history.replaceState({}, '', '/admin');
+    caches.open('crochetflix-share').then(cache => {
+      cache.match('/shared-pdf').then(async response => {
+        if (!response) return;
+        const blob = await response.blob();
+        const nombre = response.headers.get('X-Filename') || 'patron.pdf';
+        const file = new File([blob], nombre, { type: 'application/pdf' });
+        setArchivoPDF(file);
+        setMostrando('nuevo');
+        cache.delete('/shared-pdf');
+        setMensaje({ tipo: 'ok', texto: `PDF "${nombre}" listo para subir` });
+      });
+    });
+  }, [autenticado]);
+
   const cerrarSesion = () => {
     localStorage.removeItem('admin_secret');
     setAutenticado(false);
