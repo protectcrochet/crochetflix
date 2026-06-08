@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
-import { Search, X, ChevronLeft, Star, Flame } from 'lucide-react';
+import { Search, X, ChevronLeft, Star, Flame, Pencil, Check } from 'lucide-react';
 
 const CATEGORIAS = ['todas', 'amigurumi', 'ropa', 'accesorios', 'decoracion', 'hogar', 'navidad', 'halloween', 'animales', 'general', 'otro'];
 const DIFICULTADES = ['todas', 'principiante', 'intermedio', 'avanzado'];
@@ -9,7 +9,7 @@ const IDIOMAS = [{ v: '', l: 'Todos' }, { v: 'es', l: '🇪🇸 Español' }, { v
 const ORDENES = [{ v: 'aleatorio', l: 'Descubrir' }, { v: 'recientes', l: 'Más recientes' }, { v: 'az', l: 'A–Z' }, { v: 'paginas', l: 'Más páginas' }];
 const POR_PAGINA = 24;
 
-function PatronCardGrid({ patron, isAdmin, onToggle }) {
+function PatronCardGrid({ patron, isAdmin, onToggle, onEdit }) {
   const adminSecret = isAdmin ? localStorage.getItem('admin_secret') : null;
   const authHeader = adminSecret ? { 'X-Admin-Secret': adminSecret } : {};
 
@@ -47,6 +47,11 @@ function PatronCardGrid({ patron, isAdmin, onToggle }) {
               title="Tendencia">
               <Flame className="w-3.5 h-3.5" fill={patron.tendencia ? 'currentColor' : 'none'} />
             </button>
+            <button onClick={e => { e.preventDefault(); e.stopPropagation(); onEdit && onEdit(patron); }}
+              className="p-1.5 rounded-lg backdrop-blur-sm bg-black/60 text-gray-300 hover:bg-blue-600 hover:text-white transition"
+              title="Editar título y diseñadora">
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
           </div>
         )}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
@@ -66,6 +71,52 @@ function PatronCardGrid({ patron, isAdmin, onToggle }) {
   );
 }
 
+function EditModal({ patron, onClose, onSave }) {
+  const [titulo, setTitulo] = useState(patron.titulo || '');
+  const [disenadora, setDisenadora] = useState(patron.diseñadora || '');
+  const [guardando, setGuardando] = useState(false);
+  const adminSecret = localStorage.getItem('admin_secret');
+
+  const guardar = async () => {
+    setGuardando(true);
+    try {
+      await api.patch(`/admin/patrones/${patron.id}`, { titulo, diseñadora: disenadora }, { headers: { 'X-Admin-Secret': adminSecret } });
+      onSave(patron.id, titulo, disenadora);
+      onClose();
+    } catch { setGuardando(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center px-4" onClick={onClose}>
+      <div className="bg-gray-900 border border-gray-700 rounded-2xl p-5 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold text-sm">Editar patrón</h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-white"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="mb-3">
+          <label className="text-xs text-gray-400 mb-1 block">Título</label>
+          <input value={titulo} onChange={e => setTitulo(e.target.value)}
+            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-crochet-primary"
+            placeholder="Título del patrón" autoFocus />
+        </div>
+        <div className="mb-4">
+          <label className="text-xs text-gray-400 mb-1 block">Diseñadora</label>
+          <input value={disenadora} onChange={e => setDisenadora(e.target.value)}
+            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-crochet-primary"
+            placeholder="Nombre de la diseñadora" />
+        </div>
+        <div className="flex gap-2">
+          <button onClick={onClose} className="flex-1 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm transition">Cancelar</button>
+          <button onClick={guardar} disabled={guardando}
+            className="flex-1 py-2 bg-crochet-primary hover:opacity-90 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-1 disabled:opacity-50">
+            {guardando ? '...' : <><Check className="w-4 h-4" /> Guardar</>}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PatronCardSkeleton() {
   return (
     <div className="animate-pulse">
@@ -81,6 +132,7 @@ function PatronCardSkeleton() {
 
 export default function Catalogo() {
   const isAdmin = !!localStorage.getItem('admin_secret');
+  const [editando, setEditando] = useState(null);
   const [patrones, setPatrones] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -206,7 +258,11 @@ export default function Catalogo() {
       ) : (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {patrones.map(p => <PatronCardGrid key={p.id} patron={p} isAdmin={isAdmin} onToggle={(id, campo) => setPatrones(prev => prev.map(x => x.id === id ? { ...x, [campo]: x[campo] ? 0 : 1 } : x))} />)}
+            {patrones.map(p => <PatronCardGrid key={p.id} patron={p} isAdmin={isAdmin}
+  onToggle={(id, campo) => setPatrones(prev => prev.map(x => x.id === id ? { ...x, [campo]: x[campo] ? 0 : 1 } : x))}
+  onEdit={setEditando} />)}
+{editando && <EditModal patron={editando} onClose={() => setEditando(null)}
+  onSave={(id, titulo, disenadora) => setPatrones(prev => prev.map(x => x.id === id ? { ...x, titulo, diseñadora: disenadora } : x))} />}
           </div>
           {page < totalPaginas && (
             <div className="flex justify-center mt-10">
