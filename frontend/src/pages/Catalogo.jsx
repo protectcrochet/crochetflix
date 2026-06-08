@@ -78,15 +78,21 @@ function EditModal({ patron, onClose, onSave }) {
   const [titulo, setTitulo] = useState(patron.titulo || '');
   const [disenadora, setDisenadora] = useState(patron.diseñadora || '');
   const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState('');
   const adminSecret = localStorage.getItem('admin_secret');
 
   const guardar = async () => {
+    if (!titulo.trim()) { setError('El título no puede estar vacío'); return; }
     setGuardando(true);
+    setError('');
     try {
-      await api.patch(`/admin/patrones/${patron.id}`, { titulo, diseñadora: disenadora }, { headers: { 'X-Admin-Secret': adminSecret } });
-      onSave(patron.id, titulo, disenadora);
+      await api.patch(`/admin/patrones/${patron.id}`, { titulo: titulo.trim(), diseñadora: disenadora.trim() }, { headers: { 'X-Admin-Secret': adminSecret } });
+      onSave(patron.id, titulo.trim(), disenadora.trim());
       onClose();
-    } catch { setGuardando(false); }
+    } catch {
+      setError('Error al guardar — verifica que estás logueado como admin');
+      setGuardando(false);
+    }
   };
 
   return (
@@ -108,6 +114,7 @@ function EditModal({ patron, onClose, onSave }) {
             className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-crochet-primary"
             placeholder="Nombre de la diseñadora" />
         </div>
+        {error && <p className="text-red-400 text-xs mb-3">{error}</p>}
         <div className="flex gap-2">
           <button onClick={onClose} className="flex-1 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm transition">Cancelar</button>
           <button onClick={guardar} disabled={guardando}

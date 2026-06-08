@@ -571,7 +571,7 @@ ${JSON.stringify(datos.map(d => ({ id: d.id, titulo_actual: d.titulo, texto_pdf:
           const diseñadora = r.diseñadora && !_INVALIDOS.includes(r.diseñadora.toLowerCase().trim()) ? r.diseñadora : 'N/A';
           await new Promise((resolve, reject) => {
             db.run(
-              `UPDATE patrones SET diseñadora = ?, titulo = COALESCE(NULLIF(?, ''), titulo), idioma = ? WHERE id = ?`,
+              `UPDATE patrones SET diseñadora = ?, titulo = CASE WHEN titulo='Sin título' OR INSTR(titulo,'_')>0 OR titulo LIKE '%.pdf%' OR length(titulo)<4 OR titulo GLOB '*[0-9][0-9][0-9][0-9][0-9]*' THEN COALESCE(NULLIF(?,''),titulo) ELSE titulo END, idioma = ? WHERE id = ?`,
               [diseñadora, r.titulo_limpio?.trim() || null, r.idioma || 'es', r.id],
               function(err) { if (err) reject(err); else { totalActualizados += this.changes; resolve(); } }
             );
@@ -670,7 +670,7 @@ ${JSON.stringify(datos.map(d => ({ id: d.id, titulo_actual: d.titulo, texto_pdf:
           const diseñadora = r.diseñadora && !_INVALIDOS.includes(r.diseñadora.toLowerCase().trim()) ? r.diseñadora : 'N/A';
           await new Promise((resolve, reject) => {
             db.run(
-              `UPDATE patrones SET diseñadora = ?, titulo = COALESCE(NULLIF(?, ''), titulo), idioma = ? WHERE id = ?`,
+              `UPDATE patrones SET diseñadora = ?, titulo = CASE WHEN titulo='Sin título' OR INSTR(titulo,'_')>0 OR titulo LIKE '%.pdf%' OR length(titulo)<4 OR titulo GLOB '*[0-9][0-9][0-9][0-9][0-9]*' THEN COALESCE(NULLIF(?,''),titulo) ELSE titulo END, idioma = ? WHERE id = ?`,
               [diseñadora, r.titulo_limpio?.trim() || null, r.idioma || 'es', r.id],
               function(err) { if (err) reject(err); else { totalActualizados += this.changes; resolve(); } }
             );
@@ -801,7 +801,7 @@ ${JSON.stringify(datos.map(d => ({ id: d.id, titulo_actual: d.titulo, texto_pdf:
           const diseñadora = r.diseñadora && !_INVALIDOS.includes(r.diseñadora.toLowerCase().trim()) ? r.diseñadora : 'N/A';
           await new Promise((resolve, reject) => {
             db.run(
-              `UPDATE patrones SET diseñadora = ?, titulo = COALESCE(NULLIF(?, ''), titulo), idioma = ? WHERE id = ?`,
+              `UPDATE patrones SET diseñadora = ?, titulo = CASE WHEN titulo='Sin título' OR INSTR(titulo,'_')>0 OR titulo LIKE '%.pdf%' OR length(titulo)<4 OR titulo GLOB '*[0-9][0-9][0-9][0-9][0-9]*' THEN COALESCE(NULLIF(?,''),titulo) ELSE titulo END, idioma = ? WHERE id = ?`,
               [diseñadora, r.titulo_limpio?.trim() || null, r.idioma || 'es', r.id],
               function(err) { if (err) reject(err); else { totalActualizados += this.changes; resolve(); } }
             );
