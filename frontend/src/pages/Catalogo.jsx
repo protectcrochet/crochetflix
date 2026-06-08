@@ -21,53 +21,56 @@ function PatronCardGrid({ patron, isAdmin, onToggle, onEdit }) {
   };
 
   return (
-    <Link to={`/patron/${patron.id}`} className="group">
-      <div className="relative aspect-[3/4] rounded-lg overflow-hidden bg-gray-800 flex items-center justify-center">
-        <img
-          src={patron.thumbnail_path || ''}
-          alt={patron.titulo}
-          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-          loading="lazy"
-          onError={e => { e.currentTarget.style.display = 'none'; }}
-        />
-        {patron.es_preview === 1 && (
-          <div className="absolute top-2 left-2">
-            <span className="bg-green-600 text-xs px-2 py-0.5 rounded font-bold">GRATIS</span>
-          </div>
-        )}
-        {isAdmin && (
-          <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button onClick={e => toggle(e, 'destacar', 'destacado')}
-              className={`p-1.5 rounded-lg backdrop-blur-sm transition ${patron.destacado ? 'bg-yellow-500 text-black' : 'bg-black/60 text-gray-300 hover:bg-yellow-500 hover:text-black'}`}
-              title="Destacar">
-              <Star className="w-3.5 h-3.5" fill={patron.destacado ? 'currentColor' : 'none'} />
-            </button>
-            <button onClick={e => toggle(e, 'tendencia', 'tendencia')}
-              className={`p-1.5 rounded-lg backdrop-blur-sm transition ${patron.tendencia ? 'bg-orange-500 text-white' : 'bg-black/60 text-gray-300 hover:bg-orange-500 hover:text-white'}`}
-              title="Tendencia">
-              <Flame className="w-3.5 h-3.5" fill={patron.tendencia ? 'currentColor' : 'none'} />
-            </button>
-            <button onClick={e => { e.preventDefault(); e.stopPropagation(); onEdit && onEdit(patron); }}
-              className="p-1.5 rounded-lg backdrop-blur-sm bg-black/60 text-gray-300 hover:bg-blue-600 hover:text-white transition"
-              title="Editar título y diseñadora">
-              <Pencil className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
-      </div>
-      <div className="mt-2 px-0.5">
-        <h3 className="font-semibold text-sm line-clamp-2 leading-tight">{patron.titulo}</h3>
-        {(() => { const PLACEHOLDERS = ['Diseñadora','Diseñadora ','Telegram','N/A','']; const d = patron.diseñadora && !PLACEHOLDERS.includes(patron.diseñadora.trim()) ? patron.diseñadora : (patron.autor && !PLACEHOLDERS.includes(patron.autor.trim()) ? patron.autor : null); return d ? <p className="text-gray-400 text-xs mt-0.5 truncate">{d}</p> : null; })()}
-        <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
-          <span className="capitalize">{patron.dificultad}</span>
-          <span>·</span>
-          <span>{patron.paginas} págs.</span>
-          {isAdmin && patron.destacado ? <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" /> : null}
-          {isAdmin && patron.tendencia ? <Flame className="w-3 h-3 text-orange-400 fill-orange-400" /> : null}
+    <div className="group relative">
+      <Link to={`/patron/${patron.id}`}>
+        <div className="relative aspect-[3/4] rounded-lg overflow-hidden bg-gray-800 flex items-center justify-center">
+          <img
+            src={patron.thumbnail_path || ''}
+            alt={patron.titulo}
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            loading="lazy"
+            onError={e => { e.currentTarget.style.display = 'none'; }}
+          />
+          {patron.es_preview === 1 && (
+            <div className="absolute top-2 left-2">
+              <span className="bg-green-600 text-xs px-2 py-0.5 rounded font-bold">GRATIS</span>
+            </div>
+          )}
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
         </div>
-      </div>
-    </Link>
+        <div className="mt-2 px-0.5">
+          <h3 className="font-semibold text-sm line-clamp-2 leading-tight">{patron.titulo}</h3>
+          {(() => { const PLACEHOLDERS = ['Diseñadora','Diseñadora ','Telegram','N/A','']; const d = patron.diseñadora && !PLACEHOLDERS.includes(patron.diseñadora.trim()) ? patron.diseñadora : (patron.autor && !PLACEHOLDERS.includes(patron.autor.trim()) ? patron.autor : null); return d ? <p className="text-gray-400 text-xs mt-0.5 truncate">{d}</p> : null; })()}
+          <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+            <span className="capitalize">{patron.dificultad}</span>
+            <span>·</span>
+            <span>{patron.paginas} págs.</span>
+            {isAdmin && patron.destacado ? <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" /> : null}
+            {isAdmin && patron.tendencia ? <Flame className="w-3 h-3 text-orange-400 fill-orange-400" /> : null}
+          </div>
+        </div>
+      </Link>
+
+      {isAdmin && (
+        <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+          <button onClick={e => toggle(e, 'destacar', 'destacado')}
+            className={`p-1.5 rounded-lg backdrop-blur-sm transition ${patron.destacado ? 'bg-yellow-500 text-black' : 'bg-black/60 text-gray-300 hover:bg-yellow-500 hover:text-black'}`}
+            title="Destacar">
+            <Star className="w-3.5 h-3.5" fill={patron.destacado ? 'currentColor' : 'none'} />
+          </button>
+          <button onClick={e => toggle(e, 'tendencia', 'tendencia')}
+            className={`p-1.5 rounded-lg backdrop-blur-sm transition ${patron.tendencia ? 'bg-orange-500 text-white' : 'bg-black/60 text-gray-300 hover:bg-orange-500 hover:text-white'}`}
+            title="Tendencia">
+            <Flame className="w-3.5 h-3.5" fill={patron.tendencia ? 'currentColor' : 'none'} />
+          </button>
+          <button onClick={() => onEdit && onEdit(patron)}
+            className="p-1.5 rounded-lg backdrop-blur-sm bg-black/60 text-gray-300 hover:bg-blue-600 hover:text-white transition"
+            title="Editar">
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
