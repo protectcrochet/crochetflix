@@ -2,7 +2,7 @@ import { useRef, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import PatronCard from './PatronCard';
 
-export default function Carrusel({ titulo, patrones, loop = false, autoScroll = false }) {
+export default function Carrusel({ titulo, patrones, loop = false, autoScroll = false, onUpdate }) {
   const scrollRef = useRef(null);
   const pausadoRef = useRef(false);
 
@@ -55,7 +55,7 @@ export default function Carrusel({ titulo, patrones, loop = false, autoScroll = 
         onTouchEnd={() => { pausadoRef.current = false; }}
       >
         {items.map((patron, i) => (
-          <PatronCard key={`${patron.id}-${i}`} patron={patron} />
+          <PatronCard key={`${patron.id}-${i}`} patron={patron} onUpdate={onUpdate} />
         ))}
       </div>
     </section>

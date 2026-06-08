@@ -165,6 +165,15 @@ export default function Home() {
     }
   };
 
+  const handlePatronUpdate = useCallback((id, form) => {
+    const update = arr => arr.map(p => p.id === id ? { ...p, ...form } : p);
+    setPatrones(update);
+    setHeroPatrones(update);
+    setPatronesTendencia(update);
+    setPatronesAleatorios(update);
+    setResultados(prev => prev ? update(prev) : prev);
+  }, []);
+
   const buscar = useCallback(async (termino) => {
     if (!termino.trim()) { setResultados(null); return; }
     setBuscando(true);
@@ -227,7 +236,7 @@ export default function Home() {
                 <p className="text-center text-gray-500 py-8">No encontramos patrones con ese término.</p>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                  {resultados.map(p => <PatronCard key={p.id} patron={p} />)}
+                  {resultados.map(p => <PatronCard key={p.id} patron={p} onUpdate={handlePatronUpdate} />)}
                 </div>
               )}
             </>
@@ -286,9 +295,9 @@ export default function Home() {
             </section>
           )}
 
-          <Carrusel titulo="🔥 Tendencia" patrones={patronesTendencia} loop autoScroll />
-          <Carrusel titulo="🆕 Nuevos patrones" patrones={patronesAleatorios} />
-          <Carrusel titulo="🎁 Gratis este mes" patrones={patronesPreview} />
+          <Carrusel titulo="🔥 Tendencia" patrones={patronesTendencia} loop autoScroll onUpdate={handlePatronUpdate} />
+          <Carrusel titulo="🆕 Nuevos patrones" patrones={patronesAleatorios} onUpdate={handlePatronUpdate} />
+          <Carrusel titulo="🎁 Gratis este mes" patrones={patronesPreview} onUpdate={handlePatronUpdate} />
 
           {(!user || user.tier === 'free') && (
             <section className="px-4 py-8">

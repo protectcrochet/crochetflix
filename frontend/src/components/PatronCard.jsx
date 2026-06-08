@@ -69,7 +69,7 @@ function QuickEditModal({ patron, secret, onSave, onClose }) {
   );
 }
 
-export default function PatronCard({ patron }) {
+export default function PatronCard({ patron, onUpdate }) {
   const { adminMode, secret } = useAdminMode();
   const [local, setLocal] = useState({
     titulo: patron.titulo,
@@ -163,7 +163,7 @@ export default function PatronCard({ patron }) {
         <QuickEditModal
           patron={{ ...patron, ...local }}
           secret={secret}
-          onSave={form => { setLocal(l => ({ ...l, ...form })); setEditOpen(false); }}
+          onSave={form => { setLocal(l => ({ ...l, ...form })); setEditOpen(false); onUpdate && onUpdate(patron.id, form); }}
           onClose={() => setEditOpen(false)}
         />
       )}
