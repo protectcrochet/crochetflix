@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
-import { Search, X, ChevronLeft } from 'lucide-react';
+import { Search, X, ChevronLeft, Star, Flame } from 'lucide-react';
 
 const CATEGORIAS = ['todas', 'amigurumi', 'ropa', 'accesorios', 'decoracion', 'hogar', 'navidad', 'halloween', 'animales', 'general', 'otro'];
 const DIFICULTADES = ['todas', 'principiante', 'intermedio', 'avanzado'];
@@ -9,7 +9,17 @@ const IDIOMAS = [{ v: '', l: 'Todos' }, { v: 'es', l: '🇪🇸 Español' }, { v
 const ORDENES = [{ v: 'aleatorio', l: 'Descubrir' }, { v: 'recientes', l: 'Más recientes' }, { v: 'az', l: 'A–Z' }, { v: 'paginas', l: 'Más páginas' }];
 const POR_PAGINA = 24;
 
-function PatronCardGrid({ patron }) {
+function PatronCardGrid({ patron, isAdmin, onToggle }) {
+  const adminSecret = isAdmin ? localStorage.getItem('admin_secret') : null;
+  const authHeader = adminSecret ? { 'X-Admin-Secret': adminSecret } : {};
+
+  const toggle = async (e, tipo, campo) => {
+    e.preventDefault();
+    e.stopPropagation();
+    await api.patch(`/admin/patrones/${patron.id}/${tipo}`, {}, { headers: authHeader });
+    onToggle && onToggle(patron.id, campo);
+  };
+
   return (
     <Link to={`/patron/${patron.id}`} className="group">
       <div className="relative aspect-[3/4] rounded-lg overflow-hidden bg-gray-800 flex items-center justify-center">
@@ -25,6 +35,20 @@ function PatronCardGrid({ patron }) {
             <span className="bg-green-600 text-xs px-2 py-0.5 rounded font-bold">GRATIS</span>
           </div>
         )}
+        {isAdmin && (
+          <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button onClick={e => toggle(e, 'destacar', 'destacado')}
+              className={`p-1.5 rounded-lg backdrop-blur-sm transition ${patron.destacado ? 'bg-yellow-500 text-black' : 'bg-black/60 text-gray-300 hover:bg-yellow-500 hover:text-black'}`}
+              title="Destacar">
+              <Star className="w-3.5 h-3.5" fill={patron.destacado ? 'currentColor' : 'none'} />
+            </button>
+            <button onClick={e => toggle(e, 'tendencia', 'tendencia')}
+              className={`p-1.5 rounded-lg backdrop-blur-sm transition ${patron.tendencia ? 'bg-orange-500 text-white' : 'bg-black/60 text-gray-300 hover:bg-orange-500 hover:text-white'}`}
+              title="Tendencia">
+              <Flame className="w-3.5 h-3.5" fill={patron.tendencia ? 'currentColor' : 'none'} />
+            </button>
+          </div>
+        )}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
       </div>
       <div className="mt-2 px-0.5">
@@ -34,6 +58,8 @@ function PatronCardGrid({ patron }) {
           <span className="capitalize">{patron.dificultad}</span>
           <span>·</span>
           <span>{patron.paginas} págs.</span>
+          {isAdmin && patron.destacado ? <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" /> : null}
+          {isAdmin && patron.tendencia ? <Flame className="w-3 h-3 text-orange-400 fill-orange-400" /> : null}
         </div>
       </div>
     </Link>
@@ -54,6 +80,7 @@ function PatronCardSkeleton() {
 }
 
 export default function Catalogo() {
+  const isAdmin = !!localStorage.getItem('admin_secret');
   const [patrones, setPatrones] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -179,7 +206,7 @@ export default function Catalogo() {
       ) : (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {patrones.map(p => <PatronCardGrid key={p.id} patron={p} />)}
+            {patrones.map(p => <PatronCardGrid key={p.id} patron={p} isAdmin={isAdmin} onToggle={(id, campo) => setPatrones(prev => prev.map(x => x.id === id ? { ...x, [campo]: x[campo] ? 0 : 1 } : x))} />)}
           </div>
           {page < totalPaginas && (
             <div className="flex justify-center mt-10">
