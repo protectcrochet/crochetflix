@@ -127,7 +127,8 @@ exports.login = async (req, res) => {
         id: user.id,
         email: user.email,
         tier: user.tier,
-        subscription_expires_at: user.subscription_expires_at
+        subscription_expires_at: user.subscription_expires_at,
+        is_admin: user.is_admin || 0,
       }
     });
 
@@ -193,7 +194,7 @@ exports.me = async (req, res) => {
   try {
     const user = await new Promise((resolve, reject) => {
       db.get(
-        'SELECT id, email, tier, subscription_expires_at FROM users WHERE id = ?',
+        'SELECT id, email, tier, is_admin, subscription_expires_at FROM users WHERE id = ?',
         [req.userId],
         (err, row) => {
           if (err) reject(err);
@@ -210,6 +211,22 @@ exports.me = async (req, res) => {
 
   } catch (err) {
     console.error('Error me:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+exports.adminToken = async (req, res) => {
+  try {
+    const user = await new Promise((resolve, reject) => {
+      db.get('SELECT is_admin FROM users WHERE id = ?', [req.userId], (err, row) => {
+        if (err) reject(err); else resolve(row);
+      });
+    });
+    if (!user || !user.is_admin) return res.status(403).json({ error: 'No autorizado' });
+    const secret = process.env.ADMIN_SECRET;
+    if (!secret) return res.status(503).json({ error: 'ADMIN_SECRET no configurado' });
+    res.json({ secret });
+  } catch (err) {
     res.status(500).json({ error: 'Error interno' });
   }
 };

@@ -8,7 +8,7 @@ export function AdminModeProvider({ children }) {
   const secret = localStorage.getItem('admin_secret') || '';
   const [adminMode, setAdminMode] = useState(false);
 
-  const esAdmin = !!(secret && user);
+  const esAdmin = !!(user?.is_admin && secret);
 
   if (!esAdmin) return <Ctx.Provider value={{ adminMode: false, toggle: () => {}, secret: '' }}>{children}</Ctx.Provider>;
   return (
