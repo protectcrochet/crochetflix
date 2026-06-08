@@ -1387,6 +1387,14 @@ exports.eliminarPatron = async (req, res) => {
       fs.rmSync(patronDir, { recursive: true, force: true });
     }
 
+    // Delete flat PDF from bot to prevent re-sync
+    const shortId = id.replace('patron-', '');
+    const archivosFlat = fs.readdirSync(UPLOADS_DIR);
+    const flatPdf = archivosFlat.find(f => f.startsWith(shortId) && f.endsWith('.pdf'));
+    if (flatPdf) {
+      try { fs.unlinkSync(path.join(UPLOADS_DIR, flatPdf)); } catch {}
+    }
+
     res.json({ message: 'Patrón eliminado' });
   } catch (err) {
     res.status(500).json({ error: 'Error interno' });

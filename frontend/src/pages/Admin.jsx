@@ -1233,6 +1233,8 @@ export default function Admin() {
                 { key: 'gratis', label: '🎁 Gratis' },
                 { key: 'ocultos', label: '🙈 Ocultos' },
                 { key: 'corruptos', label: '⚠ Con error' },
+                { key: 'sin_titulo', label: '? Sin título' },
+                { key: 'sin_disenadora', label: '? Sin diseñadora' },
               ].map(f => (
                 <button key={f.key} onClick={() => setFiltroAdmin(f.key)}
                   className={`px-3 py-1.5 rounded-full font-medium transition ${filtroAdmin === f.key ? (f.key === 'corruptos' ? 'bg-red-600 text-white' : 'bg-crochet-primary text-white') : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}>
@@ -1252,7 +1254,9 @@ export default function Admin() {
                 filtroAdmin === 'tendencia' ? p.tendencia === 1 :
                 filtroAdmin === 'gratis' ? p.es_preview === 1 :
                 filtroAdmin === 'ocultos' ? !p.activo :
-                filtroAdmin === 'corruptos' ? (p.pdf_corrupto === 1 && p.paginas === 0) : true;
+                filtroAdmin === 'corruptos' ? (p.pdf_corrupto === 1 && p.paginas === 0) :
+                filtroAdmin === 'sin_titulo' ? (p.titulo === 'Sin título' || !p.titulo || p.titulo.length < 4) :
+                filtroAdmin === 'sin_disenadora' ? (!p.diseñadora || p.diseñadora === 'Diseñadora' || p.diseñadora === 'N/A') : true;
               return matchBusqueda && matchFiltro;
             });
 
@@ -1351,6 +1355,11 @@ export default function Admin() {
                           <button onClick={() => handleCorrupto(p.id)} title="Reintentar conversión"
                             className="p-2 text-red-400 hover:text-green-400 transition text-xs font-bold">↺</button>
                         )}
+                        <a href={`/patron/${p.id}`} target="_blank" rel="noopener noreferrer"
+                          title="Ver en catálogo"
+                          className="p-2 text-gray-400 hover:text-blue-400 transition flex items-center">
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
                         <button onClick={() => handleEliminar(p.id, p.titulo)} title="Eliminar"
                           className="p-2 text-gray-400 hover:text-red-400 transition">
                           <Trash2 className="w-4 h-4" />
