@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
+import { useAuth } from '../hooks/useAuth';
 import { Search, X, ChevronLeft, Star, Flame, Pencil, Check } from 'lucide-react';
 
 const CATEGORIAS = ['todas', 'amigurumi', 'ropa', 'accesorios', 'decoracion', 'hogar', 'navidad', 'halloween', 'animales', 'general', 'otro'];
@@ -9,8 +10,7 @@ const IDIOMAS = [{ v: '', l: 'Todos' }, { v: 'es', l: '🇪🇸 Español' }, { v
 const ORDENES = [{ v: 'aleatorio', l: 'Descubrir' }, { v: 'recientes', l: 'Más recientes' }, { v: 'az', l: 'A–Z' }, { v: 'paginas', l: 'Más páginas' }];
 const POR_PAGINA = 24;
 
-function PatronCardGrid({ patron, isAdmin, onToggle, onEdit }) {
-  const adminSecret = isAdmin ? localStorage.getItem('admin_secret') : null;
+function PatronCardGrid({ patron, isAdmin, adminSecret, onToggle, onEdit }) {
   const authHeader = adminSecret ? { 'X-Admin-Secret': adminSecret } : {};
 
   const toggle = async (e, tipo, campo) => {
@@ -141,7 +141,8 @@ function PatronCardSkeleton() {
 }
 
 export default function Catalogo() {
-  const isAdmin = !!localStorage.getItem('admin_secret');
+  const { user, adminSecret } = useAuth();
+  const isAdmin = !!(user?.is_admin && adminSecret);
   const [editando, setEditando] = useState(null);
   const [patrones, setPatrones] = useState([]);
   const [total, setTotal] = useState(0);
@@ -268,7 +269,7 @@ export default function Catalogo() {
       ) : (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {patrones.map(p => <PatronCardGrid key={p.id} patron={p} isAdmin={isAdmin}
+            {patrones.map(p => <PatronCardGrid key={p.id} patron={p} isAdmin={isAdmin} adminSecret={adminSecret}
   onToggle={(id, campo) => setPatrones(prev => prev.map(x => x.id === id ? { ...x, [campo]: x[campo] ? 0 : 1 } : x))}
   onEdit={setEditando} />)}
 {editando && <EditModal patron={editando} onClose={() => setEditando(null)}
