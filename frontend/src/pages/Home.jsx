@@ -3,7 +3,7 @@ import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
 import Carrusel from '../components/Carrusel';
 import PatronCard from '../components/PatronCard';
-import { Play, Crown, Search, X, ChevronLeft, ChevronRight, Globe } from 'lucide-react';
+import { Play, Crown, Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { PRECIOS, detectarMoneda } from '../utils/geoMoneda';
 
@@ -116,14 +116,15 @@ export default function Home() {
   const [buscando, setBuscando] = useState(false);
   const [continua, setContinua] = useState([]);
   const [patronesAleatorios, setPatronesAleatorios] = useState([]);
-  const [popupTraduccion, setPopupTraduccion] = useState(false);
+  const [popupOferta, setPopupOferta] = useState(false);
   const [moneda, setMoneda] = useState('USD');
 
   useEffect(() => { cargarPatrones(); cargarAleatorios(); detectarMoneda().then(setMoneda); }, []);
 
   useEffect(() => {
-    if (user && !sessionStorage.getItem('popup_trad_visto')) {
-      setTimeout(() => setPopupTraduccion(true), 1500);
+    if (!user || user.tier === 'premium') return;
+    if (!sessionStorage.getItem('popup_oferta_visto')) {
+      setTimeout(() => setPopupOferta(true), 1200);
     }
   }, [user]);
 
@@ -318,57 +319,66 @@ export default function Home() {
         </>
       )}
 
-      {/* Popup nueva función: traducción */}
-      {popupTraduccion && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-gray-900 border border-gray-700 rounded-2xl max-w-sm w-full p-6 relative shadow-2xl">
-            <button
-              onClick={() => { setPopupTraduccion(false); sessionStorage.setItem('popup_trad_visto', '1'); }}
-              className="absolute top-4 right-4 text-gray-500 hover:text-white transition">
-              <X className="w-5 h-5" />
-            </button>
+      {/* Banner oferta de lanzamiento */}
+      {popupOferta && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/70 backdrop-blur-sm">
+          <div className="relative w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl">
+            {/* Fondo degradado */}
+            <div className="absolute inset-0 bg-gradient-to-br from-pink-600 via-crochet-primary to-purple-700" />
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(255,255,255,0.15),_transparent_60%)]" />
 
-            <div className="flex items-center justify-center w-12 h-12 rounded-full bg-crochet-primary/20 mb-4">
-              <Globe className="w-6 h-6 text-crochet-primary" />
-            </div>
+            <div className="relative p-7">
+              <button
+                onClick={() => { setPopupOferta(false); sessionStorage.setItem('popup_oferta_visto', '1'); }}
+                className="absolute top-4 right-4 text-white/60 hover:text-white transition">
+                <X className="w-5 h-5" />
+              </button>
 
-            <h2 className="text-lg font-bold mb-2">¡Teje sin barreras!</h2>
-            <p className="text-gray-400 text-sm leading-relaxed mb-4">
-              {user?.tier === 'premium'
-                ? <>¡Ya tienes esta función activa! Abre cualquier patrón, toca <strong className="text-white">Traducir</strong> y elige tu idioma.</>
-                : <>Con <strong className="text-white">Premium</strong> puedes traducir cualquier patrón a tu idioma — página por página, con la terminología correcta de crochet.</>
-              }
-            </p>
+              {/* Badge */}
+              <div className="inline-flex items-center gap-1.5 bg-white/20 backdrop-blur-sm rounded-full px-3 py-1 text-xs font-bold text-white mb-4">
+                🧶 OFERTA DE LANZAMIENTO
+              </div>
 
-            <div className="flex gap-3 text-2xl justify-center mb-5">
-              🇪🇸 🇺🇸 🇧🇷 🇫🇷 🇷🇺
-            </div>
+              {/* Precio grande */}
+              <div className="mb-1">
+                <span className="text-8xl font-black text-white leading-none">50</span>
+                <span className="text-4xl font-black text-white">%</span>
+              </div>
+              <p className="text-white/90 text-xl font-bold mb-1">en tu primer mes</p>
+              <p className="text-white/70 text-sm mb-5">
+                Accede a +8,000 patrones por solo{' '}
+                <span className="text-white font-bold">{PRECIOS[moneda]?.mensual}</span>/mes
+              </p>
 
-            <ul className="text-xs text-gray-400 space-y-1.5 mb-5">
-              <li>✓ Traducción automática página por página</li>
-              <li>✓ Abreviaturas en tu idioma (pb, pa, aum, dism…)</li>
-              <li>✓ 5 patrones por semana incluidos</li>
-            </ul>
+              {/* Deadline */}
+              <div className="flex items-center gap-2 bg-white/15 rounded-xl px-4 py-2.5 mb-5">
+                <span className="text-lg">⏰</span>
+                <div>
+                  <p className="text-white text-xs font-bold">Solo hasta el martes 16 de junio</p>
+                  <p className="text-white/60 text-xs">Después el precio vuelve a ser normal</p>
+                </div>
+              </div>
 
-            {user?.tier === 'premium' ? (
-              <Link to="/catalogo"
-                onClick={() => { setPopupTraduccion(false); sessionStorage.setItem('popup_trad_visto', '1'); }}
-                className="btn-primary w-full text-center block py-3 font-semibold">
-                Ir al catálogo a probarlo
-              </Link>
-            ) : (
+              {/* Beneficios */}
+              <ul className="text-white/80 text-xs space-y-1 mb-6">
+                <li>✓ Acceso ilimitado a todos los patrones</li>
+                <li>✓ Traducción automática a tu idioma</li>
+                <li>✓ Guarda progreso y favoritos</li>
+                <li>✓ Cancela cuando quieras</li>
+              </ul>
+
               <Link to="/perfil"
-                onClick={() => { setPopupTraduccion(false); sessionStorage.setItem('popup_trad_visto', '1'); }}
-                className="btn-primary w-full text-center block py-3 font-semibold">
-                Suscribirme ahora
+                onClick={() => { setPopupOferta(false); sessionStorage.setItem('popup_oferta_visto', '1'); }}
+                className="block w-full bg-white text-crochet-primary font-black text-center py-3.5 rounded-2xl text-base hover:bg-gray-100 transition shadow-lg">
+                ¡Quiero el 50% OFF →
               </Link>
-            )}
 
-            <button
-              onClick={() => { setPopupTraduccion(false); sessionStorage.setItem('popup_trad_visto', '1'); }}
-              className="w-full text-center text-xs text-gray-600 hover:text-gray-400 mt-3 transition">
-              {user?.tier === 'premium' ? 'Cerrar' : 'Ahora no'}
-            </button>
+              <button
+                onClick={() => { setPopupOferta(false); sessionStorage.setItem('popup_oferta_visto', '1'); }}
+                className="w-full text-center text-xs text-white/40 hover:text-white/70 mt-3 transition">
+                No me interesa
+              </button>
+            </div>
           </div>
         </div>
       )}
