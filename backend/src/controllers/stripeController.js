@@ -103,7 +103,9 @@ exports.crearCheckout = async (req, res) => {
       subscription_data: { metadata: { userId, plan } },
       metadata: { userId, plan },
       locale: 'es',
-      allow_promotion_codes: true,
+      ...(process.env.STRIPE_PROMO_COUPON
+        ? { discounts: [{ coupon: process.env.STRIPE_PROMO_COUPON }] }
+        : { allow_promotion_codes: true }),
     });
 
     res.json({ checkout_url: session.url });
