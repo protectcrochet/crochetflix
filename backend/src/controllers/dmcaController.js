@@ -1,14 +1,17 @@
 const db = require('../models');
 const { v4: uuidv4 } = require('uuid');
 const nodemailer = require('nodemailer');
+const https = require('https');
 
 function enviarEmailAdmin(claim) {
   const host = process.env.SMTP_HOST;
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
   const to   = process.env.DMCA_EMAIL || process.env.SMTP_USER;
-  if (!host || !user || !pass || !to) return;
-
+  if (!host || !user || !pass || !to) {
+    console.warn('[dmca] SMTP no configurado — email omitido. Configura SMTP_HOST, SMTP_USER, SMTP_PASS, DMCA_EMAIL en .env');
+    return;
+  }
   const transporter = nodemailer.createTransport({ host, port: 587, secure: false, auth: { user, pass } });
   transporter.sendMail({
     from: `"CrochetFlix DMCA" <${user}>`,
@@ -26,7 +29,21 @@ function enviarEmailAdmin(claim) {
       <hr>
       <p>Gestiona esta reclamación en el panel de administración.</p>
     `
-  }).catch(e => console.error('[dmca] Error enviando email:', e.message));
+  })
+    .then(() => console.log(`[dmca] Email enviado a ${to}`))
+    .catch(e => console.error('[dmca] Error enviando email:', e.message));
+}
+
+function notificarTelegram(claim) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_ADMIN_CHAT_ID;
+  if (!token || !chatId) return;
+  const texto = `🚨 *Nueva reclamación DMCA*\n👤 ${claim.claimant_name} (${claim.claimant_email})\n📝 ${claim.work_description.slice(0, 200)}\n🔗 ${claim.infringing_urls.split('\n')[0]}\n\nRevisa el panel de admin → DMCA`;
+  const body = JSON.stringify({ chat_id: chatId, text: texto, parse_mode: 'Markdown' });
+  const req = https.request(`https://api.telegram.org/bot${token}/sendMessage`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } });
+  req.on('error', e => console.error('[dmca] Error Telegram:', e.message));
+  req.write(body);
+  req.end();
 }
 
 exports.submitClaim = async (req, res) => {
@@ -59,6 +76,7 @@ exports.submitClaim = async (req, res) => {
 
   const claim = { claimant_name, claimant_email, claimant_company, work_description, infringing_urls, signature, ip_address: ip };
   enviarEmailAdmin(claim);
+  notificarTelegram(claim);
   console.log(`[dmca] Nueva reclamación de ${claimant_email} — ID: ${id}`);
 
   res.json({ ok: true, id, message: 'Reclamación recibida. Tu solicitud será canalizada al área especializada para su revisión en un plazo de 3-5 días hábiles.' });

@@ -1163,7 +1163,7 @@ exports.analytics = async (req, res) => {
 
 exports.stats = async (req, res) => {
   try {
-    const [totalRow, convertidosRow, verificadosRow, heroRow, tendenciaRow, pendientesRow, corruptosRow] = await Promise.all([
+    const [totalRow, convertidosRow, verificadosRow, heroRow, tendenciaRow, pendientesRow, corruptosRow, dmcaPendientesRow] = await Promise.all([
       new Promise((r, j) => db.get('SELECT COUNT(*) as n FROM patrones WHERE activo = 1', [], (e, row) => e ? j(e) : r(row))),
       new Promise((r, j) => db.get('SELECT COUNT(DISTINCT patron_id) as n FROM paginas', [], (e, row) => e ? j(e) : r(row))),
       new Promise((r, j) => db.get('SELECT COUNT(*) as n FROM patrones WHERE verificado = 1', [], (e, row) => e ? j(e) : r(row))),
@@ -1177,6 +1177,7 @@ exports.stats = async (req, res) => {
         `SELECT COUNT(*) as n FROM patrones p LEFT JOIN paginas pg ON pg.patron_id = p.id
          WHERE p.activo = 1 AND pg.id IS NULL AND p.pdf_corrupto = 1`,
         [], (e, row) => e ? j(e) : r(row))),
+      new Promise((r, j) => db.get(`SELECT COUNT(*) as n FROM dmca_claims WHERE status = 'pending'`, [], (e, row) => e ? j(e) : r(row))),
     ]);
 
     const total = totalRow.n;
@@ -1200,6 +1201,7 @@ exports.stats = async (req, res) => {
       verificados: verificadosRow.n,
       heroes: heroRow.n,
       tendencia: tendenciaRow.n,
+      dmca_pendientes: dmcaPendientesRow.n,
       porCategoria,
       metadatosRunning,
       categoriasRunning,
