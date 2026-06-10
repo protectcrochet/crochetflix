@@ -1822,13 +1822,59 @@ function EmailBlastPanel({ authHeader, stats }) {
     {
       label: '50% OFF — Lanzamiento',
       subject: '🧶 Solo hasta el martes: 50% OFF en CrochetFlix',
-      body: `<div style="font-family:sans-serif;max-width:520px;margin:0 auto;background:#111;color:#fff;padding:32px;border-radius:16px">
-  <h1 style="font-size:42px;font-weight:900;margin:0;color:#fff">50<span style="font-size:28px">%</span></h1>
-  <h2 style="font-size:20px;font-weight:700;margin:4px 0 16px;color:#e879f9">en tu primer mes</h2>
-  <p style="color:#ccc;margin:0 0 20px">Tienes acceso a más de <strong style="color:#fff">8,000 patrones de crochet</strong> profesionales. Solo necesitas suscribirte antes del <strong style="color:#fbbf24">martes 16 de junio</strong>.</p>
-  <a href="https://crochetflix.app/perfil" style="display:inline-block;background:#e879f9;color:#fff;font-weight:700;padding:14px 28px;border-radius:12px;text-decoration:none;font-size:16px">Ver mi oferta →</a>
-  <p style="color:#666;font-size:13px;margin-top:24px">Cancela cuando quieras. Sin compromisos.</p>
-</div>`,
+      body: `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:Arial,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:32px 16px">
+<tr><td align="center">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e4e4e7">
+
+  <!-- Header -->
+  <tr><td style="background:linear-gradient(135deg,#c026d3,#7c3aed);padding:32px 32px 24px;text-align:center">
+    <p style="margin:0 0 8px;color:rgba(255,255,255,0.9);font-size:13px;letter-spacing:1px;text-transform:uppercase">Oferta de lanzamiento</p>
+    <p style="margin:0;font-size:72px;font-weight:900;color:#ffffff;line-height:1">50%</p>
+    <p style="margin:4px 0 0;font-size:22px;font-weight:700;color:rgba(255,255,255,0.95)">en tu primer mes</p>
+  </td></tr>
+
+  <!-- Body -->
+  <tr><td style="padding:32px">
+    <p style="margin:0 0 16px;font-size:16px;color:#18181b;line-height:1.6">
+      Hola, tienes acceso a más de <strong>8,000 patrones de crochet</strong> profesionales en CrochetFlix.
+    </p>
+    <p style="margin:0 0 24px;font-size:15px;color:#52525b;line-height:1.6">
+      Esta semana lanzamos nuestra oferta especial: <strong style="color:#7c3aed">50% de descuento en tu primer mes</strong>. Solo hasta el <strong>martes 16 de junio</strong>.
+    </p>
+
+    <!-- Features -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#faf5ff;border-radius:12px;margin-bottom:24px">
+    <tr><td style="padding:20px 24px">
+      <p style="margin:0 0 8px;font-size:13px;color:#52525b">✓ &nbsp;Acceso ilimitado a todos los patrones</p>
+      <p style="margin:0 0 8px;font-size:13px;color:#52525b">✓ &nbsp;Traducción automática a tu idioma</p>
+      <p style="margin:0 0 8px;font-size:13px;color:#52525b">✓ &nbsp;Guarda tu progreso y favoritos</p>
+      <p style="margin:0;font-size:13px;color:#52525b">✓ &nbsp;Cancela cuando quieras</p>
+    </td></tr></table>
+
+    <!-- CTA -->
+    <table width="100%" cellpadding="0" cellspacing="0">
+    <tr><td align="center">
+      <a href="https://crochetflix.app/perfil" style="display:inline-block;background:#c026d3;color:#ffffff;font-weight:700;font-size:16px;padding:16px 40px;border-radius:12px;text-decoration:none">
+        Quiero el 50% OFF →
+      </a>
+    </td></tr></table>
+
+    <p style="margin:24px 0 0;font-size:12px;color:#a1a1aa;text-align:center">
+      Oferta válida solo hasta el 16 de junio de 2026.
+    </p>
+  </td></tr>
+
+  <!-- Footer -->
+  <tr><td style="background:#f4f4f5;padding:20px 32px;text-align:center;border-top:1px solid #e4e4e7">
+    <p style="margin:0;font-size:12px;color:#71717a">CrochetFlix · crochetflix.app</p>
+  </td></tr>
+
+</table>
+</td></tr></table>
+</body></html>`,
     },
   ];
 
