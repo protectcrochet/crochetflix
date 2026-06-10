@@ -1121,31 +1121,47 @@ exports.analytics = async (req, res) => {
       registrosHoy, registrosSemana,
       topPatrones, paises, visitasPorDia,
     ] = await Promise.all([
-      new Promise(r => db.get('SELECT COUNT(*) as n FROM visitas', [], (_, row) => r(row?.n || 0))),
-      new Promise(r => db.get("SELECT COUNT(*) as n FROM visitas WHERE date(created_at) = ?", [hoy], (_, row) => r(row?.n || 0))),
-      new Promise(r => db.get("SELECT COUNT(*) as n FROM visitas WHERE date(created_at) >= ?", [hace7], (_, row) => r(row?.n || 0))),
+      // Total: combina visitas nuevas + progreso histórico
+      new Promise(r => db.get(
+        `SELECT (SELECT COUNT(*) FROM visitas) + (SELECT COUNT(*) FROM progreso WHERE ultimo_acceso IS NOT NULL) as n`,
+        [], (_, row) => r(row?.n || 0))),
+      // Hoy: visitas nuevas + progreso de hoy
+      new Promise(r => db.get(
+        `SELECT (SELECT COUNT(*) FROM visitas WHERE date(created_at) = ?) + (SELECT COUNT(*) FROM progreso WHERE date(ultimo_acceso) = ?) as n`,
+        [hoy, hoy], (_, row) => r(row?.n || 0))),
+      // Semana: visitas nuevas + progreso de la semana
+      new Promise(r => db.get(
+        `SELECT (SELECT COUNT(*) FROM visitas WHERE date(created_at) >= ?) + (SELECT COUNT(*) FROM progreso WHERE date(ultimo_acceso) >= ?) as n`,
+        [hace7, hace7], (_, row) => r(row?.n || 0))),
       new Promise(r => db.get('SELECT COUNT(*) as n FROM users', [], (_, row) => r(row?.n || 0))),
       new Promise(r => db.get("SELECT COUNT(*) as n FROM users WHERE tier = 'free'", [], (_, row) => r(row?.n || 0))),
       new Promise(r => db.get("SELECT COUNT(*) as n FROM users WHERE tier = 'premium'", [], (_, row) => r(row?.n || 0))),
       new Promise(r => db.get("SELECT COUNT(*) as n FROM users WHERE date(created_at) = ?", [hoy], (_, row) => r(row?.n || 0))),
       new Promise(r => db.get("SELECT COUNT(*) as n FROM users WHERE date(created_at) >= ?", [hace7], (_, row) => r(row?.n || 0))),
+      // Top patrones: combina visitas nuevas + progreso histórico
       new Promise(r => db.all(
-        `SELECT v.patron_id, p.titulo, COUNT(*) as visitas
-         FROM visitas v LEFT JOIN patrones p ON p.id = v.patron_id
-         WHERE v.patron_id IS NOT NULL
-         GROUP BY v.patron_id ORDER BY visitas DESC LIMIT 10`,
+        `SELECT patron_id, p.titulo,
+           (SELECT COUNT(*) FROM visitas v WHERE v.patron_id = pr.patron_id) +
+           (SELECT COUNT(*) FROM progreso pg WHERE pg.patron_id = pr.patron_id) as visitas
+         FROM (SELECT DISTINCT patron_id FROM progreso WHERE patron_id IS NOT NULL) pr
+         LEFT JOIN patrones p ON p.id = pr.patron_id
+         ORDER BY visitas DESC LIMIT 10`,
         [], (_, rows) => r(rows || [])
       )),
+      // Países: solo de visitas (progreso no tiene país)
       new Promise(r => db.all(
         `SELECT pais, COUNT(*) as visitas FROM visitas
          WHERE pais IS NOT NULL GROUP BY pais ORDER BY visitas DESC LIMIT 15`,
         [], (_, rows) => r(rows || [])
       )),
+      // Gráfica por día: combina ambas fuentes
       new Promise(r => db.all(
-        `SELECT date(created_at) as dia, COUNT(*) as visitas
-         FROM visitas WHERE date(created_at) >= ?
-         GROUP BY dia ORDER BY dia ASC`,
-        [hace30], (_, rows) => r(rows || [])
+        `SELECT dia, SUM(n) as visitas FROM (
+           SELECT date(created_at) as dia, COUNT(*) as n FROM visitas WHERE date(created_at) >= ? GROUP BY dia
+           UNION ALL
+           SELECT date(ultimo_acceso) as dia, COUNT(*) as n FROM progreso WHERE date(ultimo_acceso) >= ? AND ultimo_acceso IS NOT NULL GROUP BY dia
+         ) GROUP BY dia ORDER BY dia ASC`,
+        [hace30, hace30], (_, rows) => r(rows || [])
       )),
     ]);
 
