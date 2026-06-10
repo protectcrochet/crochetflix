@@ -1613,7 +1613,7 @@ function sendResendBatch(emails, apiKey) {
 }
 
 exports.emailBlast = async (req, res) => {
-  const { subject, html, preview_text } = req.body;
+  const { subject, html, preview_text, test_to } = req.body;
   if (!subject?.trim() || !html?.trim()) return res.status(400).json({ error: 'subject y html son requeridos' });
 
   const apiKey = process.env.RESEND_API_KEY;
@@ -1647,11 +1647,14 @@ exports.emailBlast = async (req, res) => {
     htmlFinal = html.replace('{{PATRONES_GRID}}', grid);
   }
 
-  const users = await new Promise((resolve, reject) => {
-    db.all(`SELECT id, email FROM users WHERE tier = 'free' AND (email_unsub IS NULL OR email_unsub = 0) AND email IS NOT NULL`, [], (err, rows) => {
-      if (err) reject(err); else resolve(rows);
-    });
-  });
+  // test_to: send only to this address (for previewing before the full blast)
+  const users = test_to
+    ? [{ id: 'test', email: test_to }]
+    : await new Promise((resolve, reject) => {
+        db.all(`SELECT id, email FROM users WHERE tier = 'free' AND (email_unsub IS NULL OR email_unsub = 0) AND email IS NOT NULL`, [], (err, rows) => {
+          if (err) reject(err); else resolve(rows);
+        });
+      });
 
   const BATCH = 100;
   let enviados = 0, errores = 0;
