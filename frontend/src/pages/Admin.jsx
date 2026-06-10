@@ -1858,7 +1858,7 @@ function EmailBlastPanel({ authHeader, stats }) {
     <table width="100%" cellpadding="0" cellspacing="0">
     <tr><td align="center">
       <a href="https://crochetflix.app/perfil" style="display:inline-block;background:#c026d3;color:#ffffff;font-weight:700;font-size:16px;padding:16px 40px;border-radius:12px;text-decoration:none">
-        Quiero el 50% OFF →
+        Adquiere antes del 16 de junio →
       </a>
     </td></tr></table>
 
