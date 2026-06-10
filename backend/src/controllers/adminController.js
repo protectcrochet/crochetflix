@@ -1620,6 +1620,32 @@ exports.emailBlast = async (req, res) => {
   if (!apiKey) return res.status(503).json({ error: 'RESEND_API_KEY no configurado en .env' });
 
   const fromEmail = process.env.EMAIL_FROM || 'CrochetFlix <hola@crochetflix.app>';
+  const baseUrl = (process.env.FRONTEND_URL || 'https://crochetflix.app').replace(/\/$/, '');
+
+  // Build catalog grid if placeholder is present
+  let htmlFinal = html;
+  if (html.includes('{{PATRONES_GRID}}')) {
+    const patrones = await new Promise(resolve => {
+      db.all(
+        `SELECT id, titulo FROM patrones WHERE activo=1 AND thumbnail_path IS NOT NULL
+         ORDER BY (COALESCE(destacado,0) + COALESCE(tendencia,0)) DESC, RANDOM() LIMIT 3`,
+        [],
+        (err, rows) => resolve(err ? [] : (rows || []))
+      );
+    });
+    const grid = patrones.length > 0
+      ? `<tr><td style="padding:0"><table width="100%" cellpadding="0" cellspacing="0"><tr>${
+          patrones.map(p =>
+            `<td width="${Math.floor(100 / patrones.length)}%" style="padding:1px 1px 0 1px">` +
+            `<img src="${baseUrl}/uploads/patrones/${p.id}/pagina_1.jpg" ` +
+            `width="${Math.floor(518 / patrones.length)}" ` +
+            `style="display:block;width:100%;height:180px;object-fit:cover" ` +
+            `alt="${p.titulo.replace(/"/g, '&quot;')}"></td>`
+          ).join('')
+        }</tr></table></td></tr>`
+      : '';
+    htmlFinal = html.replace('{{PATRONES_GRID}}', grid);
+  }
 
   const users = await new Promise((resolve, reject) => {
     db.all(`SELECT id, email FROM users WHERE tier = 'free' AND (email_unsub IS NULL OR email_unsub = 0) AND email IS NOT NULL`, [], (err, rows) => {
@@ -1635,7 +1661,7 @@ exports.emailBlast = async (req, res) => {
     const emails = lote.map(u => {
       const token = unsubToken(u.id);
       const unsubUrl = `${FRONTEND_URL}/api/auth/unsub?u=${u.id}&t=${token}`;
-      const htmlConUnsub = html + `<br><br><hr style="border:none;border-top:1px solid #333;margin:24px 0"><p style="font-size:11px;color:#888;text-align:center">Recibes este correo porque tienes una cuenta en CrochetFlix.<br><a href="${unsubUrl}" style="color:#888">Cancelar suscripción a emails</a></p>`;
+      const htmlConUnsub = htmlFinal + `<br><br><hr style="border:none;border-top:1px solid #e4e4e7;margin:24px 0"><p style="font-size:11px;color:#a1a1aa;text-align:center;font-family:Arial,sans-serif">Recibes este correo porque tienes una cuenta en CrochetFlix.<br><a href="${unsubUrl}" style="color:#a1a1aa">Cancelar suscripción a emails</a></p>`;
       return { from: fromEmail, to: u.email, subject, html: htmlConUnsub, ...(preview_text ? { headers: { 'X-Preview-Text': preview_text } } : {}) };
     });
 

@@ -1830,29 +1830,34 @@ function EmailBlastPanel({ authHeader, stats }) {
 <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e4e4e7">
 
   <!-- Header -->
-  <tr><td style="background:linear-gradient(135deg,#c026d3,#7c3aed);padding:32px 32px 24px;text-align:center">
-    <p style="margin:0 0 16px;font-size:22px;font-weight:900;color:#ffffff;letter-spacing:-0.5px">🧶 CrochetFlix</p>
-    <p style="margin:0 0 8px;color:rgba(255,255,255,0.9);font-size:13px;letter-spacing:1px;text-transform:uppercase">Oferta de lanzamiento</p>
-    <p style="margin:0;font-size:72px;font-weight:900;color:#ffffff;line-height:1">50%</p>
-    <p style="margin:4px 0 0;font-size:22px;font-weight:700;color:rgba(255,255,255,0.95)">en tu primer mes</p>
+  <tr><td style="background:linear-gradient(135deg,#c026d3,#7c3aed);padding:24px 32px 20px;text-align:center">
+    <p style="margin:0;font-size:24px;font-weight:900;color:#ffffff">🧶 CrochetFlix</p>
+    <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.85)">Más de 8,000 patrones de crochet profesionales</p>
+  </td></tr>
+
+  <!-- Catalog grid — replaced by backend with 3 real pattern thumbnails -->
+  {{PATRONES_GRID}}
+
+  <!-- Offer banner -->
+  <tr><td style="background:#7c3aed;padding:28px 32px 24px;text-align:center">
+    <p style="margin:0 0 4px;font-size:11px;color:rgba(255,255,255,0.75);letter-spacing:3px;text-transform:uppercase">Oferta de lanzamiento</p>
+    <p style="margin:0;font-size:88px;font-weight:900;color:#ffffff;line-height:0.9">50%</p>
+    <p style="margin:8px 0 0;font-size:20px;font-weight:700;color:rgba(255,255,255,0.95)">de descuento en tu primer mes</p>
   </td></tr>
 
   <!-- Body -->
   <tr><td style="padding:32px">
-    <p style="margin:0 0 16px;font-size:16px;color:#18181b;line-height:1.6">
-      Hola, tienes acceso a más de <strong>8,000 patrones de crochet</strong> profesionales en CrochetFlix.
-    </p>
-    <p style="margin:0 0 24px;font-size:15px;color:#52525b;line-height:1.6">
-      Esta semana lanzamos nuestra oferta especial: <strong style="color:#7c3aed">50% de descuento en tu primer mes</strong>. Solo hasta el <strong>martes 16 de junio</strong>.
+    <p style="margin:0 0 20px;font-size:15px;color:#18181b;line-height:1.7;text-align:center">
+      Solo hasta el <strong>martes 16 de junio</strong>.
     </p>
 
     <!-- Features -->
     <table width="100%" cellpadding="0" cellspacing="0" style="background:#faf5ff;border-radius:12px;margin-bottom:24px">
     <tr><td style="padding:20px 24px">
-      <p style="margin:0 0 8px;font-size:13px;color:#52525b">✓ &nbsp;Acceso ilimitado a todos los patrones</p>
-      <p style="margin:0 0 8px;font-size:13px;color:#52525b">✓ &nbsp;Traducción automática a tu idioma</p>
-      <p style="margin:0 0 8px;font-size:13px;color:#52525b">✓ &nbsp;Guarda tu progreso y favoritos</p>
-      <p style="margin:0;font-size:13px;color:#52525b">✓ &nbsp;Cancela cuando quieras</p>
+      <p style="margin:0 0 10px;font-size:14px;color:#3b0764">✓ &nbsp;Acceso ilimitado a todos los patrones</p>
+      <p style="margin:0 0 10px;font-size:14px;color:#3b0764">✓ &nbsp;Traduce los patrones a tu idioma automáticamente</p>
+      <p style="margin:0 0 10px;font-size:14px;color:#3b0764">✓ &nbsp;Guarda tu progreso y favoritos</p>
+      <p style="margin:0;font-size:14px;color:#3b0764">✓ &nbsp;Cancela cuando quieras</p>
     </td></tr></table>
 
     <!-- CTA -->
@@ -1926,7 +1931,7 @@ function EmailBlastPanel({ authHeader, stats }) {
       {body && (
         <div>
           <p className="text-xs text-gray-400 mb-2">Vista previa:</p>
-          <div className="bg-white rounded-lg p-4 max-h-64 overflow-y-auto" dangerouslySetInnerHTML={{ __html: body }} />
+          <div className="bg-white rounded-lg p-4 max-h-96 overflow-y-auto" dangerouslySetInnerHTML={{ __html: body.replace('{{PATRONES_GRID}}', '<tr><td style="padding:10px;text-align:center;background:#f0e6ff;border-top:2px dashed #c026d3"><p style="margin:0;font-size:11px;color:#7c3aed;font-family:monospace">🖼 Grid de 3 patrones del catálogo — se inserta al enviar</p></td></tr>') }} />
         </div>
       )}
 
