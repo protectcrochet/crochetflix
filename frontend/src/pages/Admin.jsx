@@ -1831,6 +1831,7 @@ function EmailBlastPanel({ authHeader, stats }) {
 
   <!-- Header -->
   <tr><td style="background:linear-gradient(135deg,#c026d3,#7c3aed);padding:32px 32px 24px;text-align:center">
+    <p style="margin:0 0 16px;font-size:22px;font-weight:900;color:#ffffff;letter-spacing:-0.5px">🧶 CrochetFlix</p>
     <p style="margin:0 0 8px;color:rgba(255,255,255,0.9);font-size:13px;letter-spacing:1px;text-transform:uppercase">Oferta de lanzamiento</p>
     <p style="margin:0;font-size:72px;font-weight:900;color:#ffffff;line-height:1">50%</p>
     <p style="margin:4px 0 0;font-size:22px;font-weight:700;color:rgba(255,255,255,0.95)">en tu primer mes</p>
