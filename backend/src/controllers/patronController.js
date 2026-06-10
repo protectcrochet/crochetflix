@@ -7,6 +7,29 @@ const { execSync, exec } = require('child_process');
 
 const UPLOADS_DIR = path.join(__dirname, '../../uploads/patrones');
 
+function registrarVisitaPatron(patronId, userId, userTier, req) {
+  const hoy = new Date().toISOString().slice(0, 10);
+  const uid = userId || `anon_${(req.headers['x-forwarded-for'] || req.ip || '').split(',')[0].trim()}`;
+  db.get(
+    `SELECT 1 FROM visitas WHERE user_id = ? AND patron_id = ? AND date(created_at) = ?`,
+    [uid, patronId, hoy],
+    (_, row) => {
+      if (row) return;
+      const ip = (req.headers['x-forwarded-for'] || req.ip || '').split(',')[0].trim();
+      try {
+        const geoip = require('geoip-lite');
+        const geo = ip ? geoip.lookup(ip) : null;
+        const pais = geo?.country || null;
+        db.run('INSERT INTO visitas (id, patron_id, user_id, user_tier, ip, pais) VALUES (?,?,?,?,?,?)',
+          [crypto.randomUUID(), patronId, uid, userTier || 'anon', ip, pais]);
+      } catch {
+        db.run('INSERT INTO visitas (id, patron_id, user_id, user_tier, ip) VALUES (?,?,?,?,?)',
+          [crypto.randomUUID(), patronId, uid, userTier || 'anon', ip]);
+      }
+    }
+  );
+}
+
 function localizarPDF(patronId) {
   const patronDir = path.join(UPLOADS_DIR, patronId);
   if (fs.existsSync(patronDir)) {
@@ -222,6 +245,9 @@ exports.detalle = async (req, res) => {
         }
       );
     });
+
+    // Registrar visita (no bloquea la respuesta)
+    registrarVisitaPatron(id, userId, req.userTier, req);
 
     res.json({
       patron,
