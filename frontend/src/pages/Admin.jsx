@@ -1584,20 +1584,25 @@ export default function Admin() {
               {analytics.visitasPorDia?.length > 0 && (() => {
                 const ultimos7 = analytics.visitasPorDia.slice(-7);
                 const max = Math.max(...ultimos7.map(d => d.visitas), 1);
+                const MAX_PX = 96;
                 return (
                   <div className="bg-gray-800 rounded-xl p-4">
-                    <h3 className="text-sm font-semibold text-gray-300 mb-3">Visitas últimos 7 días</h3>
-                    <div className="flex items-end gap-1 h-24">
-                      {ultimos7.map(d => (
-                        <div key={d.dia} className="flex-1 flex flex-col items-center gap-1">
-                          <div
-                            className="w-full bg-crochet-primary/70 rounded-t"
-                            style={{ height: `${Math.round((d.visitas / max) * 100)}%`, minHeight: d.visitas > 0 ? 4 : 0 }}
-                            title={`${d.dia}: ${d.visitas} visitas`}
-                          />
-                          <p className="text-xs text-gray-600 hidden sm:block">{d.dia.slice(5)}</p>
-                        </div>
-                      ))}
+                    <h3 className="text-sm font-semibold text-gray-300 mb-4">Visitas últimos 7 días</h3>
+                    <div className="flex items-end gap-2" style={{ height: `${MAX_PX + 32}px` }}>
+                      {ultimos7.map(d => {
+                        const px = Math.max(Math.round((d.visitas / max) * MAX_PX), d.visitas > 0 ? 4 : 0);
+                        return (
+                          <div key={d.dia} className="flex-1 flex flex-col items-center justify-end gap-1">
+                            <span className="text-xs text-gray-400 font-medium">{d.visitas >= 1000 ? `${(d.visitas/1000).toFixed(1)}k` : d.visitas}</span>
+                            <div
+                              className="w-full bg-crochet-primary rounded-t"
+                              style={{ height: `${px}px` }}
+                              title={`${d.dia}: ${d.visitas} visitas`}
+                            />
+                            <p className="text-xs text-gray-500">{d.dia.slice(5)}</p>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 );
