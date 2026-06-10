@@ -1569,3 +1569,82 @@ exports.cambiarTierUsuario = async (req, res) => {
     res.status(500).json({ error: 'Error interno' });
   }
 };
+
+// ── Email blast ──────────────────────────────────────────────────────────────
+
+const https = require('https');
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://crochetflix.app';
+
+function unsubToken(userId) {
+  return crypto.createHmac('sha256', process.env.JWT_SECRET || 'dev-secret').update(userId).digest('hex').slice(0, 24);
+}
+
+function sendResendBatch(emails, apiKey) {
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify(emails);
+    const req = https.request('https://api.resend.com/emails/batch', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }
+    }, res => {
+      let data = '';
+      res.on('data', d => data += d);
+      res.on('end', () => resolve({ status: res.statusCode, body: data }));
+    });
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
+
+exports.emailBlast = async (req, res) => {
+  const { subject, html, preview_text } = req.body;
+  if (!subject?.trim() || !html?.trim()) return res.status(400).json({ error: 'subject y html son requeridos' });
+
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return res.status(503).json({ error: 'RESEND_API_KEY no configurado en .env' });
+
+  const fromEmail = process.env.EMAIL_FROM || 'CrochetFlix <hola@crochetflix.app>';
+
+  const users = await new Promise((resolve, reject) => {
+    db.all(`SELECT id, email FROM users WHERE tier = 'free' AND (email_unsub IS NULL OR email_unsub = 0) AND email IS NOT NULL`, [], (err, rows) => {
+      if (err) reject(err); else resolve(rows);
+    });
+  });
+
+  const BATCH = 100;
+  let enviados = 0, errores = 0;
+
+  for (let i = 0; i < users.length; i += BATCH) {
+    const lote = users.slice(i, i + BATCH);
+    const emails = lote.map(u => {
+      const token = unsubToken(u.id);
+      const unsubUrl = `${FRONTEND_URL}/api/auth/unsub?u=${u.id}&t=${token}`;
+      const htmlConUnsub = html + `<br><br><hr style="border:none;border-top:1px solid #333;margin:24px 0"><p style="font-size:11px;color:#888;text-align:center">Recibes este correo porque tienes una cuenta en CrochetFlix.<br><a href="${unsubUrl}" style="color:#888">Cancelar suscripción a emails</a></p>`;
+      return { from: fromEmail, to: u.email, subject, html: htmlConUnsub, ...(preview_text ? { headers: { 'X-Preview-Text': preview_text } } : {}) };
+    });
+
+    try {
+      const result = await sendResendBatch(emails, apiKey);
+      if (result.status < 300) enviados += lote.length;
+      else { errores += lote.length; console.error('[email-blast] Error lote:', result.body); }
+    } catch (e) {
+      errores += lote.length;
+      console.error('[email-blast] Error:', e.message);
+    }
+
+    // Pequeña pausa entre lotes para no saturar Resend
+    if (i + BATCH < users.length) await new Promise(r => setTimeout(r, 200));
+  }
+
+  console.log(`[email-blast] Completado — enviados: ${enviados}, errores: ${errores}, total destinatarios: ${users.length}`);
+  res.json({ ok: true, enviados, errores, total: users.length });
+};
+
+exports.unsubscribe = async (req, res) => {
+  const { u: userId, t: token } = req.query;
+  if (!userId || !token || token !== unsubToken(userId)) {
+    return res.status(400).send('<h2>Link inválido o expirado</h2>');
+  }
+  await new Promise(r => db.run(`UPDATE users SET email_unsub = 1 WHERE id = ?`, [userId], () => r()));
+  res.send(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Cancelado</title></head><body style="font-family:sans-serif;max-width:400px;margin:80px auto;text-align:center;color:#333"><h2>✓ Dado de baja</h2><p>Ya no recibirás emails de marketing de CrochetFlix.</p><p><a href="${FRONTEND_URL}">Volver a CrochetFlix</a></p></body></html>`);
+};

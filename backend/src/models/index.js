@@ -74,6 +74,9 @@ function initTables() {
     // Migración: flag de admin
     db.run(`ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0`, () => {});
 
+    // Migración: email marketing unsubscribe
+    db.run(`ALTER TABLE users ADD COLUMN email_unsub INTEGER DEFAULT 0`, () => {});
+
     db.run(`CREATE TABLE IF NOT EXISTS referidos (
       id TEXT PRIMARY KEY,
       referrer_id TEXT NOT NULL,

@@ -91,5 +91,6 @@ router.patch('/usuarios/:id/tier', adminController.cambiarTierUsuario);
 router.delete('/usuarios/:id', adminController.eliminarUsuario);
 router.get('/dmca', dmcaController.listClaims);
 router.patch('/dmca/:id', dmcaController.updateClaim);
+router.post('/email-blast', adminController.emailBlast);
 
 module.exports = router;

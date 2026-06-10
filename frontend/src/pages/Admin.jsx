@@ -975,6 +975,11 @@ export default function Admin() {
             className={`flex items-center gap-1.5 px-3 py-2 rounded text-sm font-medium transition ${mostrando === 'analytics' ? 'bg-green-700 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
             📊 Métricas
           </button>
+          <button
+            onClick={() => setMostrando('emails')}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded text-sm font-medium transition ${mostrando === 'emails' ? 'bg-pink-700 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
+            ✉️ Emails
+          </button>
           <button onClick={cerrarSesion} className="text-gray-400 hover:text-white p-2">
             <LogOut className="w-5 h-5" />
           </button>
@@ -1792,6 +1797,101 @@ export default function Admin() {
           </div>
         </div>
       )}
+
+      {/* Panel Emails */}
+      {mostrando === 'emails' && (
+        <EmailBlastPanel authHeader={authHeader} stats={stats} />
+      )}
+    </div>
+  );
+}
+
+function EmailBlastPanel({ authHeader, stats }) {
+  const [subject, setSubject] = useState('');
+  const [body, setBody] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const [resultado, setResultado] = useState(null);
+  const [error, setError] = useState('');
+
+  const PLANTILLAS = [
+    {
+      label: '50% OFF — Lanzamiento',
+      subject: '🧶 Solo hasta el martes: 50% OFF en CrochetFlix',
+      body: `<div style="font-family:sans-serif;max-width:520px;margin:0 auto;background:#111;color:#fff;padding:32px;border-radius:16px">
+  <h1 style="font-size:42px;font-weight:900;margin:0;color:#fff">50<span style="font-size:28px">%</span></h1>
+  <h2 style="font-size:20px;font-weight:700;margin:4px 0 16px;color:#e879f9">en tu primer mes</h2>
+  <p style="color:#ccc;margin:0 0 20px">Tienes acceso a más de <strong style="color:#fff">8,000 patrones de crochet</strong> profesionales. Solo necesitas suscribirte antes del <strong style="color:#fbbf24">martes 16 de junio</strong>.</p>
+  <a href="https://crochetflix.app/perfil" style="display:inline-block;background:#e879f9;color:#fff;font-weight:700;padding:14px 28px;border-radius:12px;text-decoration:none;font-size:16px">Ver mi oferta →</a>
+  <p style="color:#666;font-size:13px;margin-top:24px">Cancela cuando quieras. Sin compromisos.</p>
+</div>`,
+    },
+  ];
+
+  const aplicarPlantilla = (p) => { setSubject(p.subject); setBody(p.body); setResultado(null); setError(''); };
+
+  const enviar = async () => {
+    if (!subject.trim() || !body.trim()) { setError('Completa el asunto y el mensaje'); return; }
+    if (!window.confirm(`¿Enviar este email a ~${stats?.usuariosFree || '?'} usuarios free? Esta acción no se puede deshacer.`)) return;
+    setEnviando(true); setError(''); setResultado(null);
+    try {
+      const res = await api.post('/admin/email-blast', { subject, html: body }, { headers: authHeader });
+      setResultado(res.data);
+    } catch (e) {
+      setError(e.response?.data?.error || 'Error al enviar');
+    } finally { setEnviando(false); }
+  };
+
+  return (
+    <div className="max-w-2xl space-y-5">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-bold">✉️ Email a usuarios free</h2>
+        {stats && <span className="text-sm text-gray-400">{stats.usuariosFree || '?'} destinatarios</span>}
+      </div>
+
+      <div className="flex gap-2 flex-wrap">
+        {PLANTILLAS.map(p => (
+          <button key={p.label} onClick={() => aplicarPlantilla(p)}
+            className="px-3 py-1.5 bg-pink-900/50 hover:bg-pink-800 border border-pink-700 rounded-lg text-xs font-medium transition">
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      <div>
+        <label className="text-xs text-gray-400 block mb-1">Asunto</label>
+        <input value={subject} onChange={e => setSubject(e.target.value)}
+          placeholder="Ej: 🧶 Solo hasta el martes: 50% OFF"
+          className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-pink-500" />
+      </div>
+
+      <div>
+        <label className="text-xs text-gray-400 block mb-1">Cuerpo HTML</label>
+        <textarea value={body} onChange={e => setBody(e.target.value)} rows={12}
+          placeholder="<p>Tu mensaje aquí...</p>"
+          className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-pink-500" />
+      </div>
+
+      {body && (
+        <div>
+          <p className="text-xs text-gray-400 mb-2">Vista previa:</p>
+          <div className="bg-white rounded-lg p-4 max-h-64 overflow-y-auto" dangerouslySetInnerHTML={{ __html: body }} />
+        </div>
+      )}
+
+      {error && <p className="text-red-400 text-sm">{error}</p>}
+
+      {resultado && (
+        <div className="bg-green-900/40 border border-green-700 rounded-lg p-4 text-sm">
+          ✅ Enviados: <strong>{resultado.enviados}</strong> · Errores: {resultado.errores} · Total: {resultado.total}
+        </div>
+      )}
+
+      <button onClick={enviar} disabled={enviando}
+        className="w-full py-3 bg-pink-700 hover:bg-pink-600 disabled:opacity-50 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition">
+        {enviando ? <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /> Enviando...</> : `✉️ Enviar a usuarios free`}
+      </button>
+
+      <p className="text-xs text-gray-500">El link de cancelar suscripción se agrega automáticamente al final de cada email.</p>
     </div>
   );
 }
