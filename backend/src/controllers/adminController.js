@@ -1120,6 +1120,7 @@ exports.analytics = async (req, res) => {
       usuariosUnicosHoy, usuariosUnicosSemana, usuariosUnicosMes, apertuasMes,
       usuariosTotal, usuariosFree, usuariosPremium,
       registrosHoy, registrosSemana,
+      inactivosFree, inactivosPremium,
       topPatrones, paises, visitasPorDia, usuariosPorDia,
     ] = await Promise.all([
       // Total: combina visitas nuevas + progreso histórico
@@ -1155,6 +1156,21 @@ exports.analytics = async (req, res) => {
       new Promise(r => db.get("SELECT COUNT(*) as n FROM users WHERE tier = 'premium'", [], (_, row) => r(row?.n || 0))),
       new Promise(r => db.get("SELECT COUNT(*) as n FROM users WHERE date(created_at) = ?", [hoy], (_, row) => r(row?.n || 0))),
       new Promise(r => db.get("SELECT COUNT(*) as n FROM users WHERE date(created_at) >= ?", [hace7], (_, row) => r(row?.n || 0))),
+      // Inactivos +5 días: registrados hace >5 días sin actividad reciente en progreso
+      new Promise(r => db.get(
+        `SELECT COUNT(*) as n FROM users u
+         WHERE u.tier = 'free' AND date(u.created_at) < date('now', '-5 days')
+           AND NOT EXISTS (
+             SELECT 1 FROM progreso p WHERE p.user_id = u.id AND date(p.ultimo_acceso) >= date('now', '-5 days')
+           )`,
+        [], (_, row) => r(row?.n || 0))),
+      new Promise(r => db.get(
+        `SELECT COUNT(*) as n FROM users u
+         WHERE u.tier = 'premium' AND date(u.created_at) < date('now', '-5 days')
+           AND NOT EXISTS (
+             SELECT 1 FROM progreso p WHERE p.user_id = u.id AND date(p.ultimo_acceso) >= date('now', '-5 days')
+           )`,
+        [], (_, row) => r(row?.n || 0))),
       // Top patrones: combina visitas nuevas + progreso histórico
       new Promise(r => db.all(
         `SELECT patron_id, p.titulo,
@@ -1194,6 +1210,7 @@ exports.analytics = async (req, res) => {
       usuariosUnicosHoy, usuariosUnicosSemana, usuariosUnicosMes,
       usuariosTotal, usuariosFree, usuariosPremium,
       registrosHoy, registrosSemana,
+      inactivosFree, inactivosPremium,
       topPatrones, paises, visitasPorDia, usuariosPorDia,
     });
   } catch (err) {

@@ -1580,13 +1580,15 @@ export default function Admin() {
                 ))}
               </div>
 
-              {/* Fila mes */}
-              <div className="grid grid-cols-2 gap-4">
+              {/* Fila mes + inactivos */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 {[
                   { label: 'Aperturas este mes', value: analytics.apertuasMes, color: 'text-violet-400' },
                   { label: 'Usuarios únicos este mes', value: analytics.usuariosUnicosMes, color: 'text-pink-400' },
-                ].map(({ label, value, color }) => (
-                  <div key={label} className="bg-gray-800/50 rounded-xl p-3 text-center">
+                  { label: 'Free inactivos +5 días', value: analytics.inactivosFree, color: 'text-orange-400', hint: 'sin actividad en 5 días' },
+                  { label: 'Premium inactivos +5 días', value: analytics.inactivosPremium, color: 'text-red-400', hint: 'sin actividad en 5 días' },
+                ].map(({ label, value, color, hint }) => (
+                  <div key={label} className="bg-gray-800/50 rounded-xl p-3 text-center" title={hint}>
                     <p className={`text-2xl font-bold ${color}`}>{value?.toLocaleString()}</p>
                     <p className="text-xs text-gray-500 mt-0.5">{label}</p>
                   </div>
