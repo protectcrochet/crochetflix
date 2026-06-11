@@ -1120,7 +1120,7 @@ exports.analytics = async (req, res) => {
       usuariosUnicosHoy, usuariosUnicosSemana, usuariosUnicosMes, apertuasMes,
       usuariosTotal, usuariosFree, usuariosPremium,
       registrosHoy, registrosSemana,
-      topPatrones, paises, visitasPorDia,
+      topPatrones, paises, visitasPorDia, usuariosPorDia,
     ] = await Promise.all([
       // Total: combina visitas nuevas + progreso histórico
       new Promise(r => db.get(
@@ -1180,6 +1180,13 @@ exports.analytics = async (req, res) => {
          ) GROUP BY dia ORDER BY dia ASC`,
         [hace30, hace30], (_, rows) => r(rows || [])
       )),
+      // Usuarios únicos por día (últimos 30 días)
+      new Promise(r => db.all(
+        `SELECT date(ultimo_acceso) as dia, COUNT(DISTINCT user_id) as usuarios
+         FROM progreso WHERE date(ultimo_acceso) >= ? AND user_id IS NOT NULL
+         GROUP BY dia ORDER BY dia ASC`,
+        [hace30], (_, rows) => r(rows || [])
+      )),
     ]);
 
     res.json({
@@ -1187,7 +1194,7 @@ exports.analytics = async (req, res) => {
       usuariosUnicosHoy, usuariosUnicosSemana, usuariosUnicosMes,
       usuariosTotal, usuariosFree, usuariosPremium,
       registrosHoy, registrosSemana,
-      topPatrones, paises, visitasPorDia,
+      topPatrones, paises, visitasPorDia, usuariosPorDia,
     });
   } catch (err) {
     console.error('Error analytics:', err);

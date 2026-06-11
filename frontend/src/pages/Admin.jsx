@@ -1593,33 +1593,56 @@ export default function Admin() {
                 ))}
               </div>
 
-              {/* Gráfica últimos 7 días */}
-              {analytics.visitasPorDia?.length > 0 && (() => {
-                const ultimos7 = analytics.visitasPorDia.slice(-7);
-                const max = Math.max(...ultimos7.map(d => d.visitas), 1);
-                const MAX_PX = 96;
-                return (
-                  <div className="bg-gray-800 rounded-xl p-4">
-                    <h3 className="text-sm font-semibold text-gray-300 mb-4">Visitas últimos 7 días</h3>
-                    <div className="flex items-end gap-2" style={{ height: `${MAX_PX + 32}px` }}>
-                      {ultimos7.map(d => {
-                        const px = Math.max(Math.round((d.visitas / max) * MAX_PX), d.visitas > 0 ? 4 : 0);
-                        return (
-                          <div key={d.dia} className="flex-1 flex flex-col items-center justify-end gap-1">
-                            <span className="text-xs text-gray-400 font-medium">{d.visitas >= 1000 ? `${(d.visitas/1000).toFixed(1)}k` : d.visitas}</span>
-                            <div
-                              className="w-full bg-crochet-primary rounded-t"
-                              style={{ height: `${px}px` }}
-                              title={`${d.dia}: ${d.visitas} visitas`}
-                            />
-                            <p className="text-xs text-gray-500">{d.dia.slice(5)}</p>
-                          </div>
-                        );
-                      })}
+              {/* Gráficas lado a lado */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Aperturas últimos 7 días */}
+                {analytics.visitasPorDia?.length > 0 && (() => {
+                  const ultimos7 = analytics.visitasPorDia.slice(-7);
+                  const max = Math.max(...ultimos7.map(d => d.visitas), 1);
+                  const MAX_PX = 80;
+                  return (
+                    <div className="bg-gray-800 rounded-xl p-4">
+                      <h3 className="text-sm font-semibold text-gray-300 mb-4">📂 Aperturas últimos 7 días</h3>
+                      <div className="flex items-end gap-1.5" style={{ height: `${MAX_PX + 32}px` }}>
+                        {ultimos7.map(d => {
+                          const px = Math.max(Math.round((d.visitas / max) * MAX_PX), d.visitas > 0 ? 4 : 0);
+                          return (
+                            <div key={d.dia} className="flex-1 flex flex-col items-center justify-end gap-1">
+                              <span className="text-xs text-gray-400 font-medium">{d.visitas >= 1000 ? `${(d.visitas/1000).toFixed(1)}k` : d.visitas}</span>
+                              <div className="w-full bg-crochet-primary rounded-t" style={{ height: `${px}px` }} title={`${d.dia}: ${d.visitas}`} />
+                              <p className="text-xs text-gray-500">{d.dia.slice(5)}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                );
-              })()}
+                  );
+                })()}
+
+                {/* Usuarios únicos últimos 7 días */}
+                {analytics.usuariosPorDia?.length > 0 && (() => {
+                  const ultimos7 = analytics.usuariosPorDia.slice(-7);
+                  const max = Math.max(...ultimos7.map(d => d.usuarios), 1);
+                  const MAX_PX = 80;
+                  return (
+                    <div className="bg-gray-800 rounded-xl p-4">
+                      <h3 className="text-sm font-semibold text-gray-300 mb-4">👤 Usuarios únicos últimos 7 días</h3>
+                      <div className="flex items-end gap-1.5" style={{ height: `${MAX_PX + 32}px` }}>
+                        {ultimos7.map(d => {
+                          const px = Math.max(Math.round((d.usuarios / max) * MAX_PX), d.usuarios > 0 ? 4 : 0);
+                          return (
+                            <div key={d.dia} className="flex-1 flex flex-col items-center justify-end gap-1">
+                              <span className="text-xs text-emerald-400 font-medium">{d.usuarios}</span>
+                              <div className="w-full bg-emerald-600 rounded-t" style={{ height: `${px}px` }} title={`${d.dia}: ${d.usuarios} usuarios`} />
+                              <p className="text-xs text-gray-500">{d.dia.slice(5)}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Top patrones */}
