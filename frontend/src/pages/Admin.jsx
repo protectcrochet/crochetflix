@@ -1553,8 +1553,8 @@ export default function Admin() {
               {/* Tarjetas principales */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 {[
-                  { label: 'Visitas hoy', value: analytics.visitasHoy, color: 'text-blue-400' },
-                  { label: 'Visitas esta semana', value: analytics.visitasSemana, color: 'text-cyan-400' },
+                  { label: 'Aperturas hoy', value: analytics.visitasHoy, color: 'text-blue-400' },
+                  { label: 'Usuarios únicos hoy', value: analytics.usuariosUnicosHoy, color: 'text-emerald-400' },
                   { label: 'Usuarios free', value: analytics.usuariosFree, color: 'text-gray-300' },
                   { label: 'Usuarios premium', value: analytics.usuariosPremium, color: 'text-yellow-400' },
                 ].map(({ label, value, color }) => (
@@ -1565,16 +1565,29 @@ export default function Admin() {
                 ))}
               </div>
 
-              {/* Fila secundaria */}
+              {/* Fila secundaria — semana */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 {[
-                  { label: 'Total visitas', value: analytics.totalVisitas },
-                  { label: 'Total usuarios', value: analytics.usuariosTotal },
+                  { label: 'Aperturas esta semana', value: analytics.visitasSemana },
+                  { label: 'Usuarios únicos semana', value: analytics.usuariosUnicosSemana },
                   { label: 'Registros hoy', value: analytics.registrosHoy },
                   { label: 'Registros esta semana', value: analytics.registrosSemana },
                 ].map(({ label, value }) => (
                   <div key={label} className="bg-gray-800/50 rounded-xl p-3 text-center">
                     <p className="text-xl font-bold text-white">{value?.toLocaleString()}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{label}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Fila mes */}
+              <div className="grid grid-cols-2 gap-4">
+                {[
+                  { label: 'Aperturas este mes', value: analytics.apertuasMes, color: 'text-violet-400' },
+                  { label: 'Usuarios únicos este mes', value: analytics.usuariosUnicosMes, color: 'text-pink-400' },
+                ].map(({ label, value, color }) => (
+                  <div key={label} className="bg-gray-800/50 rounded-xl p-3 text-center">
+                    <p className={`text-2xl font-bold ${color}`}>{value?.toLocaleString()}</p>
                     <p className="text-xs text-gray-500 mt-0.5">{label}</p>
                   </div>
                 ))}

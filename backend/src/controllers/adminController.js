@@ -1117,6 +1117,7 @@ exports.analytics = async (req, res) => {
 
     const [
       totalVisitas, visitasHoy, visitasSemana,
+      usuariosUnicosHoy, usuariosUnicosSemana, usuariosUnicosMes, apertuasMes,
       usuariosTotal, usuariosFree, usuariosPremium,
       registrosHoy, registrosSemana,
       topPatrones, paises, visitasPorDia,
@@ -1133,6 +1134,22 @@ exports.analytics = async (req, res) => {
       new Promise(r => db.get(
         `SELECT (SELECT COUNT(*) FROM visitas WHERE date(created_at) >= ?) + (SELECT COUNT(*) FROM progreso WHERE date(ultimo_acceso) >= ?) as n`,
         [hace7, hace7], (_, row) => r(row?.n || 0))),
+      // Usuarios únicos hoy (distintos user_id en progreso)
+      new Promise(r => db.get(
+        `SELECT COUNT(DISTINCT user_id) as n FROM progreso WHERE date(ultimo_acceso) = ? AND user_id IS NOT NULL`,
+        [hoy], (_, row) => r(row?.n || 0))),
+      // Usuarios únicos esta semana
+      new Promise(r => db.get(
+        `SELECT COUNT(DISTINCT user_id) as n FROM progreso WHERE date(ultimo_acceso) >= ? AND user_id IS NOT NULL`,
+        [hace7], (_, row) => r(row?.n || 0))),
+      // Usuarios únicos este mes
+      new Promise(r => db.get(
+        `SELECT COUNT(DISTINCT user_id) as n FROM progreso WHERE strftime('%Y-%m', ultimo_acceso) = strftime('%Y-%m', 'now') AND user_id IS NOT NULL`,
+        [], (_, row) => r(row?.n || 0))),
+      // Aperturas este mes
+      new Promise(r => db.get(
+        `SELECT (SELECT COUNT(*) FROM visitas WHERE strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now')) + (SELECT COUNT(*) FROM progreso WHERE strftime('%Y-%m', ultimo_acceso) = strftime('%Y-%m', 'now')) as n`,
+        [], (_, row) => r(row?.n || 0))),
       new Promise(r => db.get('SELECT COUNT(*) as n FROM users', [], (_, row) => r(row?.n || 0))),
       new Promise(r => db.get("SELECT COUNT(*) as n FROM users WHERE tier = 'free'", [], (_, row) => r(row?.n || 0))),
       new Promise(r => db.get("SELECT COUNT(*) as n FROM users WHERE tier = 'premium'", [], (_, row) => r(row?.n || 0))),
@@ -1166,7 +1183,8 @@ exports.analytics = async (req, res) => {
     ]);
 
     res.json({
-      totalVisitas, visitasHoy, visitasSemana,
+      totalVisitas, visitasHoy, visitasSemana, apertuasMes,
+      usuariosUnicosHoy, usuariosUnicosSemana, usuariosUnicosMes,
       usuariosTotal, usuariosFree, usuariosPremium,
       registrosHoy, registrosSemana,
       topPatrones, paises, visitasPorDia,
