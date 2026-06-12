@@ -76,6 +76,7 @@ function initTables() {
 
     // Migración: email marketing unsubscribe
     db.run(`ALTER TABLE users ADD COLUMN email_unsub INTEGER DEFAULT 0`, () => {});
+    db.run(`ALTER TABLE users ADD COLUMN email_blast_sent_at TIMESTAMP`, () => {});
 
     db.run(`CREATE TABLE IF NOT EXISTS referidos (
       id TEXT PRIMARY KEY,

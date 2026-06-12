@@ -1693,9 +1693,14 @@ exports.emailBlast = async (req, res) => {
   const users = test_to
     ? [{ id: 'test', email: test_to }]
     : await new Promise((resolve, reject) => {
-        db.all(`SELECT id, email FROM users WHERE tier = 'free' AND (email_unsub IS NULL OR email_unsub = 0) AND email IS NOT NULL`, [], (err, rows) => {
-          if (err) reject(err); else resolve(rows);
-        });
+        db.all(
+          `SELECT id, email FROM users
+           WHERE tier = 'free'
+             AND (email_unsub IS NULL OR email_unsub = 0)
+             AND email_blast_sent_at IS NULL
+             AND email IS NOT NULL`,
+          [], (err, rows) => { if (err) reject(err); else resolve(rows); }
+        );
       });
 
   const BATCH = 100;
@@ -1712,8 +1717,16 @@ exports.emailBlast = async (req, res) => {
 
     try {
       const result = await sendResendBatch(emails, apiKey);
-      if (result.status < 300) enviados += lote.length;
-      else { errores += lote.length; console.error('[email-blast] Error lote:', result.body); }
+      if (result.status < 300) {
+        enviados += lote.length;
+        if (!test_to) {
+          const ids = lote.map(() => '?').join(',');
+          db.run(`UPDATE users SET email_blast_sent_at = CURRENT_TIMESTAMP WHERE id IN (${ids})`, lote.map(u => u.id));
+        }
+      } else {
+        errores += lote.length;
+        console.error('[email-blast] Error lote:', result.body);
+      }
     } catch (e) {
       errores += lote.length;
       console.error('[email-blast] Error:', e.message);
