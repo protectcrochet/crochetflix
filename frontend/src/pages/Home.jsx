@@ -118,8 +118,12 @@ export default function Home() {
   const [patronesAleatorios, setPatronesAleatorios] = useState([]);
   const [popupOferta, setPopupOferta] = useState(false);
   const [moneda, setMoneda] = useState('USD');
+  const [colecciones, setColecciones] = useState([]);
 
-  useEffect(() => { cargarPatrones(); cargarAleatorios(); detectarMoneda().then(setMoneda); }, []);
+  useEffect(() => {
+    cargarPatrones(); cargarAleatorios(); detectarMoneda().then(setMoneda);
+    api.get('/colecciones').then(r => setColecciones(r.data || [])).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!user || user.tier === 'premium') return;
@@ -293,6 +297,21 @@ export default function Home() {
                   );
                 })}
               </div>
+            </section>
+          )}
+
+          {colecciones.length > 0 && (
+            <section className="py-2">
+              <h2 className="text-lg font-bold px-4 mb-3">✨ Colecciones en Tendencia</h2>
+              {colecciones.map(col => (
+                <Carrusel
+                  key={col.id}
+                  titulo={`${col.emoji || '🧶'} ${col.nombre}`}
+                  patrones={col.patrones}
+                  verTodoUrl={`/colecciones/${col.id}`}
+                  onUpdate={handlePatronUpdate}
+                />
+              ))}
             </section>
           )}
 

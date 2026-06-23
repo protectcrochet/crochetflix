@@ -93,4 +93,12 @@ router.get('/dmca', dmcaController.listClaims);
 router.patch('/dmca/:id', dmcaController.updateClaim);
 router.post('/email-blast', adminController.emailBlast);
 
+router.get('/colecciones', adminController.listarColecciones);
+router.post('/colecciones', adminController.crearColeccion);
+router.patch('/colecciones/:id', adminController.editarColeccion);
+router.delete('/colecciones/:id', adminController.eliminarColeccion);
+router.get('/colecciones/:id/patrones', adminController.verColeccionPatrones);
+router.post('/colecciones/:id/patrones', adminController.agregarPatronColeccion);
+router.delete('/colecciones/:id/patrones/:patronId', adminController.quitarPatronColeccion);
+
 module.exports = router;

@@ -78,6 +78,24 @@ function initTables() {
     db.run(`ALTER TABLE users ADD COLUMN email_unsub INTEGER DEFAULT 0`, () => {});
     db.run(`ALTER TABLE users ADD COLUMN email_blast_sent_at TIMESTAMP`, () => {});
 
+    // Colecciones temáticas
+    db.run(`CREATE TABLE IF NOT EXISTS colecciones (
+      id TEXT PRIMARY KEY,
+      nombre TEXT NOT NULL,
+      descripcion TEXT,
+      emoji TEXT DEFAULT '🧶',
+      activo INTEGER DEFAULT 1,
+      orden INTEGER DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    db.run(`CREATE TABLE IF NOT EXISTS coleccion_patrones (
+      coleccion_id TEXT NOT NULL,
+      patron_id TEXT NOT NULL,
+      orden INTEGER DEFAULT 0,
+      PRIMARY KEY (coleccion_id, patron_id)
+    )`);
+
     db.run(`CREATE TABLE IF NOT EXISTS referidos (
       id TEXT PRIMARY KEY,
       referrer_id TEXT NOT NULL,

@@ -1740,6 +1740,102 @@ exports.emailBlast = async (req, res) => {
   res.json({ ok: true, enviados, errores, total: users.length });
 };
 
+// ── Colecciones ───────────────────────────────────────────────────────────────
+
+exports.listarColecciones = (req, res) => {
+  db.all(
+    `SELECT c.*, COUNT(cp.patron_id) as total_patrones
+     FROM colecciones c
+     LEFT JOIN coleccion_patrones cp ON cp.coleccion_id = c.id
+     GROUP BY c.id ORDER BY c.orden ASC, c.created_at ASC`,
+    [],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: 'Error interno' });
+      res.json(rows || []);
+    }
+  );
+};
+
+exports.crearColeccion = (req, res) => {
+  const { nombre, descripcion, emoji, orden } = req.body;
+  if (!nombre?.trim()) return res.status(400).json({ error: 'nombre es requerido' });
+  const id = crypto.randomUUID();
+  db.run(
+    `INSERT INTO colecciones (id, nombre, descripcion, emoji, orden) VALUES (?, ?, ?, ?, ?)`,
+    [id, nombre.trim(), descripcion || '', emoji || '🧶', parseInt(orden) || 0],
+    function (err) {
+      if (err) return res.status(500).json({ error: 'Error al crear colección' });
+      res.json({ id, nombre, descripcion, emoji, orden });
+    }
+  );
+};
+
+exports.editarColeccion = (req, res) => {
+  const { id } = req.params;
+  const { nombre, descripcion, emoji, activo, orden } = req.body;
+  db.run(
+    `UPDATE colecciones SET nombre=COALESCE(?,nombre), descripcion=COALESCE(?,descripcion),
+     emoji=COALESCE(?,emoji), activo=COALESCE(?,activo), orden=COALESCE(?,orden) WHERE id=?`,
+    [nombre || null, descripcion ?? null, emoji || null,
+     activo !== undefined ? (activo ? 1 : 0) : null,
+     orden !== undefined ? parseInt(orden) : null, id],
+    function (err) {
+      if (err) return res.status(500).json({ error: 'Error al editar' });
+      res.json({ ok: true });
+    }
+  );
+};
+
+exports.eliminarColeccion = (req, res) => {
+  const { id } = req.params;
+  db.run(`DELETE FROM coleccion_patrones WHERE coleccion_id = ?`, [id], () => {
+    db.run(`DELETE FROM colecciones WHERE id = ?`, [id], (err) => {
+      if (err) return res.status(500).json({ error: 'Error al eliminar' });
+      res.json({ ok: true });
+    });
+  });
+};
+
+exports.verColeccionPatrones = (req, res) => {
+  const { id } = req.params;
+  db.all(
+    `SELECT p.id, p.titulo, p.autor, p.diseñadora, p.categoria, p.thumbnail_path, cp.orden
+     FROM coleccion_patrones cp JOIN patrones p ON p.id = cp.patron_id
+     WHERE cp.coleccion_id = ? ORDER BY cp.orden ASC`,
+    [id],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: 'Error interno' });
+      res.json(rows || []);
+    }
+  );
+};
+
+exports.agregarPatronColeccion = (req, res) => {
+  const { id } = req.params;
+  const { patron_id, orden } = req.body;
+  if (!patron_id) return res.status(400).json({ error: 'patron_id requerido' });
+  db.run(
+    `INSERT OR IGNORE INTO coleccion_patrones (coleccion_id, patron_id, orden) VALUES (?, ?, ?)`,
+    [id, patron_id, parseInt(orden) || 0],
+    (err) => {
+      if (err) return res.status(500).json({ error: 'Error al agregar patrón' });
+      res.json({ ok: true });
+    }
+  );
+};
+
+exports.quitarPatronColeccion = (req, res) => {
+  const { id, patronId } = req.params;
+  db.run(
+    `DELETE FROM coleccion_patrones WHERE coleccion_id = ? AND patron_id = ?`,
+    [id, patronId],
+    (err) => {
+      if (err) return res.status(500).json({ error: 'Error al quitar patrón' });
+      res.json({ ok: true });
+    }
+  );
+};
+
 exports.unsubscribe = async (req, res) => {
   const { u: userId, t: token } = req.query;
   if (!userId || !token || token !== unsubToken(userId)) {

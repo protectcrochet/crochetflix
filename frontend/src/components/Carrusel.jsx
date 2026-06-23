@@ -1,8 +1,9 @@
 import { useRef, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import PatronCard from './PatronCard';
 
-export default function Carrusel({ titulo, patrones, loop = false, autoScroll = false, onUpdate }) {
+export default function Carrusel({ titulo, patrones, loop = false, autoScroll = false, onUpdate, verTodoUrl }) {
   const scrollRef = useRef(null);
   const pausadoRef = useRef(false);
 
@@ -36,7 +37,10 @@ export default function Carrusel({ titulo, patrones, loop = false, autoScroll = 
     <section className="py-4">
       <div className="flex items-center justify-between px-4 mb-3">
         <h2 className="text-lg font-bold">{titulo}</h2>
-        <div className="flex gap-1">
+        <div className="flex items-center gap-2">
+          {verTodoUrl && (
+            <Link to={verTodoUrl} className="text-xs text-crochet-primary hover:underline">Ver todo →</Link>
+          )}
           <button onClick={() => scroll('left')} className="p-1 hover:bg-gray-800 rounded">
             <ChevronLeft className="w-5 h-5" />
           </button>

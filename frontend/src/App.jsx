@@ -13,6 +13,7 @@ import Admin from './pages/Admin';
 import Catalogo from './pages/Catalogo';
 import DMCA from './pages/DMCA';
 import DerechosDeAutor from './pages/DerechosDeAutor';
+import Coleccion from './pages/Coleccion';
 
 function App() {
   return (
@@ -31,6 +32,7 @@ function App() {
             <Route path="perfil" element={<Perfil />} />
             <Route path="dmca" element={<DMCA />} />
             <Route path="derechos-de-autor" element={<DerechosDeAutor />} />
+            <Route path="colecciones/:id" element={<Coleccion />} />
           </Route>
         </Routes>
       </AdminModeProvider>

@@ -976,6 +976,11 @@ export default function Admin() {
             📊 Métricas
           </button>
           <button
+            onClick={() => setMostrando('colecciones')}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded text-sm font-medium transition ${mostrando === 'colecciones' ? 'bg-violet-700 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
+            🎬 Colecciones
+          </button>
+          <button
             onClick={() => setMostrando('emails')}
             className={`flex items-center gap-1.5 px-3 py-2 rounded text-sm font-medium transition ${mostrando === 'emails' ? 'bg-pink-700 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
             ✉️ Emails
@@ -1841,10 +1846,209 @@ export default function Admin() {
         </div>
       )}
 
+      {/* Panel Colecciones */}
+      {mostrando === 'colecciones' && (
+        <ColeccionesPanel authHeader={authHeader} />
+      )}
+
       {/* Panel Emails */}
       {mostrando === 'emails' && (
         <EmailBlastPanel authHeader={authHeader} stats={stats} />
       )}
+    </div>
+  );
+}
+
+function ColeccionesPanel({ authHeader }) {
+  const [cols, setCols] = useState([]);
+  const [seleccionada, setSeleccionada] = useState(null);
+  const [patrones, setPatrones] = useState([]);
+  const [busqueda, setBusqueda] = useState('');
+  const [resultados, setResultados] = useState([]);
+  const [buscando, setBuscando] = useState(false);
+  const [forma, setForma] = useState({ nombre: '', descripcion: '', emoji: '🧶', orden: 0 });
+  const [creando, setCreando] = useState(false);
+  const [editando, setEditando] = useState(null);
+
+  const cargar = async () => {
+    const r = await api.get('/admin/colecciones', { headers: authHeader });
+    setCols(r.data || []);
+  };
+
+  useEffect(() => { cargar(); }, []);
+
+  const abrirColeccion = async (col) => {
+    setSeleccionada(col);
+    setBusqueda(''); setResultados([]);
+    const r = await api.get(`/admin/colecciones/${col.id}/patrones`, { headers: authHeader });
+    setPatrones(r.data || []);
+  };
+
+  const crear = async () => {
+    if (!forma.nombre.trim()) return;
+    await api.post('/admin/colecciones', forma, { headers: authHeader });
+    setCreando(false); setForma({ nombre: '', descripcion: '', emoji: '🧶', orden: 0 });
+    cargar();
+  };
+
+  const guardarEdicion = async () => {
+    await api.patch(`/admin/colecciones/${editando.id}`, editando, { headers: authHeader });
+    setEditando(null); cargar();
+  };
+
+  const toggleActivo = async (col) => {
+    await api.patch(`/admin/colecciones/${col.id}`, { activo: col.activo ? 0 : 1 }, { headers: authHeader });
+    cargar();
+  };
+
+  const eliminar = async (id) => {
+    if (!confirm('¿Eliminar esta colección?')) return;
+    await api.delete(`/admin/colecciones/${id}`, { headers: authHeader });
+    if (seleccionada?.id === id) setSeleccionada(null);
+    cargar();
+  };
+
+  const buscarPatrones = async (q) => {
+    setBusqueda(q);
+    if (!q.trim()) { setResultados([]); return; }
+    setBuscando(true);
+    try {
+      const r = await api.get('/admin/patrones', { headers: authHeader, params: { search: q, limit: 10 } });
+      setResultados((r.data.patrones || r.data || []).slice(0, 10));
+    } catch {} finally { setBuscando(false); }
+  };
+
+  const agregar = async (patron) => {
+    if (patrones.find(p => p.id === patron.id)) return;
+    await api.post(`/admin/colecciones/${seleccionada.id}/patrones`, { patron_id: patron.id, orden: patrones.length }, { headers: authHeader });
+    setPatrones(prev => [...prev, patron]);
+    setBusqueda(''); setResultados([]);
+  };
+
+  const quitar = async (patronId) => {
+    await api.delete(`/admin/colecciones/${seleccionada.id}/patrones/${patronId}`, { headers: authHeader });
+    setPatrones(prev => prev.filter(p => p.id !== patronId));
+  };
+
+  return (
+    <div className="space-y-5 max-w-3xl">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-bold">🎬 Colecciones en Tendencia</h2>
+        <button onClick={() => setCreando(true)} className="px-3 py-1.5 bg-violet-700 hover:bg-violet-600 rounded-lg text-sm font-medium transition">
+          + Nueva colección
+        </button>
+      </div>
+
+      {creando && (
+        <div className="bg-gray-800 rounded-xl p-4 space-y-3">
+          <h3 className="font-semibold text-sm">Nueva colección</h3>
+          <div className="flex gap-2">
+            <input value={forma.emoji} onChange={e => setForma(f => ({ ...f, emoji: e.target.value }))}
+              className="w-16 bg-gray-700 border border-gray-600 rounded-lg px-2 py-2 text-center text-xl" placeholder="🧶" />
+            <input value={forma.nombre} onChange={e => setForma(f => ({ ...f, nombre: e.target.value }))}
+              placeholder="Nombre (ej: Toy Story)" className="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm" />
+          </div>
+          <input value={forma.descripcion} onChange={e => setForma(f => ({ ...f, descripcion: e.target.value }))}
+            placeholder="Descripción opcional" className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm" />
+          <div className="flex items-center gap-2 text-sm text-gray-400">
+            <span>Orden:</span>
+            <input type="number" value={forma.orden} onChange={e => setForma(f => ({ ...f, orden: parseInt(e.target.value) || 0 }))}
+              className="w-16 bg-gray-700 border border-gray-600 rounded-lg px-2 py-1 text-sm" />
+          </div>
+          <div className="flex gap-2">
+            <button onClick={crear} className="px-4 py-2 bg-violet-700 hover:bg-violet-600 rounded-lg text-sm font-medium">Crear</button>
+            <button onClick={() => setCreando(false)} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm">Cancelar</button>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {cols.map(col => (
+          <div key={col.id} className={`bg-gray-800 rounded-xl overflow-hidden border ${seleccionada?.id === col.id ? 'border-violet-500' : 'border-transparent'}`}>
+            <div className="flex items-center gap-3 p-3">
+              <span className="text-2xl">{col.emoji || '🧶'}</span>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-sm truncate">{col.nombre}</p>
+                <p className="text-xs text-gray-500">{col.total_patrones || 0} patrones · orden {col.orden}</p>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button onClick={() => toggleActivo(col)}
+                  className={`px-2 py-1 rounded text-xs font-medium ${col.activo ? 'bg-green-900/50 text-green-400' : 'bg-gray-700 text-gray-500'}`}>
+                  {col.activo ? 'Activa' : 'Oculta'}
+                </button>
+                <button onClick={() => setEditando({ ...col })} className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-white text-xs">✏️</button>
+                <button onClick={() => abrirColeccion(col)} className="p-1.5 hover:bg-violet-700/50 rounded text-gray-400 hover:text-white text-xs">🖼 Patrones</button>
+                <button onClick={() => eliminar(col.id)} className="p-1.5 hover:bg-red-900/50 rounded text-gray-400 hover:text-red-400 text-xs">🗑</button>
+              </div>
+            </div>
+
+            {editando?.id === col.id && (
+              <div className="border-t border-gray-700 p-3 space-y-2">
+                <div className="flex gap-2">
+                  <input value={editando.emoji} onChange={e => setEditando(v => ({ ...v, emoji: e.target.value }))}
+                    className="w-16 bg-gray-700 border border-gray-600 rounded px-2 py-1 text-center text-xl" />
+                  <input value={editando.nombre} onChange={e => setEditando(v => ({ ...v, nombre: e.target.value }))}
+                    className="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-1 text-sm" />
+                </div>
+                <input value={editando.descripcion || ''} onChange={e => setEditando(v => ({ ...v, descripcion: e.target.value }))}
+                  placeholder="Descripción" className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1 text-sm" />
+                <div className="flex items-center gap-2 text-sm text-gray-400">
+                  <span>Orden:</span>
+                  <input type="number" value={editando.orden} onChange={e => setEditando(v => ({ ...v, orden: parseInt(e.target.value) || 0 }))}
+                    className="w-16 bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm" />
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={guardarEdicion} className="px-3 py-1.5 bg-violet-700 hover:bg-violet-600 rounded text-sm">Guardar</button>
+                  <button onClick={() => setEditando(null)} className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm">Cancelar</button>
+                </div>
+              </div>
+            )}
+
+            {seleccionada?.id === col.id && (
+              <div className="border-t border-gray-700 p-3 space-y-3">
+                <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide">Patrones en esta colección</p>
+
+                <div className="relative">
+                  <input value={busqueda} onChange={e => buscarPatrones(e.target.value)}
+                    placeholder="Buscar patrón para agregar..."
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm" />
+                  {buscando && <span className="absolute right-3 top-2.5 text-xs text-gray-400">...</span>}
+                  {resultados.length > 0 && (
+                    <div className="absolute z-10 top-full mt-1 w-full bg-gray-700 border border-gray-600 rounded-lg shadow-xl overflow-hidden">
+                      {resultados.map(p => (
+                        <button key={p.id} onClick={() => agregar(p)}
+                          className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-600 text-left text-sm">
+                          {p.thumbnail_path && <img src={p.thumbnail_path} className="w-8 h-8 object-cover rounded" />}
+                          <span className="truncate">{p.titulo}</span>
+                          <span className="text-xs text-gray-400 shrink-0">{p.categoria}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-1 max-h-60 overflow-y-auto">
+                  {patrones.length === 0 && <p className="text-xs text-gray-500 py-2">Sin patrones — busca arriba para agregar</p>}
+                  {patrones.map((p, i) => (
+                    <div key={p.id} className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-gray-700/50 group">
+                      <span className="text-xs text-gray-500 w-4">{i + 1}</span>
+                      {p.thumbnail_path && <img src={p.thumbnail_path} className="w-8 h-8 object-cover rounded shrink-0" />}
+                      <span className="text-sm flex-1 truncate">{p.titulo}</span>
+                      <button onClick={() => quitar(p.id)} className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 text-xs px-2 py-0.5 rounded transition">
+                        Quitar
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+
+        {cols.length === 0 && (
+          <p className="text-center text-gray-500 py-8">No hay colecciones. Crea la primera.</p>
+        )}
+      </div>
     </div>
   );
 }
