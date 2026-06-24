@@ -300,6 +300,9 @@ export default function Home() {
             </section>
           )}
 
+          <Carrusel titulo="🔥 Tendencia" patrones={patronesTendencia} loop autoScroll onUpdate={handlePatronUpdate} />
+          <Carrusel titulo="🆕 Nuevos patrones" patrones={patronesAleatorios} onUpdate={handlePatronUpdate} />
+
           {colecciones.length > 0 && (
             <section className="py-2">
               <h2 className="text-lg font-bold px-4 mb-3">✨ Colecciones en Tendencia</h2>
@@ -315,8 +318,6 @@ export default function Home() {
             </section>
           )}
 
-          <Carrusel titulo="🔥 Tendencia" patrones={patronesTendencia} loop autoScroll onUpdate={handlePatronUpdate} />
-          <Carrusel titulo="🆕 Nuevos patrones" patrones={patronesAleatorios} onUpdate={handlePatronUpdate} />
           <Carrusel titulo="🎁 Gratis este mes" patrones={patronesPreview} onUpdate={handlePatronUpdate} />
 
           {(!user || user.tier === 'free') && (
