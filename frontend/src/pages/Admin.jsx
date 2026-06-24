@@ -1913,8 +1913,8 @@ function ColeccionesPanel({ authHeader }) {
     if (!q.trim()) { setResultados([]); return; }
     setBuscando(true);
     try {
-      const r = await api.get('/admin/patrones', { headers: authHeader, params: { search: q, limit: 10 } });
-      setResultados((r.data.patrones || r.data || []).slice(0, 10));
+      const r = await api.get('/patrones', { params: { search: q, limit: 10 } });
+      setResultados((r.data.patrones || []).slice(0, 10));
     } catch {} finally { setBuscando(false); }
   };
 
