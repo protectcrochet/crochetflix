@@ -2005,7 +2005,7 @@ function ColeccionesPanel({ authHeader }) {
             )}
 
             {seleccionada?.id === col.id && (
-              <div className="border-t border-gray-700 p-3 space-y-3">
+              <div className="border-t border-gray-700 p-3 space-y-3 overflow-visible">
                 <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide">Patrones en esta colección</p>
 
                 <div className="relative">
@@ -2014,7 +2014,7 @@ function ColeccionesPanel({ authHeader }) {
                     className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm" />
                   {buscando && <span className="absolute right-3 top-2.5 text-xs text-gray-400">...</span>}
                   {resultados.length > 0 && (
-                    <div className="absolute z-10 top-full mt-1 w-full bg-gray-700 border border-gray-600 rounded-lg shadow-xl overflow-hidden">
+                    <div className="absolute z-50 top-full mt-1 w-full bg-gray-700 border border-gray-600 rounded-lg shadow-xl overflow-y-auto max-h-64">
                       {resultados.map(p => (
                         <button key={p.id} onClick={() => agregar(p)}
                           className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-600 text-left text-sm">
