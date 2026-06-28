@@ -21,8 +21,16 @@ function initTables() {
       password_hash TEXT NOT NULL,
       tier TEXT DEFAULT 'free',
       subscription_expires_at TIMESTAMP,
+      new_account_discount INTEGER DEFAULT 0,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`);
+
+    // Migración: agregar columna si la tabla ya existía sin ella
+    db.run(`ALTER TABLE users ADD COLUMN new_account_discount INTEGER DEFAULT 0`, (err) => {
+      if (err && !err.message.includes('duplicate column name')) {
+        console.error('Error migrando new_account_discount:', err.message);
+      }
+    });
 
     // Patrones
     db.run(`CREATE TABLE IF NOT EXISTS patrones (
@@ -77,9 +85,15 @@ function initTables() {
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,
       nowpayments_order_id TEXT,
+      nowpayments_payment_id TEXT,
       monto_usd REAL,
       monto_mxn REAL,
       status TEXT DEFAULT 'pending',
+      plan TEXT,
+      actually_paid REAL,
+      pay_currency TEXT,
+      descuento_aplicado INTEGER DEFAULT 0,
+      updated_at TIMESTAMP,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id)
     )`);

@@ -30,12 +30,12 @@ exports.register = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    // Crear usuario
+    // Crear usuario — new_account_discount=1 para 25% OFF primera suscripción
     const userId = uuidv4();
     await new Promise((resolve, reject) => {
       db.run(
-        'INSERT INTO users (id, email, password_hash, tier) VALUES (?, ?, ?, ?)',
-        [userId, email, passwordHash, 'free'],
+        'INSERT INTO users (id, email, password_hash, tier, new_account_discount) VALUES (?, ?, ?, ?, ?)',
+        [userId, email, passwordHash, 'free', 1],
         function(err) {
           if (err) reject(err);
           resolve();
@@ -53,7 +53,7 @@ exports.register = async (req, res) => {
     res.status(201).json({
       message: 'Usuario creado',
       token,
-      user: { id: userId, email, tier: 'free' }
+      user: { id: userId, email, tier: 'free', new_account_discount: 1 }
     });
 
   } catch (err) {
@@ -101,7 +101,8 @@ exports.login = async (req, res) => {
         id: user.id,
         email: user.email,
         tier: user.tier,
-        subscription_expires_at: user.subscription_expires_at
+        subscription_expires_at: user.subscription_expires_at,
+        new_account_discount: user.new_account_discount || 0
       }
     });
 
@@ -115,7 +116,7 @@ exports.me = async (req, res) => {
   try {
     const user = await new Promise((resolve, reject) => {
       db.get(
-        'SELECT id, email, tier, subscription_expires_at FROM users WHERE id = ?',
+        'SELECT id, email, tier, subscription_expires_at, new_account_discount FROM users WHERE id = ?',
         [req.userId],
         (err, row) => {
           if (err) reject(err);

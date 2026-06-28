@@ -9,23 +9,22 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001';
 
 // ============================================
 // Rate Limiter para webhooks
-// Prevenir DDoS al endpoint de pagos
 // ============================================
 const webhookRateLimit = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minuto
-  max: 30, // 30 requests por minuto por IP
+  windowMs: 1 * 60 * 1000,
+  max: 30,
   message: 'Too many webhook requests',
   standardHeaders: true,
   legacyHeaders: false,
-  skipSuccessfulRequests: false // Contar incluso los 200
+  skipSuccessfulRequests: false
 });
 
 // ============================================
 // Rate Limiter para crear pagos
 // ============================================
 const crearPagoRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 5, // 5 pagos por IP
+  windowMs: 15 * 60 * 1000,
+  max: 5,
   message: 'Demasiadas solicitudes de pago. Intenta más tarde.',
   standardHeaders: true,
   legacyHeaders: false
@@ -54,10 +53,10 @@ exports.crearPago = [crearPagoRateLimit, async (req, res) => {
       return res.status(400).json({ error: 'Plan inválido. Use mensual o anual.' });
     }
 
-    // Verificar si ya tiene suscripción activa
+    // Verificar usuario: suscripción activa y descuento
     const user = await new Promise((resolve, reject) => {
       db.get(
-        'SELECT tier, subscription_expires_at FROM users WHERE id = ?',
+        'SELECT tier, subscription_expires_at, new_account_discount FROM users WHERE id = ?',
         [userId],
         (err, row) => {
           if (err) reject(err);
@@ -77,15 +76,23 @@ exports.crearPago = [crearPagoRateLimit, async (req, res) => {
     };
 
     const planSeleccionado = precios[plan];
+    const montoOriginal = planSeleccionado.amount;
+
+    // Aplicar descuento del 25% para cuentas nuevas (una sola vez)
+    const tieneDescuento = user?.new_account_discount === 1;
+    const monto = tieneDescuento
+      ? Math.round(montoOriginal * 0.75 * 100) / 100
+      : montoOriginal;
+
     const orderId = `CF-${uuidv4()}`;
     const pagoId = uuidv4();
 
     // Crear registro en DB
     await new Promise((resolve, reject) => {
       db.run(
-        `INSERT INTO pagos (id, user_id, nowpayments_order_id, monto_usd, status, plan, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`,
-        [pagoId, userId, orderId, planSeleccionado.amount, 'pending', plan],
+        `INSERT INTO pagos (id, user_id, nowpayments_order_id, monto_usd, status, plan, descuento_aplicado, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+        [pagoId, userId, orderId, monto, 'pending', plan, tieneDescuento ? 1 : 0],
         function(err) {
           if (err) reject(err);
           resolve();
@@ -93,13 +100,17 @@ exports.crearPago = [crearPagoRateLimit, async (req, res) => {
       );
     });
 
+    const description = tieneDescuento
+      ? `${planSeleccionado.description} (25% descuento cuenta nueva)`
+      : planSeleccionado.description;
+
     // Crear pago en NOWPayments
     const pago = await nowpayments.crearPago({
-      price_amount: planSeleccionado.amount,
+      price_amount: monto,
       price_currency: 'usd',
       pay_currency: 'usdttrc20',
       order_id: orderId,
-      order_description: planSeleccionado.description,
+      order_description: description,
       ipn_callback_url: `${BACKEND_URL}/api/pagos/webhook`,
       success_url: `${FRONTEND_URL}/perfil?pago=exitoso&order=${orderId}`,
       cancel_url: `${FRONTEND_URL}/perfil?pago=cancelado&order=${orderId}`
@@ -108,7 +119,9 @@ exports.crearPago = [crearPagoRateLimit, async (req, res) => {
     res.json({
       payment_url: pago.payment_url,
       order_id: orderId,
-      amount: planSeleccionado.amount,
+      amount: monto,
+      original_amount: montoOriginal,
+      descuento_aplicado: tieneDescuento,
       currency: 'USD',
       plan: plan
     });
@@ -120,27 +133,21 @@ exports.crearPago = [crearPagoRateLimit, async (req, res) => {
 }];
 
 // ============================================
-// Webhook de NOWPayments (IPN) — CORREGIDO
-// ============================================
-// CRÍTICO: Siempre responder 200, incluso con error
-// NOWPayments reintenta si no recibe 200
+// Webhook de NOWPayments (IPN)
+// CRÍTICO: Siempre responder 200
 // ============================================
 exports.webhook = [webhookRateLimit, async (req, res) => {
-  // Responder 200 inmediatamente para evitar reintentos de NOWPayments
   res.status(200).send('OK');
 
-  // Procesar después de responder
   try {
     const signature = req.headers['x-nowpayments-sig'];
-    const rawBody = req.rawBody; // Viene del middleware rawBody
+    const rawBody = req.rawBody;
 
-    // Verificar que tenemos IPN_SECRET
     if (!IPN_SECRET) {
       console.error('❌ IPN_SECRET no configurado');
       return;
     }
 
-    // Verificar firma
     if (!signature || !rawBody) {
       console.error('❌ Falta firma o body en webhook');
       return;
@@ -149,11 +156,9 @@ exports.webhook = [webhookRateLimit, async (req, res) => {
     const firmaValida = nowpayments.verificarFirmaIPN(rawBody, signature, IPN_SECRET);
     if (!firmaValida) {
       console.error('❌ Firma IPN inválida');
-      console.error('   Signature recibida:', signature?.substring(0, 20) + '...');
       return;
     }
 
-    // Parsear payload (ya verificado)
     let payload;
     try {
       payload = JSON.parse(rawBody);
@@ -172,13 +177,11 @@ exports.webhook = [webhookRateLimit, async (req, res) => {
       pay_currency
     });
 
-    // Validar order_id
     if (!order_id || !order_id.startsWith('CF-')) {
       console.error('❌ order_id inválido:', order_id);
       return;
     }
 
-    // Actualizar estado del pago en DB
     await new Promise((resolve, reject) => {
       db.run(
         `UPDATE pagos 
@@ -192,7 +195,6 @@ exports.webhook = [webhookRateLimit, async (req, res) => {
       );
     });
 
-    // Procesar según estado
     if (ESTADOS_PAGO.EXITOSOS.includes(payment_status)) {
       await activarPremium(order_id, payment_status);
     } else if (ESTADOS_PAGO.FALLIDOS.includes(payment_status)) {
@@ -203,7 +205,6 @@ exports.webhook = [webhookRateLimit, async (req, res) => {
 
   } catch (err) {
     console.error('❌ Error procesando webhook:', err);
-    // NO relanzar error — ya respondimos 200
   }
 }];
 
@@ -231,28 +232,24 @@ async function activarPremium(orderId, status) {
       return;
     }
 
-    // Determinar duración según plan o monto
     let dias = 30;
     if (pago.plan === 'anual' || pago.monto_usd >= 40) {
       dias = 365;
     }
 
-    // Calcular fecha de expiración (sumar a la existente si ya es premium)
     let fechaExpiracion = new Date();
-
     if (pago.tier === 'premium' && pago.subscription_expires_at) {
       const fechaExistente = new Date(pago.subscription_expires_at);
       if (fechaExistente > fechaExpiracion) {
         fechaExpiracion = fechaExistente;
       }
     }
-
     fechaExpiracion.setDate(fechaExpiracion.getDate() + dias);
 
-    // Activar/renovar premium
+    // Activar premium y consumir el descuento de cuenta nueva
     await new Promise((resolve, reject) => {
       db.run(
-        `UPDATE users SET tier = ?, subscription_expires_at = ? WHERE id = ?`,
+        `UPDATE users SET tier = ?, subscription_expires_at = ?, new_account_discount = 0 WHERE id = ?`,
         ['premium', fechaExpiracion.toISOString(), pago.user_id],
         function(err) {
           if (err) reject(err);
@@ -261,18 +258,18 @@ async function activarPremium(orderId, status) {
       );
     });
 
-    console.log(`✅ Premium activado/renovado para usuario ${pago.user_id}`);
+    console.log(`✅ Premium activado para usuario ${pago.user_id}`);
     console.log(`   Expira: ${fechaExpiracion.toISOString()}`);
     console.log(`   Estado pago: ${status}`);
 
   } catch (err) {
     console.error('❌ Error activando premium:', err);
-    throw err; // Relanzar para que el webhook lo capture
+    throw err;
   }
 }
 
 // ============================================
-// Desactivar premium (fallback)
+// Desactivar premium
 // ============================================
 async function desactivarPremium(orderId, status) {
   try {
@@ -289,7 +286,6 @@ async function desactivarPremium(orderId, status) {
 
     if (!pago) return;
 
-    // Solo desactivar si no tiene otra suscripción activa
     const user = await new Promise((resolve, reject) => {
       db.get(
         'SELECT tier, subscription_expires_at FROM users WHERE id = ?',
@@ -321,7 +317,7 @@ async function desactivarPremium(orderId, status) {
 }
 
 // ============================================
-// Verificar estado de pago (para polling del frontend)
+// Verificar estado de pago
 // ============================================
 exports.verificarEstado = async (req, res) => {
   try {
@@ -347,7 +343,6 @@ exports.verificarEstado = async (req, res) => {
       return res.status(404).json({ error: 'Pago no encontrado' });
     }
 
-    // Si está pendiente, consultar NOWPayments
     if (ESTADOS_PAGO.PENDIENTES.includes(pago.status) && pago.nowpayments_payment_id) {
       try {
         const estadoNP = await nowpayments.verificarPago(pago.nowpayments_payment_id);
@@ -355,7 +350,7 @@ exports.verificarEstado = async (req, res) => {
         if (estadoNP.payment_status && estadoNP.payment_status !== pago.status) {
           await new Promise((resolve, reject) => {
             db.run(
-              'UPDATE pagos SET status = ?, updated_at = datetime(\'now\') WHERE id = ?',
+              `UPDATE pagos SET status = ?, updated_at = datetime('now') WHERE id = ?`,
               [estadoNP.payment_status, pago.id],
               function(err) {
                 if (err) reject(err);
@@ -365,7 +360,6 @@ exports.verificarEstado = async (req, res) => {
           });
           pago.status = estadoNP.payment_status;
 
-          // Si cambió a exitoso, activar premium
           if (ESTADOS_PAGO.EXITOSOS.includes(estadoNP.payment_status)) {
             await activarPremium(orderId, estadoNP.payment_status);
           }
