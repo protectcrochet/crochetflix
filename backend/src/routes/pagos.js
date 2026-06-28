@@ -3,10 +3,10 @@ const router = express.Router();
 const pagoController = require('../controllers/pagoController');
 const authMiddleware = require('../middleware/auth');
 
-// Crear orden de pago (protegido)
+// Crear sesión de pago Stripe (protegido)
 router.post('/crear', authMiddleware, pagoController.crearPago);
 
-// Webhook de NOWPayments (público, verificación por firma)
+// Webhook de Stripe (público, verificación por firma HMAC)
 router.post('/webhook', pagoController.webhook);
 
 // Verificar estado de pago (protegido)
