@@ -14,7 +14,8 @@ const sincronizador = require('./workers/sincronizador');
 
 const app = express();
 
-app.set('trust proxy', 1); // Required for rate limiting behind nginx
+app.disable('x-powered-by'); // No revelar stack tecnológico
+app.set('trust proxy', 1);
 
 // Middleware
 app.use(cors({
@@ -53,9 +54,9 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Error handler
+// Error handler — nunca exponer stack ni rutas internas al cliente
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  console.error('[error]', err.message);
   res.status(500).json({ error: 'Error interno del servidor' });
 });
 
