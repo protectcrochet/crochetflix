@@ -160,7 +160,7 @@ export default function Perfil() {
               {loading ? 'Procesando...' : tieneDescuento ? 'Suscribirme — $3.74 USD/mes' : 'Suscribirme mensual'}
             </button>
             <p className="text-xs text-gray-500 text-center mt-2">
-              Pago seguro vía NOWPayments. Puedes cancelar en cualquier momento.
+              Pago seguro vía Stripe. Cancela en cualquier momento.
             </p>
           </div>
 
@@ -207,6 +207,9 @@ export default function Perfil() {
               {loading ? <Loader className="w-5 h-5 animate-spin" /> : <CreditCard className="w-5 h-5" />}
               {loading ? 'Procesando...' : tieneDescuento ? 'Suscribirme — $37.49 USD/año' : 'Suscribirme anual'}
             </button>
+            <p className="text-xs text-gray-500 text-center mt-2">
+              Pago seguro vía Stripe. Cancela en cualquier momento.
+            </p>
           </div>
         </div>
       )}
