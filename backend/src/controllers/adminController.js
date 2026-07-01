@@ -1122,6 +1122,7 @@ exports.analytics = async (req, res) => {
       registrosHoy, registrosSemana,
       inactivosFree, inactivosPremium,
       topPatrones, paises, visitasPorDia, usuariosPorDia,
+      premiumActivos, premiumVencidos, exPremium,
     ] = await Promise.all([
       // Total: combina visitas nuevas + progreso histórico
       new Promise(r => db.get(
@@ -1203,6 +1204,18 @@ exports.analytics = async (req, res) => {
          GROUP BY dia ORDER BY dia ASC`,
         [hace30], (_, rows) => r(rows || [])
       )),
+      // Suscripciones activas (premium con fecha vigente)
+      new Promise(r => db.get(
+        `SELECT COUNT(*) as n FROM users WHERE tier = 'premium' AND subscription_expires_at > datetime('now')`,
+        [], (_, row) => r(row?.n || 0))),
+      // Premium vencidos (tier sigue en premium pero expiró)
+      new Promise(r => db.get(
+        `SELECT COUNT(*) as n FROM users WHERE tier = 'premium' AND (subscription_expires_at IS NULL OR subscription_expires_at <= datetime('now'))`,
+        [], (_, row) => r(row?.n || 0))),
+      // Ex-premium: cancelaron (son free pero tenían cuenta Stripe)
+      new Promise(r => db.get(
+        `SELECT COUNT(*) as n FROM users WHERE tier = 'free' AND stripe_customer_id IS NOT NULL`,
+        [], (_, row) => r(row?.n || 0))),
     ]);
 
     res.json({
@@ -1211,6 +1224,7 @@ exports.analytics = async (req, res) => {
       usuariosTotal, usuariosFree, usuariosPremium,
       registrosHoy, registrosSemana,
       inactivosFree, inactivosPremium,
+      premiumActivos, premiumVencidos, exPremium,
       topPatrones, paises, visitasPorDia, usuariosPorDia,
     });
   } catch (err) {

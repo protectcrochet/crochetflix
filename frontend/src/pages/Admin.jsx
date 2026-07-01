@@ -1600,6 +1600,20 @@ export default function Admin() {
                 ))}
               </div>
 
+              {/* Fila suscripciones */}
+              <div className="grid grid-cols-3 gap-4">
+                {[
+                  { label: 'Suscripciones activas', value: analytics.premiumActivos, color: 'text-green-400', hint: 'Premium con fecha vigente' },
+                  { label: 'Suscripciones vencidas', value: analytics.premiumVencidos, color: 'text-yellow-500', hint: 'Premium expirado sin renovar' },
+                  { label: 'Cancelaron', value: analytics.exPremium, color: 'text-red-400', hint: 'Eran premium, ahora son free' },
+                ].map(({ label, value, color, hint }) => (
+                  <div key={label} className="bg-gray-800/50 rounded-xl p-3 text-center" title={hint}>
+                    <p className={`text-2xl font-bold ${color}`}>{value?.toLocaleString()}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{label}</p>
+                  </div>
+                ))}
+              </div>
+
               {/* Gráficas lado a lado */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Aperturas últimos 7 días */}
