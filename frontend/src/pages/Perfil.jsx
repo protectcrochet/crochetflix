@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
-import { Crown, Check, Clock, Loader, CreditCard, Tag } from 'lucide-react';
+import { Crown, Check, Clock, Loader, CreditCard, Tag, Calendar, Star, History } from 'lucide-react';
 
 export default function Perfil() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [suscInfo, setSuscInfo] = useState(null);
 
   const esPremium = user?.tier === 'premium';
   const tieneDescuento = user?.new_account_discount === 1;
@@ -19,6 +20,13 @@ export default function Perfil() {
     mensual: { original: 4.99, descuento: 3.74 },
     anual:   { original: 49.99, descuento: 37.49 }
   };
+
+  useEffect(() => {
+    if (!esPremium) return;
+    api.get('/auth/mi-suscripcion')
+      .then(res => setSuscInfo(res.data))
+      .catch(() => {});
+  }, [esPremium]);
 
   const handleSuscribir = async (plan) => {
     setLoading(true);
@@ -74,10 +82,81 @@ export default function Perfil() {
 
         {esPremium && expira && (
           <p className="text-sm text-gray-400 flex items-center gap-1">
-            <Clock className="w-4 h-4" /> Suscripción activa hasta: {expira}
+            <Clock className="w-4 h-4" /> Próxima renovación: <strong className="text-white ml-1">{expira}</strong>
           </p>
         )}
       </div>
+
+      {/* Detalles de suscripción (solo premium) */}
+      {esPremium && suscInfo && (
+        <div className="bg-gray-800 rounded-lg p-6 mb-6 border border-crochet-primary/30">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <Crown className="w-5 h-5 text-crochet-primary" /> Mi suscripción
+          </h2>
+
+          <div className="grid grid-cols-2 gap-4 mb-5">
+            <div className="bg-gray-700/50 rounded-lg p-3">
+              <p className="text-xs text-gray-400 flex items-center gap-1 mb-1">
+                <Calendar className="w-3 h-3" /> Suscrita desde
+              </p>
+              <p className="font-semibold text-white">
+                {suscInfo.primerPago
+                  ? new Date(suscInfo.primerPago).toLocaleDateString('es-MX')
+                  : '—'}
+              </p>
+            </div>
+
+            <div className="bg-gray-700/50 rounded-lg p-3">
+              <p className="text-xs text-gray-400 flex items-center gap-1 mb-1">
+                <Clock className="w-3 h-3" /> Meses activos
+              </p>
+              <p className="font-semibold text-white">
+                {suscInfo.mesesActivos ?? '—'}
+              </p>
+            </div>
+
+            <div className="bg-gray-700/50 rounded-lg p-3">
+              <p className="text-xs text-gray-400 flex items-center gap-1 mb-1">
+                <Star className="w-3 h-3" /> Plan
+              </p>
+              <p className="font-semibold text-white flex items-center gap-1">
+                {suscInfo.conDescuento
+                  ? <><span className="bg-green-600 text-white text-xs px-1.5 py-0.5 rounded">25% OFF</span> con descuento</>
+                  : 'Precio estándar'}
+              </p>
+            </div>
+
+            <div className="bg-gray-700/50 rounded-lg p-3">
+              <p className="text-xs text-gray-400 flex items-center gap-1 mb-1">
+                <CreditCard className="w-3 h-3" /> Total pagos
+              </p>
+              <p className="font-semibold text-white">
+                {suscInfo.totalPagos ?? '—'}
+              </p>
+            </div>
+          </div>
+
+          {suscInfo.historial && suscInfo.historial.length > 0 && (
+            <div>
+              <p className="text-xs text-gray-400 flex items-center gap-1 mb-2">
+                <History className="w-3 h-3" /> Historial de pagos
+              </p>
+              <div className="space-y-1 max-h-40 overflow-y-auto">
+                {suscInfo.historial.map((p, i) => (
+                  <div key={i} className="flex justify-between text-sm bg-gray-700/40 rounded px-3 py-1.5">
+                    <span className="text-gray-300">
+                      {new Date(p.fecha).toLocaleDateString('es-MX')}
+                    </span>
+                    <span className="text-green-400 font-medium">
+                      ${p.monto} {p.moneda?.toUpperCase()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Error */}
       {error && (
