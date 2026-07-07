@@ -54,7 +54,7 @@ router.post('/patrones', verifyAdmin, upload.single('pdf'), async (req, res) => 
       return res.status(400).json({ error: 'No se subió ningún PDF' });
     }
 
-    const { titulo, descripcion, categoria, esPremium } = req.body;
+    const { titulo, descripcion, categoria, esPremium, esSoloPremium } = req.body;
     
     if (!titulo || !categoria) {
       fs.unlinkSync(req.file.path);
@@ -93,9 +93,9 @@ router.post('/patrones', verifyAdmin, upload.single('pdf'), async (req, res) => 
 
     await new Promise((resolve, reject) => {
       db.run(
-        `INSERT INTO patrones (id, titulo, descripcion, categoria, es_premium, pdf_filename, total_paginas, imagenes, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-        [id, titulo, descripcion, categoria, esPremium === 'true' ? 1 : 0, pdfFilename, totalPaginas, JSON.stringify(imagenes)],
+        `INSERT INTO patrones (id, titulo, descripcion, categoria, es_premium, es_solo_premium, pdf_filename, total_paginas, imagenes, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+        [id, titulo, descripcion, categoria, esPremium === 'true' ? 1 : 0, esSoloPremium === 'true' ? 1 : 0, pdfFilename, totalPaginas, JSON.stringify(imagenes)],
         function(err) {
           if (err) reject(err);
           resolve();
@@ -121,7 +121,7 @@ router.get('/patrones', verifyAdmin, async (req, res) => {
   try {
     const patrones = await new Promise((resolve, reject) => {
       db.all(
-        'SELECT id, titulo, categoria, es_premium, total_paginas, created_at FROM patrones ORDER BY created_at DESC',
+        'SELECT id, titulo, categoria, es_premium, es_solo_premium, total_paginas, created_at FROM patrones ORDER BY created_at DESC',
         [],
         (err, rows) => {
           if (err) reject(err);

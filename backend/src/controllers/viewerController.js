@@ -22,6 +22,19 @@ exports.getPagina = async (req, res) => {
 
     let tieneAcceso = false;
 
+    // Bloquear patrones solo-premium para usuarios no premium
+    if (patron.es_solo_premium) {
+      const user = await new Promise((resolve, reject) => {
+        db.get('SELECT tier, subscription_expires_at FROM users WHERE id = ?', [userId], (err, row) => {
+          if (err) reject(err);
+          resolve(row);
+        });
+      });
+      if (!user || user.tier !== 'premium' || new Date(user.subscription_expires_at) <= new Date()) {
+        return res.status(402).json({ error: 'solo_premium' });
+      }
+    }
+
     // Verificar preview mensual
     if (patron.es_preview) {
       const mesActual = new Date().toISOString().slice(0, 7);
