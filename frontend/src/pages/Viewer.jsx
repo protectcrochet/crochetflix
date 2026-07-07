@@ -436,14 +436,30 @@ export default function Viewer() {
             <Loader className="w-10 h-10 text-crochet-primary animate-spin" />
           </div>
         )}
-        {paginaError && (
+        {paginaError === 'solo_premium' ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center z-20 bg-gray-950/97 px-6 py-8 text-center">
+            <Crown className="w-14 h-14 text-yellow-400 mb-4" />
+            <h2 className="text-xl font-bold text-white mb-2">Este patrón es exclusivo Premium ⭐</h2>
+            <p className="text-gray-400 mb-6 max-w-xs">
+              ¡No te quedes fuera! Suscríbete y accede a <strong className="text-white">+8,000 patrones</strong> sin límites.
+            </p>
+            <button
+              onClick={() => navigate('/perfil')}
+              className="w-full max-w-xs py-3.5 bg-yellow-500 hover:bg-yellow-400 text-black font-bold rounded-xl transition text-base mb-3">
+              ¡Suscribirme ahora!
+            </button>
+            <button onClick={() => navigate(-1)} className="text-sm text-gray-500 hover:text-gray-300 mt-1">
+              ← Volver al catálogo
+            </button>
+          </div>
+        ) : paginaError ? (
           <div className="absolute inset-0 flex items-center justify-center z-10">
             <div className="bg-red-900/80 text-red-200 px-6 py-4 rounded-lg text-center max-w-sm">
               <p className="font-bold mb-1">Error cargando página</p>
               <p className="text-sm">{paginaError}</p>
             </div>
           </div>
-        )}
+        ) : null}
         <canvas
           ref={canvasRef}
           className="absolute top-1/2 left-1/2"
