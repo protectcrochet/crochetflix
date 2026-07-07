@@ -509,7 +509,7 @@ export default function Admin() {
   const [form, setForm] = useState({
     titulo: '', descripcion: '', autor: '', diseñadora: '',
     categoria: 'amigurumi', subcategoria: 'animales', dificultad: 'principiante',
-    idioma: 'es', tiempo_minutos: '', es_preview: false,
+    idioma: 'es', tiempo_minutos: '', es_preview: false, es_solo_premium: false,
   });
   const [archivoPDF, setArchivoPDF] = useState(null);
   const [imagenesFiles, setImagenesFiles] = useState([]);
@@ -732,6 +732,7 @@ export default function Admin() {
       dificultad: p.dificultad || 'principiante',
       idioma: p.idioma || 'es',
       descripcion: p.descripcion || '',
+      es_solo_premium: p.es_solo_premium ? true : false,
     });
   };
 
@@ -1186,6 +1187,14 @@ export default function Admin() {
               Patrón gratuito del mes (preview)
             </label>
           </div>
+          <div className="flex items-center gap-3">
+            <input type="checkbox" id="esSoloPremium" checked={form.es_solo_premium}
+              onChange={e => setForm(f => ({ ...f, es_solo_premium: e.target.checked }))}
+              className="w-4 h-4 accent-purple-500" />
+            <label htmlFor="esSoloPremium" className="text-sm text-gray-300">
+              ⭐ Solo Premium (exclusivo para suscriptoras)
+            </label>
+          </div>
 
           {/* Modo de subida */}
           <div>
@@ -1359,6 +1368,7 @@ export default function Admin() {
                           {p.destacado === 1 && <span className="bg-yellow-600 text-xs px-1.5 py-0.5 rounded">HERO</span>}
                           {p.tendencia === 1 && <span className="bg-orange-600 text-xs px-1.5 py-0.5 rounded">TREND</span>}
                           {p.es_preview === 1 && <span className="bg-green-700 text-xs px-1.5 py-0.5 rounded">GRATIS</span>}
+                          {p.es_solo_premium === 1 && <span className="bg-purple-700 text-xs px-1.5 py-0.5 rounded">⭐ PREMIUM</span>}
                           {!p.activo && <span className="bg-gray-600 text-xs px-1.5 py-0.5 rounded">OCULTO</span>}
                           {p.pdf_corrupto === 1 && p.paginas === 0 && <span className="bg-red-800 text-xs px-1.5 py-0.5 rounded" title={`${p.conversion_intentos} intentos fallidos`}>ERROR PDF</span>}
                         </div>
@@ -1848,6 +1858,12 @@ export default function Admin() {
                 <label className="block text-xs text-gray-400 mb-1">Descripción</label>
                 <textarea value={editForm.descripcion} onChange={e => setEditForm(f => ({ ...f, descripcion: e.target.value }))}
                   rows={3} className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-crochet-primary resize-none" />
+              </div>
+              <div className="flex items-center gap-3">
+                <input type="checkbox" id="editSoloPremium" checked={!!editForm.es_solo_premium}
+                  onChange={e => setEditForm(f => ({ ...f, es_solo_premium: e.target.checked }))}
+                  className="w-4 h-4 accent-purple-500" />
+                <label htmlFor="editSoloPremium" className="text-sm text-gray-300">⭐ Solo Premium</label>
               </div>
 
               <div className="flex gap-2 mt-auto pt-2">
