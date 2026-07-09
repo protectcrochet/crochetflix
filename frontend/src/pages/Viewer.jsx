@@ -608,7 +608,7 @@ export default function Viewer() {
                 <div className="flex flex-col items-center gap-2 text-gray-500 py-8 justify-center">
                   <Loader className="w-5 h-5 animate-spin text-crochet-primary" />
                   <span className="text-sm">Traduciendo página {paginaActual}...</span>
-                  <span className="text-xs text-gray-600">Puede tomar hasta 20 segundos</span>
+                  <span className="text-xs text-gray-600">Primera vez tarda ~15 seg, luego es instantáneo</span>
                 </div>
               ) : (
                 <div className="divide-y divide-gray-800/40">

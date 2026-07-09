@@ -58,10 +58,26 @@ async function groqTraducirTexto(texto, idioma) {
   return resp.data.choices[0].message.content.trim();
 }
 
-async function groqVisionTraducir(imgBase64, idioma) {
+function resizeImgBase64(imgPath) {
+  // Resize to max 900px width before sending to Groq — reduces transfer time significantly
+  const { execSync } = require('child_process');
+  const tmpPath = `/tmp/crfl_resize_${crypto.randomBytes(4).toString('hex')}.jpg`;
+  try {
+    execSync(`convert "${imgPath}" -resize 900x -quality 55 "${tmpPath}"`, { timeout: 8000 });
+    const data = fs.readFileSync(tmpPath).toString('base64');
+    try { fs.unlinkSync(tmpPath); } catch {}
+    return data;
+  } catch {
+    // ImageMagick not available — send original
+    return fs.readFileSync(imgPath).toString('base64');
+  }
+}
+
+async function groqVisionTraducir(imgPath, idioma) {
   const key = process.env.GROQ_API_KEY;
   if (!key) throw new Error('GROQ_API_KEY no configurado');
   const nombre = { es: 'español', en: 'English', pt: 'português', fr: 'français', ru: 'русский' }[idioma] || idioma;
+  const imgBase64 = resizeImgBase64(imgPath);
   const models = ['meta-llama/llama-4-scout-17b-16e-instruct', 'meta-llama/llama-4-maverick-17b-128e-instruct'];
   for (const model of models) {
     try {
@@ -72,20 +88,19 @@ async function groqVisionTraducir(imgBase64, idioma) {
           messages: [{
             role: 'user',
             content: [
-              { type: 'text', text: `Extrae TODO el texto de esta página de patrón de crochet y tradúcelo al ${nombre}. Mantén la estructura (listas, pasos, abreviaturas). Devuelve SOLO el texto traducido.` },
+              { type: 'text', text: `Extrae TODO el texto de esta página de patrón de crochet y tradúcelo al ${nombre}. Mantén la estructura. Devuelve SOLO el texto traducido.` },
               { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${imgBase64}` } },
             ],
           }],
           temperature: 0.2,
-          max_tokens: 4096,
+          max_tokens: 2048,
         },
-        { headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, timeout: 60000 }
+        { headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, timeout: 45000 }
       );
       const texto = resp.data.choices?.[0]?.message?.content?.trim();
       if (texto) return texto;
     } catch (e) {
-      if (e.response?.status !== 429) continue;
-      await new Promise(r => setTimeout(r, 30000));
+      if (e.response?.status === 429) await new Promise(r => setTimeout(r, 15000));
     }
   }
   throw new Error('No se pudo traducir');
@@ -373,8 +388,7 @@ exports.traducir = async (req, res) => {
     if (!traduccion) {
       const imgPath = path.join(UPLOADS_DIR, id, `pagina_${paginaNum}.jpg`);
       if (fs.existsSync(imgPath)) {
-        const imgBase64 = fs.readFileSync(imgPath).toString('base64');
-        traduccion = await groqVisionTraducir(imgBase64, idioma);
+        traduccion = await groqVisionTraducir(imgPath, idioma);
       }
     }
 
