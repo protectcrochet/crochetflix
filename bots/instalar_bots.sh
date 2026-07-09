@@ -11,13 +11,13 @@ echo ""
 
 # ── 1. Backup ─────────────────────────────────────────────────────────────────
 echo "[1/4] Backup..."
-cp /root/sync_patrones_vps.py /root/sync_patrones_vps.py.bak
-cp /root/sync_mermaid.py      /root/sync_mermaid.py.bak
+cp /root/sync_patrones_vps.py /root/sync_patrones_vps.orig.bak 2>/dev/null || true
+cp /root/sync_mermaid.py      /root/sync_mermaid.orig.bak      2>/dev/null || true
 echo "    OK"
 
 # ── 2. Fijar fecha en las BDs ─────────────────────────────────────────────────
 echo "[2/4] Fijando fecha de inicio en las bases de datos..."
-$PYTHON - << 'PYEOF'
+$PYTHON << 'PYEOF'
 import sqlite3
 FECHA = "2026-06-15T00:00:00+00:00"
 for db in ['/root/crochetflix.db', '/root/mermaid.db']:
@@ -34,58 +34,65 @@ for db in ['/root/crochetflix.db', '/root/mermaid.db']:
         print("    ERROR " + db + ": " + str(e))
 PYEOF
 
-# ── 3. Escribir script de parche Python ───────────────────────────────────────
-echo "[3/4] Aplicando parche (loop + fix Python 3.12)..."
+# ── 3. Parchar scripts usando Python con concatenacion de strings ──────────────
+echo "[3/4] Aplicando parche (loop correcto)..."
 
-# IMPORTANTE: heredoc con comillas ('PYEOF') para que bash NO interprete nada
-cat > /tmp/bot_patch.py << 'PYEOF'
-import re, sys
+$PYTHON << 'PYEOF'
+import re
 
-LOOP_PATRONES = """
+# Loop para sync_patrones_vps.py
+LOOP_VPS = (
+    '\n\n'
+    '# ============ LOOP PRINCIPAL ============\n'
+    'import asyncio\n'
+    'import sqlite3 as _sq3\n'
+    'from datetime import datetime as _dt\n'
+    '\n'
+    '_sq3.register_adapter(_dt, lambda x: x.isoformat())\n'
+    "_sq3.register_converter('TIMESTAMP', lambda x: _dt.fromisoformat(x.decode()))\n"
+    '\n'
+    'async def main():\n'
+    '    global client\n'
+    '    while True:\n'
+    "        print('[' + _dt.now().strftime('%Y-%m-%d %H:%M:%S') + '] Sincronizando...')\n"
+    '        try:\n'
+    "            client = TelegramClient('/root/crochetflix_session', api_id, api_hash)\n"
+    '            async with client:\n'
+    '                await sincronizar_patrones()\n'
+    '        except Exception as e:\n'
+    "            print('[ERROR] ' + str(e))\n"
+    "        print('Esperando 30 min...')\n"
+    '        await asyncio.sleep(1800)\n'
+    '\n'
+    "if __name__ == '__main__':\n"
+    '    asyncio.run(main())\n'
+)
 
-# ============ LOOP PRINCIPAL ============
-import asyncio
-import sqlite3 as _sq3
-from datetime import datetime as _dt
+LOOP_MERMAID = LOOP_VPS.replace('/root/crochetflix_session', '/root/mermaid_session')
 
-_sq3.register_adapter(_dt, lambda x: x.isoformat())
-_sq3.register_converter('TIMESTAMP', lambda x: _dt.fromisoformat(x.decode()))
+pairs = [
+    ('/root/sync_patrones_vps.py', LOOP_VPS),
+    ('/root/sync_mermaid.py',      LOOP_MERMAID),
+]
 
-async def main():
-    while True:
-        print('')
-        print('[' + _dt.now().strftime('%Y-%m-%d %H:%M:%S') + '] Sincronizando...')
-        try:
-            cli = TelegramClient('/root/crochetflix_session', api_id, api_hash)
-            async with cli:
-                await sincronizar_patrones()
-        except Exception as e:
-            print('[ERROR] ' + str(e))
-        print('Esperando 30 min...')
-        await asyncio.sleep(1800)
-
-if __name__ == '__main__':
-    asyncio.run(main())
-"""
-
-LOOP_MERMAID = LOOP_PATRONES.replace('/root/crochetflix_session', '/root/mermaid_session')
-
-def patch(path, loop):
+for path, loop in pairs:
     with open(path, 'r') as f:
         content = f.read()
-    # Eliminar bloque "with client:" hasta el final
+
+    # Eliminar loop roto anterior (si ya se parcheó antes)
+    content = re.sub(r'\n# ============ LOOP PRINCIPAL.*', '', content, flags=re.DOTALL)
+    # Eliminar bloque "with client:" original
     content = re.sub(r'\nwith client:.*', '', content, flags=re.DOTALL)
+    # Eliminar conn.close() final
+    content = re.sub(r'\nconn\.close\(\)\s*$', '', content.rstrip())
+
     content = content.rstrip() + loop
+
     with open(path, 'w') as f:
         f.write(content)
-    print("    OK: " + path)
 
-patch('/root/sync_patrones_vps.py', LOOP_PATRONES)
-patch('/root/sync_mermaid.py',      LOOP_MERMAID)
+    print('    OK: ' + path)
 PYEOF
-
-$PYTHON /tmp/bot_patch.py
-rm /tmp/bot_patch.py
 
 # ── 4. Reiniciar PM2 ──────────────────────────────────────────────────────────
 echo "[4/4] Reiniciando bots en PM2..."
