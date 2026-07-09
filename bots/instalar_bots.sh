@@ -98,7 +98,7 @@ LOOP_VPS = (
     "            with open(_pdf, 'rb') as _f:\n"
     "                _r = _req.post('http://localhost:3001/api/admin/patrones/analizar',\n"
     "                    headers=_h, files={'pdf': (os.path.basename(_pdf), _f, 'application/pdf')},\n"
-    '                    timeout=60)\n'
+    '                    timeout=120)\n'
     '            if _r.status_code != 200:\n'
     "                print('[PROC] Error analisis ' + str(_r.status_code))\n"
     '                continue\n'
