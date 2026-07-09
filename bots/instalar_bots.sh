@@ -40,16 +40,32 @@ echo "[3/4] Aplicando parche (loop correcto)..."
 $PYTHON << 'PYEOF'
 import re
 
-# Loop para sync_patrones_vps.py
+# Fecha minima absoluta — nunca descargar antes de esta fecha
+FECHA_MINIMA = 'from datetime import timezone as _tz\nFECHA_MINIMA = _dt(2026, 6, 15, tzinfo=_tz.utc)\n'
+
+# Loop para sync_patrones_vps.py — usa rutas absolutas al DB y session
 LOOP_VPS = (
     '\n\n'
     '# ============ LOOP PRINCIPAL ============\n'
     'import asyncio\n'
     'import sqlite3 as _sq3\n'
     'from datetime import datetime as _dt\n'
+    'from datetime import timezone as _tz\n'
+    '\n'
+    '# Nunca descargar patrones anteriores al 15 Jun 2026\n'
+    'FECHA_MINIMA = _dt(2026, 6, 15, tzinfo=_tz.utc)\n'
     '\n'
     '_sq3.register_adapter(_dt, lambda x: x.isoformat())\n'
     "_sq3.register_converter('TIMESTAMP', lambda x: _dt.fromisoformat(x.decode()))\n"
+    '\n'
+    'def _obtener_fecha_inicio():\n'
+    "    _c = _sq3.connect('/root/crochetflix.db', timeout=10)\n"
+    "    _r = _c.execute('SELECT ultima_fecha FROM sync_log WHERE id=1').fetchone()\n"
+    '    _c.close()\n'
+    '    if _r and _r[0]:\n'
+    '        _d = _dt.fromisoformat(_r[0])\n'
+    '        return _d if _d.tzinfo else _d.replace(tzinfo=_tz.utc)\n'
+    '    return FECHA_MINIMA\n'
     '\n'
     'async def main():\n'
     '    global client\n'
@@ -68,7 +84,11 @@ LOOP_VPS = (
     '    asyncio.run(main())\n'
 )
 
-LOOP_MERMAID = LOOP_VPS.replace('/root/crochetflix_session', '/root/mermaid_session')
+LOOP_MERMAID = (
+    LOOP_VPS
+    .replace('/root/crochetflix_session', '/root/mermaid_session')
+    .replace("'/root/crochetflix.db'", "'/root/mermaid.db'")
+)
 
 pairs = [
     ('/root/sync_patrones_vps.py', LOOP_VPS),
@@ -79,12 +99,20 @@ for path, loop in pairs:
     with open(path, 'r') as f:
         content = f.read()
 
-    # Eliminar loop roto anterior (si ya se parcheó antes)
+    # Eliminar loop roto/anterior
     content = re.sub(r'\n# ============ LOOP PRINCIPAL.*', '', content, flags=re.DOTALL)
     # Eliminar bloque "with client:" original
     content = re.sub(r'\nwith client:.*', '', content, flags=re.DOTALL)
-    # Eliminar conn.close() final
+    # Eliminar conn.close() final si queda
     content = re.sub(r'\nconn\.close\(\)\s*$', '', content.rstrip())
+
+    # Parchear obtener_ultima_fecha para que nunca devuelva antes de FECHA_MINIMA
+    # Reemplazar el return None por return FECHA_MINIMA
+    content = content.replace(
+        '    return None\n',
+        '    return FECHA_MINIMA\n',
+        1  # solo la primera ocurrencia (obtener_ultima_fecha)
+    )
 
     content = content.rstrip() + loop
 
