@@ -233,9 +233,13 @@ export default function Viewer() {
     catch (err) { alert(err.response?.data?.error || 'Error'); }
   };
 
+  const traducirRef = useRef(false);
+
   const traducir = async (idioma, pagina) => {
     const key = `${id}_${idioma}_${pagina}`;
     if (traduccionesCache.current[key]) { setTextoTraducido(traduccionesCache.current[key]); return; }
+    if (traducirRef.current) return; // ya hay una petición en curso
+    traducirRef.current = true;
     setTraduciendo(true);
     setTextoTraducido('');
     try {
@@ -251,12 +255,18 @@ export default function Viewer() {
       }
     } finally {
       setTraduciendo(false);
+      traducirRef.current = false;
     }
   };
 
   useEffect(() => {
-    if (tradPanel && idiomaTraduccion && textoTraducido) traducir(idiomaTraduccion, paginaActual);
-  }, [paginaActual]);
+    if (!tradPanel || !idiomaTraduccion) return;
+    // Debounce: espera 800ms antes de traducir al cambiar de página
+    const timer = setTimeout(() => {
+      traducir(idiomaTraduccion, paginaActual);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [paginaActual, tradPanel, idiomaTraduccion]);
 
   const marcarCompletado = async () => {
     try { await api.post('/viewer/completar', { patronId: id }); setProgreso(p => ({ ...p, completado: true })); }
