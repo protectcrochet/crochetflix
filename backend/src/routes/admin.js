@@ -727,8 +727,13 @@ router.patch('/dmca/:id', verifyAdmin, async (req, res) => {
 router.get('/colecciones', verifyAdmin, async (req, res) => {
   try {
     const cols = await new Promise((resolve, reject) => {
-      db.all('SELECT * FROM colecciones ORDER BY orden ASC, created_at DESC', [],
-        (err, rows) => { if (err) reject(err); else resolve(rows || []); });
+      db.all(
+        `SELECT c.*,
+          (SELECT COUNT(*) FROM coleccion_patrones cp WHERE cp.coleccion_id = c.id) as total_patrones
+         FROM colecciones c ORDER BY c.orden ASC, c.created_at DESC`,
+        [],
+        (err, rows) => { if (err) reject(err); else resolve(rows || []); }
+      );
     });
     res.json(cols);
   } catch (err) {

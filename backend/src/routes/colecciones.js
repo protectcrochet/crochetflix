@@ -7,11 +7,18 @@ db.run(`CREATE TABLE IF NOT EXISTS colecciones (
   id TEXT PRIMARY KEY,
   nombre TEXT NOT NULL,
   descripcion TEXT,
+  emoji TEXT DEFAULT '🧶',
   portada_url TEXT,
   orden INTEGER DEFAULT 0,
   activa BOOLEAN DEFAULT 1,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )`);
+
+db.run(`ALTER TABLE colecciones ADD COLUMN emoji TEXT DEFAULT '🧶'`, (err) => {
+  if (err && !err.message.includes('duplicate column name')) {
+    console.error('Error migración emoji colecciones:', err.message);
+  }
+});
 
 db.run(`CREATE TABLE IF NOT EXISTS coleccion_patrones (
   coleccion_id TEXT NOT NULL,
