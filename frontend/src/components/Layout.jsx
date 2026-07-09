@@ -1,6 +1,6 @@
 import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { Home, Bookmark, Download, User, LogOut, Grid3X3, Mail } from 'lucide-react';
+import { Home, Bookmark, Download, User, LogOut, Grid3X3 } from 'lucide-react';
 
 export default function Layout() {
   const { user, logout } = useAuth();
@@ -38,15 +38,6 @@ export default function Layout() {
           </div>
         </div>
       </header>
-
-      {/* Banner verificación de correo */}
-      {user && user.email_verified === 0 && (
-        <div className="bg-amber-900/80 border-b border-amber-700 px-4 py-2 flex items-center justify-center gap-3 text-sm">
-          <Mail className="w-4 h-4 text-amber-400 shrink-0" />
-          <span className="text-amber-200">Verifica tu correo para asegurar tu cuenta.</span>
-          <Link to="/verificar-email" className="text-amber-400 font-semibold underline underline-offset-2">Ver instrucciones</Link>
-        </div>
-      )}
 
       {/* Main Content */}
       <main className="pb-20">

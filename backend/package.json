@@ -20,7 +20,6 @@
     "pdf2pic": "^3.2.0",
     "sqlite3": "^5.1.6",
     "stripe": "^14.0.0",
-    "resend": "^4.0.0",
     "uuid": "^9.0.0"
   },
   "devDependencies": {
