@@ -24,7 +24,6 @@ async function enviarVerificacion(email, token) {
       <div style="background:#dc2626;padding:32px 40px;text-align:center;">
         <p style="margin:0;color:rgba(255,255,255,0.7);font-size:11px;letter-spacing:3px;text-transform:uppercase;margin-bottom:8px;">Bienvenida a</p>
         <h1 style="margin:0;color:#fff;font-size:32px;font-weight:800;letter-spacing:-1px;">CrochetFlix</h1>
-        <p style="margin:8px 0 0;color:rgba(255,255,255,0.65);font-size:13px;">El Netflix del crochet</p>
       </div>
 
       <!-- Body -->
