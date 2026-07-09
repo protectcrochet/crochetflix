@@ -117,8 +117,8 @@ exports.detalle = async (req, res) => {
           [userId], (err, r) => { if (err) reject(err); else resolve(r); });
       });
       patronesUsados = row?.n || 0;
-      // Grant access if under 3-pattern limit OR if user already started this pattern
-      if (patronesUsados < 3 || progresoRaw !== null) {
+      // Grant access if under 1-pattern limit OR if user already started this pattern
+      if (patronesUsados < 1 || progresoRaw !== null) {
         tieneAcceso = true;
       } else {
         errorAcceso = 'limite_free';
