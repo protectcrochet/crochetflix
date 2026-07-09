@@ -163,7 +163,7 @@ exports.crearPago = [crearPagoRateLimit, async (req, res) => {
       session_id: session.id,
       order_id: orderId,
       amount: montoRegistro,
-      descuento_aplicado: tieneDescuento,
+      descuento_aplicado: false,
       currency: precioData.moneda,
       plan
     });
