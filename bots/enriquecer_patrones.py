@@ -14,7 +14,11 @@ import sys
 import base64
 import json
 import time
-import urllib.request
+
+try:
+    import requests as _req
+except ImportError:
+    _req = None
 
 ENV_PATH   = '/var/www/crochetflix-app/backend/.env'
 UPLOADS    = '/var/www/crochetflix-app/backend/uploads/patrones/'
@@ -52,7 +56,18 @@ def b64(path):
         return None
 
 
+VISION_MODELS = [
+    'meta-llama/llama-4-scout-17b-16e-instruct',
+    'llama-3.2-90b-vision-preview',
+    'llama-3.2-11b-vision-preview',
+]
+
+
 def groq_vision(api_key, imagenes):
+    if _req is None:
+        print('    [error] requests no instalado')
+        return None
+
     contenido = [{'type': 'text', 'text': (
         'Estas son páginas de un patrón de crochet. '
         'Extrae: 1) Título exacto del patrón 2) Nombre del/la diseñador/a. '
@@ -64,30 +79,34 @@ def groq_vision(api_key, imagenes):
             'type': 'image_url',
             'image_url': {'url': 'data:image/jpeg;base64,' + img}
         })
-    payload = json.dumps({
-        'model': 'meta-llama/llama-4-scout-17b-16e-instruct',
-        'messages': [{'role': 'user', 'content': contenido}],
-        'temperature': 0.1,
-        'max_tokens': 150,
-    }).encode()
-    req = urllib.request.Request(
-        'https://api.groq.com/openai/v1/chat/completions',
-        data=payload,
-        headers={
-            'Authorization': 'Bearer ' + api_key,
-            'Content-Type': 'application/json',
-        }
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            data = json.loads(resp.read())
-            texto = data['choices'][0]['message']['content'].strip()
+
+    for modelo in VISION_MODELS:
+        try:
+            resp = _req.post(
+                'https://api.groq.com/openai/v1/chat/completions',
+                headers={
+                    'Authorization': 'Bearer ' + api_key,
+                    'Content-Type': 'application/json',
+                },
+                json={
+                    'model': modelo,
+                    'messages': [{'role': 'user', 'content': contenido}],
+                    'temperature': 0.1,
+                    'max_tokens': 150,
+                },
+                timeout=40
+            )
+            if resp.status_code != 200:
+                print(f'    [Groq {modelo} → {resp.status_code}]', resp.text[:150])
+                continue
+            texto = resp.json()['choices'][0]['message']['content'].strip()
             i = texto.find('{')
             j = texto.rfind('}') + 1
             if i >= 0 and j > i:
                 return json.loads(texto[i:j])
-    except Exception as e:
-        print('    [Groq error]', e)
+        except Exception as e:
+            print(f'    [Groq {modelo} error]', e)
+
     return None
 
 
