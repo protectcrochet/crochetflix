@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
-import { Crown } from 'lucide-react';
+import { Crown, Mail } from 'lucide-react';
 import {
   ChevronLeft, ChevronRight, ZoomIn, ZoomOut,
   Download, Bookmark, Check, Lock, Loader, X as XIcon
@@ -286,6 +286,21 @@ export default function Viewer() {
         <button onClick={() => navigate(destino)} className="btn-primary">
           {user ? 'Suscribirme ahora' : 'Iniciar sesión'}
         </button>
+      </div>
+    );
+  }
+
+  // Bloquear acceso a patrones si el correo no está verificado
+  if (user && user.email_verified === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-96 px-4 py-16 text-center">
+        <Mail className="w-16 h-16 text-crochet-primary mb-4" />
+        <h2 className="text-2xl font-bold mb-2">Verifica tu correo</h2>
+        <p className="text-gray-400 mb-1">Para abrir patrones necesitas confirmar tu correo electrónico.</p>
+        <p className="text-gray-500 text-sm mb-6">Revisa tu bandeja de entrada y la carpeta de spam.</p>
+        <Link to="/verificar-email" className="btn-primary px-8 py-3 inline-block">
+          Ver instrucciones / Reenviar correo
+        </Link>
       </div>
     );
   }
