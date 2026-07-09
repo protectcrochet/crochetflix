@@ -18,13 +18,13 @@ DB_RUTAS = [
 ]
 
 TITULOS_MALOS = (
-    'telegram', 'sin título', 'sin titulo', 'untitled',
+    'sin título', 'sin titulo', 'untitled',
     'pattern', 'crochet', 'amigurumi', 'patron', 'n/a',
     'diseñadora', 'autor', 'autora', 'file', 'pdf',
 )
 
 DIS_MALAS = (
-    'telegram', 'diseñadora', 'autor', 'autora', 'desconocida',
+    'diseñadora', 'autor', 'autora', 'desconocida',
     'unknown', 'n/a', 'sin nombre', 'file', 'pdf',
 )
 
@@ -46,30 +46,44 @@ def main():
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
 
-    placeholders_t = ','.join('?' * len(TITULOS_MALOS))
-    placeholders_d = ','.join('?' * len(DIS_MALAS))
+    # Cualquier título que CONTENGA "telegram" (ej: "Telegram", "From Telegram", "Telegram - crochet")
+    cur.execute(
+        "UPDATE patrones SET titulo = NULL WHERE activo = 1 AND LOWER(titulo) LIKE '%telegram%'"
+    )
+    t1 = cur.rowcount
+    print(f'Títulos con "telegram" limpiados: {t1}')
 
-    # Limpiar títulos malos
+    # Cualquier diseñadora que CONTENGA "telegram"
+    cur.execute(
+        "UPDATE patrones SET diseñadora = NULL WHERE activo = 1 AND LOWER(diseñadora) LIKE '%telegram%'"
+    )
+    d1 = cur.rowcount
+    print(f'Diseñadoras con "telegram" limpiadas: {d1}')
+
+    # Títulos exactos malos
+    placeholders_t = ','.join('?' * len(TITULOS_MALOS))
     cur.execute(
         f"UPDATE patrones SET titulo = NULL WHERE activo = 1 AND LOWER(titulo) IN ({placeholders_t})",
         TITULOS_MALOS
     )
-    titulos_limpiados = cur.rowcount
-    print(f'Títulos limpiados (→ NULL): {titulos_limpiados}')
+    t2 = cur.rowcount
+    print(f'Otros títulos malos limpiados: {t2}')
 
-    # Limpiar diseñadoras malas
+    # Diseñadoras exactas malas
+    placeholders_d = ','.join('?' * len(DIS_MALAS))
     cur.execute(
         f"UPDATE patrones SET diseñadora = NULL WHERE activo = 1 AND LOWER(diseñadora) IN ({placeholders_d})",
         DIS_MALAS
     )
-    dis_limpiadas = cur.rowcount
-    print(f'Diseñadoras limpiadas (→ NULL): {dis_limpiadas}')
+    d2 = cur.rowcount
+    print(f'Otras diseñadoras malas limpiadas: {d2}')
 
     conn.commit()
     conn.close()
 
-    print()
-    print('✅ Listo. Ahora ejecuta:')
+    total = t1 + d1 + t2 + d2
+    print(f'\n✅ Total limpiados: {total}')
+    print('Ahora ejecuta:')
     print('   python3 enriquecer_patrones.py &')
 
 

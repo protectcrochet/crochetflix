@@ -176,11 +176,13 @@ def main():
         WHERE activo = 1
           AND (titulo IS NULL OR titulo = ''
                OR diseñadora IS NULL OR diseñadora = ''
-               OR LOWER(titulo) IN ('telegram','sin título','sin titulo','untitled',
+               OR LOWER(titulo) LIKE '%telegram%'
+               OR LOWER(diseñadora) LIKE '%telegram%'
+               OR LOWER(titulo) IN ('sin título','sin titulo','untitled',
                                     'pattern','crochet','amigurumi','patron','n/a',
-                                    'diseñadora','autor','file','pdf')
+                                    'diseñadora','autor','autora','file','pdf')
                OR LOWER(diseñadora) IN ('diseñadora','autor','autora','desconocida',
-                                        'unknown','n/a','sin nombre','telegram','pdf','file'))
+                                        'unknown','n/a','sin nombre','pdf','file'))
         ORDER BY created_at DESC
     """)
     todos = cur.fetchall()
