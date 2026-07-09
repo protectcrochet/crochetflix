@@ -233,13 +233,9 @@ export default function Viewer() {
     catch (err) { alert(err.response?.data?.error || 'Error'); }
   };
 
-  const traducirRef = useRef(false);
-
   const traducir = async (idioma, pagina) => {
     const key = `${id}_${idioma}_${pagina}`;
     if (traduccionesCache.current[key]) { setTextoTraducido(traduccionesCache.current[key]); return; }
-    if (traducirRef.current) return; // ya hay una petición en curso
-    traducirRef.current = true;
     setTraduciendo(true);
     setTextoTraducido('');
     try {
@@ -251,22 +247,23 @@ export default function Viewer() {
       if (data?.error === 'limite_traduccion') {
         setTextoTraducido(`⚠️ ${data.mensaje}`);
       } else {
-        setTextoTraducido(`Error: ${data?.error || 'No se pudo traducir'}`);
+        setTextoTraducido(`⚠️ ${data?.error || 'No se pudo traducir'}`);
       }
     } finally {
       setTraduciendo(false);
-      traducirRef.current = false;
     }
   };
 
+  // Al cambiar de página: mostrar caché si existe, limpiar si no (no auto-llamar API)
   useEffect(() => {
     if (!tradPanel || !idiomaTraduccion) return;
-    // Debounce: espera 800ms antes de traducir al cambiar de página
-    const timer = setTimeout(() => {
-      traducir(idiomaTraduccion, paginaActual);
-    }, 800);
-    return () => clearTimeout(timer);
-  }, [paginaActual, tradPanel, idiomaTraduccion]);
+    const key = `${id}_${idiomaTraduccion}_${paginaActual}`;
+    if (traduccionesCache.current[key]) {
+      setTextoTraducido(traduccionesCache.current[key]);
+    } else {
+      setTextoTraducido('');
+    }
+  }, [paginaActual]);
 
   const marcarCompletado = async () => {
     try { await api.post('/viewer/completar', { patronId: id }); setProgreso(p => ({ ...p, completado: true })); }
@@ -612,23 +609,29 @@ export default function Viewer() {
               ))}
             </div>
           </div>
-          {(traduciendo || textoTraducido) && (
-            <div className="flex-1 overflow-y-auto px-4 pb-6 border-t border-gray-800 pt-3">
-              {traduciendo ? (
-                <div className="flex flex-col items-center gap-2 text-gray-500 py-8 justify-center">
-                  <Loader className="w-5 h-5 animate-spin text-crochet-primary" />
-                  <span className="text-sm">Traduciendo página {paginaActual}...</span>
-                  <span className="text-xs text-gray-600">Primera vez tarda ~15 seg, luego es instantáneo</span>
-                </div>
-              ) : (
-                <div className="divide-y divide-gray-800/40">
-                  {textoTraducido.split('\n').map((linea, i) => (
-                    <LineaPatron key={i} linea={linea} />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+          <div className="flex-1 overflow-y-auto px-4 pb-6 border-t border-gray-800 pt-3">
+            {traduciendo ? (
+              <div className="flex flex-col items-center gap-2 text-gray-500 py-8 justify-center">
+                <Loader className="w-5 h-5 animate-spin text-crochet-primary" />
+                <span className="text-sm">Traduciendo página {paginaActual}...</span>
+                <span className="text-xs text-gray-600">Primera vez tarda ~15 seg, luego es instantáneo</span>
+              </div>
+            ) : textoTraducido ? (
+              <div className="divide-y divide-gray-800/40">
+                {textoTraducido.split('\n').map((linea, i) => (
+                  <LineaPatron key={i} linea={linea} />
+                ))}
+              </div>
+            ) : idiomaTraduccion ? (
+              <div className="flex justify-center py-8">
+                <button
+                  onClick={() => traducir(idiomaTraduccion, paginaActual)}
+                  className="px-5 py-2.5 bg-crochet-primary text-white text-sm rounded-full font-medium hover:opacity-90 active:scale-95 transition">
+                  Traducir esta página
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
       )}
 
