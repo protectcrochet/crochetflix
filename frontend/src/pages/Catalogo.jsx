@@ -1,40 +1,58 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../services/api';
 import PatronCard from '../components/PatronCard';
 import { Search, X, SlidersHorizontal } from 'lucide-react';
 
 const CATEGORIAS = ['todos', 'amigurumi', 'ropa', 'accesorios', 'hogar', 'navidad', 'otro'];
 const DIFICULTADES = ['todos', 'principiante', 'intermedio', 'avanzado'];
+const PAGE_SIZE = 60;
 
 export default function Catalogo() {
   const [patrones, setPatrones] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [busqueda, setBusqueda] = useState('');
   const [categoria, setCategoria] = useState('todos');
   const [dificultad, setDificultad] = useState('todos');
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
+  const offsetRef = useRef(0);
+  const hayMas = patrones.length < total;
 
-  const cargar = useCallback(async () => {
-    setLoading(true);
+  const cargar = useCallback(async (reset = true) => {
+    if (reset) {
+      setLoading(true);
+      offsetRef.current = 0;
+    } else {
+      setLoadingMore(true);
+    }
+
     try {
-      const params = { orden: 'aleatorio' };
+      const params = { orden: 'aleatorio', limit: PAGE_SIZE, offset: offsetRef.current };
       if (busqueda.trim()) params.search = busqueda.trim();
       if (categoria !== 'todos') params.categoria = categoria;
       if (dificultad !== 'todos') params.dificultad = dificultad;
+
       const res = await api.get('/patrones', { params });
-      setPatrones(res.data.patrones || []);
-      setTotal(res.data.total || res.data.patrones?.length || 0);
+      const nuevos = res.data.patrones || [];
+
+      if (reset) {
+        setPatrones(nuevos);
+      } else {
+        setPatrones(prev => [...prev, ...nuevos]);
+      }
+      setTotal(res.data.total || 0);
+      offsetRef.current += nuevos.length;
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   }, [busqueda, categoria, dificultad]);
 
   useEffect(() => {
-    const timer = setTimeout(cargar, busqueda ? 400 : 0);
+    const timer = setTimeout(() => cargar(true), busqueda ? 400 : 0);
     return () => clearTimeout(timer);
   }, [cargar, busqueda]);
 
@@ -126,9 +144,27 @@ export default function Catalogo() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-          {patrones.map(p => <PatronCard key={p.id} patron={p} />)}
-        </div>
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            {patrones.map(p => <PatronCard key={p.id} patron={p} />)}
+          </div>
+
+          {hayMas && (
+            <div className="flex justify-center mt-8">
+              <button
+                onClick={() => cargar(false)}
+                disabled={loadingMore}
+                className="px-6 py-2.5 bg-gray-800 hover:bg-gray-700 text-sm rounded-full transition disabled:opacity-50">
+                {loadingMore ? (
+                  <span className="flex items-center gap-2">
+                    <span className="w-4 h-4 border-2 border-crochet-primary border-t-transparent rounded-full animate-spin" />
+                    Cargando...
+                  </span>
+                ) : `Cargar más (${total - patrones.length} restantes)`}
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

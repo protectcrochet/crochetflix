@@ -3,7 +3,7 @@ const db = require('../models');
 // Listar patrones (con info de preview gratis)
 exports.listar = async (req, res) => {
   try {
-    const { categoria, dificultad, search, destacado, tendencia, orden, limit } = req.query;
+    const { categoria, dificultad, search, destacado, tendencia, orden, limit, offset } = req.query;
     const userId = req.userId || null;
 
     let sql = `
@@ -35,8 +35,9 @@ exports.listar = async (req, res) => {
 
     sql += orden === 'aleatorio' ? ' ORDER BY RANDOM()' : ' ORDER BY p.created_at DESC';
 
-    const lim = parseInt(limit) || 0;
-    if (lim > 0) sql += ` LIMIT ${lim}`;
+    const lim = parseInt(limit) || 60;
+    const off = parseInt(offset) || 0;
+    sql += ` LIMIT ${lim} OFFSET ${off}`;
 
     const BAD_VALUES = new Set(['telegram','autor','autora','diseñadora','desconocida','unknown','n/a','sin nombre','pdf','file']);
     const cleanField = (v) => {
