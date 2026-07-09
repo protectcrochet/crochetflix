@@ -85,6 +85,23 @@ exports.getPagina = async (req, res) => {
       }
     }
 
+    // Patrón gratuito (1 por cuenta): acceso si ya está en progreso o es el primero
+    if (!tieneAcceso && !patron.es_solo_premium) {
+      const [progresoExistente, totalProgreso] = await Promise.all([
+        new Promise((resolve, reject) => {
+          db.get('SELECT 1 FROM progreso WHERE user_id = ? AND patron_id = ?',
+            [userId, patronId], (err, row) => { if (err) reject(err); else resolve(row); });
+        }),
+        new Promise((resolve, reject) => {
+          db.get('SELECT COUNT(*) as n FROM progreso WHERE user_id = ?',
+            [userId], (err, row) => { if (err) reject(err); else resolve(row?.n || 0); });
+        }),
+      ]);
+      if (progresoExistente || totalProgreso < 1) {
+        tieneAcceso = true;
+      }
+    }
+
     if (!tieneAcceso) {
       return res.status(403).json({ error: 'Acceso denegado. Suscríbete para ver este patrón.' });
     }
