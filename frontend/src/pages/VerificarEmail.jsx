@@ -18,17 +18,30 @@ export default function VerificarEmail() {
   useEffect(() => {
     if (token) {
       setEstado('cargando');
-      // Usar fetch nativo para evitar interceptores del api service
       fetch(`/api/auth/verificar-email?token=${encodeURIComponent(token)}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            setEstado('ok');
-            // Recargar la página después de 2s para refrescar el estado del usuario
-            setTimeout(() => window.location.replace('/'), 2000);
-          } else {
-            setEstado('error');
+        .then(async res => {
+          // Intentar parsear JSON, pero no fallar si es HTML
+          try {
+            const data = await res.json();
+            if (data.success) {
+              setEstado('ok');
+              setTimeout(() => window.location.replace('/'), 2000);
+              return;
+            }
+          } catch {}
+          // Si falló el parse o no era success, verificar si el usuario ya está verificado en el server
+          const meRes = await fetch('/api/auth/me', {
+            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+          });
+          if (meRes.ok) {
+            const me = await meRes.json();
+            if (me.user?.email_verified === 1) {
+              setEstado('ok');
+              setTimeout(() => window.location.replace('/'), 2000);
+              return;
+            }
           }
+          setEstado('error');
         })
         .catch(() => setEstado('error'));
     } else if (success === '1') {
