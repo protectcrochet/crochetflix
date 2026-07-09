@@ -141,9 +141,7 @@ exports.referidos = async (req, res) => {
 
 exports.verificarEmail = async (req, res) => {
   const { token } = req.query;
-  const FRONT_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
-
-  if (!token) return res.redirect(`${FRONT_URL}/verificar-email?error=token_invalido`);
+  if (!token) return res.status(400).json({ error: 'token_invalido' });
 
   try {
     const user = await new Promise((resolve, reject) => {
@@ -152,7 +150,7 @@ exports.verificarEmail = async (req, res) => {
       });
     });
 
-    if (!user) return res.redirect(`${FRONT_URL}/verificar-email?error=token_invalido`);
+    if (!user) return res.status(400).json({ error: 'token_invalido' });
 
     await new Promise((resolve, reject) => {
       db.run(
@@ -162,10 +160,10 @@ exports.verificarEmail = async (req, res) => {
       );
     });
 
-    res.redirect(`${FRONT_URL}/verificar-email?success=1`);
+    res.json({ success: true });
   } catch (err) {
     console.error('Error verificar email:', err);
-    res.redirect(`${FRONT_URL}/verificar-email?error=server`);
+    res.status(500).json({ error: 'server' });
   }
 };
 

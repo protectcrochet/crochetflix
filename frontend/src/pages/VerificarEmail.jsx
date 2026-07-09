@@ -16,18 +16,24 @@ export default function VerificarEmail() {
   const token = searchParams.get('token');
 
   useEffect(() => {
-    if (success === '1') {
+    if (token) {
+      // Hay token en la URL: llamar al backend para verificar
+      setEstado('cargando');
+      api.get(`/auth/verificar-email?token=${token}`)
+        .then(() => {
+          setEstado('ok');
+          // Refrescar datos del usuario para que desaparezca el banner
+          api.get('/auth/me').catch(() => {});
+        })
+        .catch(() => setEstado('error'));
+    } else if (success === '1') {
       setEstado('ok');
-      // Refrescar datos del usuario para que desaparezca el banner
-      api.get('/auth/me').catch(() => {});
     } else if (error) {
       setEstado('error');
-    } else if (!token && !success && !error) {
-      setEstado('pendiente');
     } else {
-      setEstado('cargando');
+      setEstado('pendiente');
     }
-  }, [success, error, token]);
+  }, []);
 
   const reenviar = async () => {
     setReenviando(true);
