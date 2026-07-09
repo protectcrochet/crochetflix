@@ -2376,4 +2376,7 @@ function EmailBlastPanel({ authHeader, stats }) {
         {enviando ? <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /> Enviando...</> : `✉️ Enviar a usuarios free`}
       </button>
 
-      <p className="text-xs t
+      <p className="text-xs text-gray-500 mt-1">Solo se envía a usuarias con cuenta gratuita activa. No incluye usuarias premium.</p>
+    </div>
+  );
+}
