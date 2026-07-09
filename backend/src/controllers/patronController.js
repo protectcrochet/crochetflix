@@ -63,16 +63,37 @@ async function groqPost(payload) {
   }
 }
 
-async function groqTraducirTexto(texto, idioma) {
-  return groqPost({
-    model: 'llama-3.3-70b-versatile',
-    messages: [
-      { role: 'system', content: SISTEMAS[idioma] },
-      { role: 'user', content: texto },
-    ],
-    temperature: 0.2,
-    max_tokens: 4096,
-  });
+const MYMEMORY_LANG = { es: 'es', en: 'en', pt: 'pt', fr: 'fr', ru: 'ru' };
+
+async function myMemoryTraducir(texto, idiomaDestino) {
+  // Split into chunks of 490 chars (MyMemory limit is 500)
+  const CHUNK = 490;
+  const chunks = [];
+  for (let i = 0; i < texto.length; i += CHUNK) chunks.push(texto.slice(i, i + CHUNK));
+
+  const traducciones = await Promise.all(chunks.map(async (chunk) => {
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(chunk)}&langpair=auto|${MYMEMORY_LANG[idiomaDestino]}`;
+    const resp = await axios.get(url, { timeout: 15000 });
+    return resp.data?.responseData?.translatedText || chunk;
+  }));
+  return traducciones.join(' ');
+}
+
+async function traducirTexto(texto, idioma) {
+  try {
+    return await myMemoryTraducir(texto, idioma);
+  } catch {
+    // fallback a Groq si MyMemory falla
+    return groqPost({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        { role: 'system', content: SISTEMAS[idioma] },
+        { role: 'user', content: texto },
+      ],
+      temperature: 0.2,
+      max_tokens: 4096,
+    });
+  }
 }
 
 function resizeImgPath(imgPath) {
@@ -381,7 +402,7 @@ exports.traducir = async (req, res) => {
             { timeout: 12000 }
           ).toString().trim();
           if (texto && texto.length > 20) {
-            traduccion = await groqTraducirTexto(texto, idioma);
+            traduccion = await traducirTexto(texto, idioma);
           }
         } catch {}
       }
