@@ -17,13 +17,18 @@ export default function VerificarEmail() {
 
   useEffect(() => {
     if (token) {
-      // Hay token en la URL: llamar al backend para verificar
       setEstado('cargando');
-      api.get(`/auth/verificar-email?token=${token}`)
-        .then(() => {
-          setEstado('ok');
-          // Refrescar datos del usuario para que desaparezca el banner
-          api.get('/auth/me').catch(() => {});
+      // Usar fetch nativo para evitar interceptores del api service
+      fetch(`/api/auth/verificar-email?token=${encodeURIComponent(token)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setEstado('ok');
+            // Recargar la página después de 2s para refrescar el estado del usuario
+            setTimeout(() => window.location.replace('/'), 2000);
+          } else {
+            setEstado('error');
+          }
         })
         .catch(() => setEstado('error'));
     } else if (success === '1') {

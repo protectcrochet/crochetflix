@@ -17,7 +17,7 @@ export default function Layout() {
       <header className="sticky top-0 z-50 bg-crochet-dark/95 backdrop-blur border-b border-gray-800">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <span className="text-2xl font-bold text-crochet-primary">🧶 CrochetFlix</span>
+            <span className="text-2xl font-bold text-crochet-primary">CrochetFlix</span>
           </Link>
 
           <div className="flex items-center gap-4">
@@ -41,10 +41,10 @@ export default function Layout() {
 
       {/* Banner verificación de correo */}
       {user && user.email_verified === 0 && (
-        <div className="bg-amber-900/80 border-b border-amber-700 px-4 py-2 flex items-center justify-center gap-3 text-sm">
-          <Mail className="w-4 h-4 text-amber-400 shrink-0" />
-          <span className="text-amber-200">Verifica tu correo para asegurar tu cuenta.</span>
-          <Link to="/verificar-email" className="text-amber-400 font-semibold underline underline-offset-2">Ver instrucciones</Link>
+        <div className="bg-red-900/80 border-b border-red-800 px-4 py-2 flex items-center justify-center gap-3 text-sm">
+          <Mail className="w-4 h-4 text-red-400 shrink-0" />
+          <span className="text-red-200">Verifica tu correo para acceder a los patrones.</span>
+          <Link to="/verificar-email" className="text-white font-semibold underline underline-offset-2">Ver instrucciones</Link>
         </div>
       )}
 
