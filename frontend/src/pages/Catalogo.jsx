@@ -19,7 +19,7 @@ export default function Catalogo() {
   const cargar = useCallback(async () => {
     setLoading(true);
     try {
-      const params = {};
+      const params = { orden: 'aleatorio' };
       if (busqueda.trim()) params.search = busqueda.trim();
       if (categoria !== 'todos') params.categoria = categoria;
       if (dificultad !== 'todos') params.dificultad = dificultad;
