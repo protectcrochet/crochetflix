@@ -560,4 +560,283 @@ router.get('/analytics', verifyAdmin, async (req, res) => {
   }
 });
 
+// ── Editar patrón ─────────────────────────────────────────────────────────────
+
+router.patch('/patrones/:id', verifyAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { titulo, descripcion, autor, diseñadora, categoria, subcategoria,
+            dificultad, idioma, tiempo_minutos, es_preview, es_solo_premium } = req.body;
+    await new Promise((resolve, reject) => {
+      db.run(
+        `UPDATE patrones SET
+          titulo = COALESCE(?, titulo),
+          descripcion = COALESCE(?, descripcion),
+          autor = COALESCE(?, autor),
+          diseñadora = COALESCE(?, diseñadora),
+          categoria = COALESCE(?, categoria),
+          subcategoria = COALESCE(?, subcategoria),
+          dificultad = COALESCE(?, dificultad),
+          idioma = COALESCE(?, idioma),
+          tiempo_minutos = COALESCE(?, tiempo_minutos),
+          es_preview = COALESCE(?, es_preview),
+          es_solo_premium = COALESCE(?, es_solo_premium)
+        WHERE id = ?`,
+        [titulo, descripcion, autor, diseñadora, categoria, subcategoria,
+         dificultad, idioma, tiempo_minutos,
+         es_preview !== undefined ? (es_preview ? 1 : 0) : null,
+         es_solo_premium !== undefined ? (es_solo_premium ? 1 : 0) : null,
+         id],
+        function(err) { if (err) reject(err); else resolve(); }
+      );
+    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error PATCH /admin/patrones/:id:', err.message);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+router.patch('/patrones/:id/toggle', verifyAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const row = await new Promise((resolve, reject) => {
+      db.get('SELECT activo FROM patrones WHERE id = ?', [id], (err, r) => { if (err) reject(err); else resolve(r); });
+    });
+    if (!row) return res.status(404).json({ error: 'No encontrado' });
+    await new Promise((resolve, reject) => {
+      db.run('UPDATE patrones SET activo = ? WHERE id = ?', [row.activo ? 0 : 1, id],
+        function(err) { if (err) reject(err); else resolve(); });
+    });
+    res.json({ activo: !row.activo });
+  } catch (err) {
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+router.patch('/patrones/:id/destacar', verifyAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const row = await new Promise((resolve, reject) => {
+      db.get('SELECT destacado FROM patrones WHERE id = ?', [id], (err, r) => { if (err) reject(err); else resolve(r); });
+    });
+    if (!row) return res.status(404).json({ error: 'No encontrado' });
+    await new Promise((resolve, reject) => {
+      db.run('UPDATE patrones SET destacado = ? WHERE id = ?', [row.destacado ? 0 : 1, id],
+        function(err) { if (err) reject(err); else resolve(); });
+    });
+    res.json({ destacado: !row.destacado });
+  } catch (err) {
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+router.patch('/patrones/:id/tendencia', verifyAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const row = await new Promise((resolve, reject) => {
+      db.get('SELECT tendencia FROM patrones WHERE id = ?', [id], (err, r) => { if (err) reject(err); else resolve(r); });
+    });
+    if (!row) return res.status(404).json({ error: 'No encontrado' });
+    await new Promise((resolve, reject) => {
+      db.run('UPDATE patrones SET tendencia = ? WHERE id = ?', [row.tendencia ? 0 : 1, id],
+        function(err) { if (err) reject(err); else resolve(); });
+    });
+    res.json({ tendencia: !row.tendencia });
+  } catch (err) {
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+router.patch('/patrones/:id/verificar', verifyAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const row = await new Promise((resolve, reject) => {
+      db.get('SELECT verificado FROM patrones WHERE id = ?', [id], (err, r) => { if (err) reject(err); else resolve(r); });
+    });
+    if (!row) return res.status(404).json({ error: 'No encontrado' });
+    await new Promise((resolve, reject) => {
+      db.run('UPDATE patrones SET verificado = ? WHERE id = ?', [row.verificado ? 0 : 1, id],
+        function(err) { if (err) reject(err); else resolve(); });
+    });
+    res.json({ verificado: !row.verificado });
+  } catch (err) {
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+router.patch('/patrones/:id/hero-position', verifyAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { hero_position } = req.body;
+    await new Promise((resolve, reject) => {
+      db.run('UPDATE patrones SET hero_position = ? WHERE id = ?', [hero_position, id],
+        function(err) { if (err) reject(err); else resolve(); });
+    });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// ── DMCA admin ────────────────────────────────────────────────────────────────
+
+router.get('/dmca', verifyAdmin, async (req, res) => {
+  try {
+    const claims = await new Promise((resolve, reject) => {
+      db.all(`SELECT * FROM dmca_claims ORDER BY created_at DESC`, [],
+        (err, rows) => { if (err) reject(err); else resolve(rows || []); });
+    });
+    res.json(claims);
+  } catch (err) {
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+router.patch('/dmca/:id', verifyAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, admin_notes, restore_patron } = req.body;
+    await new Promise((resolve, reject) => {
+      db.run(
+        `UPDATE dmca_claims SET status = COALESCE(?, status), admin_notes = COALESCE(?, admin_notes),
+         updated_at = datetime('now') WHERE id = ?`,
+        [status, admin_notes, id],
+        function(err) { if (err) reject(err); else resolve(); }
+      );
+    });
+    if (restore_patron) {
+      const claim = await new Promise((resolve, reject) => {
+        db.get('SELECT patron_id FROM dmca_claims WHERE id = ?', [id], (err, r) => { if (err) reject(err); else resolve(r); });
+      });
+      if (claim?.patron_id) {
+        await new Promise((resolve, reject) => {
+          db.run('UPDATE patrones SET activo = 1 WHERE id = ?', [claim.patron_id],
+            function(err) { if (err) reject(err); else resolve(); });
+        });
+      }
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// ── Colecciones admin ─────────────────────────────────────────────────────────
+
+router.get('/colecciones', verifyAdmin, async (req, res) => {
+  try {
+    const cols = await new Promise((resolve, reject) => {
+      db.all('SELECT * FROM colecciones ORDER BY orden ASC, created_at DESC', [],
+        (err, rows) => { if (err) reject(err); else resolve(rows || []); });
+    });
+    res.json(cols);
+  } catch (err) {
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+router.get('/colecciones/:id/patrones', verifyAdmin, async (req, res) => {
+  try {
+    const patrones = await new Promise((resolve, reject) => {
+      db.all(
+        `SELECT p.id, p.titulo, p.thumbnail_path, cp.orden
+         FROM patrones p JOIN coleccion_patrones cp ON cp.patron_id = p.id
+         WHERE cp.coleccion_id = ? ORDER BY cp.orden ASC`,
+        [req.params.id],
+        (err, rows) => { if (err) reject(err); else resolve(rows || []); }
+      );
+    });
+    res.json(patrones);
+  } catch (err) {
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+router.post('/colecciones', verifyAdmin, async (req, res) => {
+  try {
+    const { v4: uuidv4 } = require('uuid');
+    const { nombre, descripcion, emoji, orden } = req.body;
+    const id = uuidv4();
+    await new Promise((resolve, reject) => {
+      db.run(
+        `INSERT INTO colecciones (id, nombre, descripcion, orden) VALUES (?,?,?,?)`,
+        [id, nombre, descripcion || '', orden || 0],
+        function(err) { if (err) reject(err); else resolve(); }
+      );
+    });
+    res.json({ id, nombre });
+  } catch (err) {
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+router.patch('/colecciones/:id', verifyAdmin, async (req, res) => {
+  try {
+    const { nombre, descripcion, emoji, orden, activo } = req.body;
+    await new Promise((resolve, reject) => {
+      db.run(
+        `UPDATE colecciones SET
+          nombre = COALESCE(?, nombre),
+          descripcion = COALESCE(?, descripcion),
+          orden = COALESCE(?, orden),
+          activa = COALESCE(?, activa)
+         WHERE id = ?`,
+        [nombre, descripcion, orden, activo !== undefined ? (activo ? 1 : 0) : null, req.params.id],
+        function(err) { if (err) reject(err); else resolve(); }
+      );
+    });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+router.delete('/colecciones/:id', verifyAdmin, async (req, res) => {
+  try {
+    await new Promise((resolve, reject) => {
+      db.run('DELETE FROM coleccion_patrones WHERE coleccion_id = ?', [req.params.id],
+        function(err) { if (err) reject(err); else resolve(); });
+    });
+    await new Promise((resolve, reject) => {
+      db.run('DELETE FROM colecciones WHERE id = ?', [req.params.id],
+        function(err) { if (err) reject(err); else resolve(); });
+    });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+router.post('/colecciones/:id/patrones', verifyAdmin, async (req, res) => {
+  try {
+    const { patron_id, orden } = req.body;
+    await new Promise((resolve, reject) => {
+      db.run(
+        `INSERT OR IGNORE INTO coleccion_patrones (coleccion_id, patron_id, orden) VALUES (?,?,?)`,
+        [req.params.id, patron_id, orden || 0],
+        function(err) { if (err) reject(err); else resolve(); }
+      );
+    });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+router.delete('/colecciones/:id/patrones/:patron_id', verifyAdmin, async (req, res) => {
+  try {
+    await new Promise((resolve, reject) => {
+      db.run(
+        'DELETE FROM coleccion_patrones WHERE coleccion_id = ? AND patron_id = ?',
+        [req.params.id, req.params.patron_id],
+        function(err) { if (err) reject(err); else resolve(); }
+      );
+    });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 module.exports = router;
