@@ -349,28 +349,32 @@ exports.traducir = async (req, res) => {
       );
     }
 
-    // Intentar primero con imagen ya convertida
-    const imgPath = path.join(UPLOADS_DIR, id, `pagina_${paginaNum}.jpg`);
     let traduccion = null;
+    const patronDir = path.join(UPLOADS_DIR, id);
 
-    if (fs.existsSync(imgPath)) {
-      const imgBase64 = fs.readFileSync(imgPath).toString('base64');
-      traduccion = await groqVisionTraducir(imgBase64, idioma);
-    } else {
-      // Fallback: extraer texto del PDF si existe
-      const patronDir = path.join(UPLOADS_DIR, id);
-      if (fs.existsSync(patronDir)) {
-        const pdf = fs.readdirSync(patronDir).find(f => f.endsWith('.pdf'));
-        if (pdf) {
+    // 1. Intentar pdftotext primero — rápido (<1s) para PDFs con capa de texto
+    if (fs.existsSync(patronDir)) {
+      const pdf = fs.readdirSync(patronDir).find(f => f.endsWith('.pdf'));
+      if (pdf) {
+        try {
           const { execSync } = require('child_process');
-          try {
-            const texto = execSync(
-              `pdftotext -f ${paginaNum} -l ${paginaNum} "${path.join(patronDir, pdf)}" -`,
-              { timeout: 15000 }
-            ).toString().trim();
-            if (texto) traduccion = await groqTraducirTexto(texto, idioma);
-          } catch {}
-        }
+          const texto = execSync(
+            `pdftotext -f ${paginaNum} -l ${paginaNum} "${path.join(patronDir, pdf)}" -`,
+            { timeout: 12000 }
+          ).toString().trim();
+          if (texto && texto.length > 20) {
+            traduccion = await groqTraducirTexto(texto, idioma);
+          }
+        } catch {}
+      }
+    }
+
+    // 2. Fallback: visión con la imagen ya convertida (PDFs basados en imagen)
+    if (!traduccion) {
+      const imgPath = path.join(UPLOADS_DIR, id, `pagina_${paginaNum}.jpg`);
+      if (fs.existsSync(imgPath)) {
+        const imgBase64 = fs.readFileSync(imgPath).toString('base64');
+        traduccion = await groqVisionTraducir(imgBase64, idioma);
       }
     }
 

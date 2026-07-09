@@ -605,8 +605,10 @@ export default function Viewer() {
           {(traduciendo || textoTraducido) && (
             <div className="flex-1 overflow-y-auto px-4 pb-6 border-t border-gray-800 pt-3">
               {traduciendo ? (
-                <div className="flex items-center gap-2 text-gray-500 py-8 justify-center">
-                  <Loader className="w-4 h-4 animate-spin" /> Traduciendo página {paginaActual}...
+                <div className="flex flex-col items-center gap-2 text-gray-500 py-8 justify-center">
+                  <Loader className="w-5 h-5 animate-spin text-crochet-primary" />
+                  <span className="text-sm">Traduciendo página {paginaActual}...</span>
+                  <span className="text-xs text-gray-600">Puede tomar hasta 20 segundos</span>
                 </div>
               ) : (
                 <div className="divide-y divide-gray-800/40">
