@@ -163,6 +163,7 @@ exports.crearPago = [crearPagoRateLimit, async (req, res) => {
 
     res.json({
       payment_url: session.url,
+      checkout_url: session.url,
       session_id: session.id,
       order_id: orderId,
       amount: montoRegistro,
