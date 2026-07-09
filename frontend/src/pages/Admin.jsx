@@ -1097,34 +1097,34 @@ export default function Admin() {
           <div className="mb-3">
             <div className="flex justify-between text-xs text-gray-400 mb-1">
               <span>PDFs convertidos a imágenes</span>
-              <span className="font-semibold text-white">{stats.convertidos.toLocaleString()} / {stats.total.toLocaleString()}</span>
+              <span className="font-semibold text-white">{(stats.convertidos ?? 0).toLocaleString()} / {(stats.total ?? 0).toLocaleString()}</span>
             </div>
             <div className="w-full bg-gray-700 rounded-full h-2">
               <div
                 className="bg-crochet-primary h-2 rounded-full transition-all"
-                style={{ width: `${stats.total > 0 ? Math.round((stats.convertidos / stats.total) * 100) : 0}%` }}
+                style={{ width: `${(stats.total ?? 0) > 0 ? Math.round(((stats.convertidos ?? 0) / stats.total) * 100) : 0}%` }}
               />
             </div>
             <div className="flex justify-between text-xs mt-1">
               <span className="text-gray-500">
-                {stats.pendientes.toLocaleString()} pendientes
-                {stats.corruptos > 0 && <span className="text-red-400 ml-2">· {stats.corruptos} con error (PDF dañado)</span>}
+                {(stats.pendientes ?? 0).toLocaleString()} pendientes
+                {(stats.corruptos ?? 0) > 0 && <span className="text-red-400 ml-2">· {stats.corruptos} con error (PDF dañado)</span>}
               </span>
-              <span className="text-crochet-primary font-semibold">{stats.total > 0 ? Math.round((stats.convertidos / stats.total) * 100) : 0}%</span>
+              <span className="text-crochet-primary font-semibold">{(stats.total ?? 0) > 0 ? Math.round(((stats.convertidos ?? 0) / stats.total) * 100) : 0}%</span>
             </div>
           </div>
 
           {/* Chips de resumen */}
           <div className="flex flex-wrap gap-2 text-xs mb-3">
-            <span className="bg-gray-700 px-2 py-1 rounded">📥 {stats.archivosBot.toLocaleString()} PDFs en disco</span>
-            <span className="bg-gray-700 px-2 py-1 rounded">✔ {stats.verificados.toLocaleString()} verificados</span>
-            <span className="bg-gray-700 px-2 py-1 rounded">⭐ {stats.heroes}/12 hero</span>
-            <span className="bg-gray-700 px-2 py-1 rounded">🔥 {stats.tendencia} en tendencia</span>
+            <span className="bg-gray-700 px-2 py-1 rounded">📥 {(stats.archivosBot ?? 0).toLocaleString()} PDFs en disco</span>
+            <span className="bg-gray-700 px-2 py-1 rounded">✔ {(stats.verificados ?? 0).toLocaleString()} verificados</span>
+            <span className="bg-gray-700 px-2 py-1 rounded">⭐ {stats.heroes ?? 0}/12 hero</span>
+            <span className="bg-gray-700 px-2 py-1 rounded">🔥 {stats.tendencia ?? 0} en tendencia</span>
           </div>
 
           {/* Por categoría */}
           <div className="flex flex-wrap gap-1.5">
-            {stats.porCategoria.map(c => (
+            {(stats.porCategoria ?? []).map(c => (
               <span key={c.categoria} className="bg-gray-700/60 text-gray-300 text-xs px-2 py-0.5 rounded capitalize">
                 {c.categoria} <strong>{c.n}</strong>
               </span>

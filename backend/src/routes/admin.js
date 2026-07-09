@@ -330,22 +330,53 @@ router.delete('/patrones/:id', verifyAdmin, async (req, res) => {
 
 router.get('/stats', verifyAdmin, async (req, res) => {
   try {
-    const stats = await new Promise((resolve, reject) => {
+    const row = await new Promise((resolve, reject) => {
       db.get(
-        `SELECT 
+        `SELECT
+          (SELECT COUNT(*) FROM patrones WHERE activo = 1) as total,
+          (SELECT COUNT(*) FROM patrones WHERE activo = 1 AND paginas > 0) as convertidos,
+          (SELECT COUNT(*) FROM patrones WHERE activo = 1 AND paginas = 0) as pendientes,
+          (SELECT COUNT(*) FROM patrones WHERE pdf_corrupto = 1) as corruptos,
+          (SELECT COUNT(*) FROM patrones WHERE verificado = 1) as verificados,
+          (SELECT COUNT(*) FROM patrones WHERE destacado = 1) as heroes,
+          (SELECT COUNT(*) FROM patrones WHERE tendencia = 1) as tendencia,
           (SELECT COUNT(*) FROM users) as total_users,
           (SELECT COUNT(*) FROM users WHERE tier = 'premium') as premium_users,
-          (SELECT COUNT(*) FROM patrones) as total_patrones,
-          (SELECT COUNT(*) FROM pagos WHERE status = 'finished') as pagos_completados`,
+          (SELECT COUNT(*) FROM users WHERE tier != 'premium') as usuariosFree`,
         [],
-        (err, row) => {
-          if (err) reject(err);
-          resolve(row);
-        }
+        (err, r) => { if (err) reject(err); else resolve(r); }
       );
     });
-    res.json(stats);
+
+    const porCategoria = await new Promise((resolve, reject) => {
+      db.all(
+        `SELECT categoria, COUNT(*) as n FROM patrones WHERE activo = 1 GROUP BY categoria ORDER BY n DESC`,
+        [],
+        (err, rows) => { if (err) reject(err); else resolve(rows || []); }
+      );
+    });
+
+    res.json({
+      total: row.total || 0,
+      convertidos: row.convertidos || 0,
+      pendientes: row.pendientes || 0,
+      corruptos: row.corruptos || 0,
+      archivosBot: 0,
+      verificados: row.verificados || 0,
+      heroes: row.heroes || 0,
+      tendencia: row.tendencia || 0,
+      porCategoria,
+      dmca_pendientes: 0,
+      metadatosRunning: false,
+      groqRunning: false,
+      categoriasRunning: false,
+      openaiRunning: false,
+      total_users: row.total_users || 0,
+      premium_users: row.premium_users || 0,
+      usuariosFree: row.usuariosFree || 0,
+    });
   } catch (err) {
+    console.error('Error /admin/stats:', err.message);
     res.status(500).json({ error: 'Error interno' });
   }
 });
