@@ -52,7 +52,7 @@ export default function Perfil() {
     setError('');
 
     try {
-      const res = await api.post('/pagos/crear', { plan });
+      const res = await api.post('/pagos/crear', { plan, moneda: geo.moneda });
 
       if (res.data.payment_url) {
         window.location.href = res.data.payment_url;

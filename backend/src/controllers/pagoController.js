@@ -116,13 +116,9 @@ exports.crearPago = [crearPagoRateLimit, async (req, res) => {
       return res.status(400).json({ error: 'Ya tienes una suscripción activa' });
     }
 
-    const tieneDescuento = user?.new_account_discount === 1;
-    const unit_amount = tieneDescuento
-      ? Math.round(precioData.unit_amount * 0.75)
-      : precioData.unit_amount;
-
+    const unit_amount = precioData.unit_amount;
     const montoRegistro = unit_amount / (precioData.ceroDecimal ? 1 : 100);
-    const label = `CrochetFlix Premium — Mensual${tieneDescuento ? ' (25% descuento)' : ''}`;
+    const label = 'CrochetFlix Premium — Mensual';
 
     const orderId = `CF-${uuidv4()}`;
     const pagoId = uuidv4();
@@ -131,7 +127,7 @@ exports.crearPago = [crearPagoRateLimit, async (req, res) => {
       db.run(
         `INSERT INTO pagos (id, user_id, order_id, monto_usd, status, plan, descuento_aplicado, created_at)
          VALUES (?, ?, ?, ?, 'pending', ?, ?, datetime('now'))`,
-        [pagoId, userId, orderId, montoRegistro, plan, tieneDescuento ? 1 : 0],
+        [pagoId, userId, orderId, montoRegistro, plan, 0],
         function(err) { if (err) reject(err); resolve(); }
       );
     });
@@ -147,7 +143,7 @@ exports.crearPago = [crearPagoRateLimit, async (req, res) => {
         },
         quantity: 1
       }],
-      metadata: { userId, orderId, plan, descuento: tieneDescuento ? '1' : '0' },
+      metadata: { userId, orderId, plan },
       customer_email: req.userEmail || undefined,
       success_url: `${FRONTEND_URL}/perfil?pago=exitoso&order=${orderId}`,
       cancel_url: `${FRONTEND_URL}/perfil?pago=cancelado`
