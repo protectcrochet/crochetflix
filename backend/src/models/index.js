@@ -119,6 +119,19 @@ function initTables() {
       });
     });
 
+    // Migraciones adicionales de users
+    const userMigraciones = [
+      `ALTER TABLE users ADD COLUMN last_login_at TIMESTAMP`,
+      `ALTER TABLE users ADD COLUMN login_count INTEGER DEFAULT 0`,
+    ];
+    userMigraciones.forEach(sql => {
+      db.run(sql, (err) => {
+        if (err && !err.message.includes('duplicate column name')) {
+          console.error('Error migración users:', err.message);
+        }
+      });
+    });
+
     console.log('✅ Tablas inicializadas');
   });
 }

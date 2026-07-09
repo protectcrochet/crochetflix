@@ -385,4 +385,179 @@ router.get('/stats', verifyAdmin, async (req, res) => {
   }
 });
 
+// ── Usuarios ──────────────────────────────────────────────────────────────────
+
+router.get('/usuarios', verifyAdmin, async (req, res) => {
+  try {
+    const usuarios = await new Promise((resolve, reject) => {
+      db.all(`
+        SELECT u.id, u.email, u.tier, u.subscription_expires_at, u.created_at,
+               u.last_login_at, u.login_count,
+               (SELECT COUNT(*) FROM progreso p WHERE p.user_id = u.id) as patrones_abiertos,
+               (SELECT COUNT(*) FROM mi_lista m WHERE m.user_id = u.id) as en_lista
+        FROM users u
+        ORDER BY u.created_at DESC
+      `, [], (err, rows) => { if (err) reject(err); else resolve(rows || []); });
+    });
+    res.json({ usuarios });
+  } catch (err) {
+    console.error('Error /admin/usuarios:', err.message);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+router.get('/usuarios/premium', verifyAdmin, async (req, res) => {
+  try {
+    const usuarios = await new Promise((resolve, reject) => {
+      db.all(`
+        SELECT u.id, u.email, u.subscription_expires_at, u.last_login_at,
+               (SELECT COUNT(*) FROM progreso p WHERE p.user_id = u.id) as patrones_leidos,
+               (SELECT COUNT(*) FROM progreso p WHERE p.user_id = u.id AND p.completado = 1) as patrones_completados,
+               (SELECT COUNT(*) FROM mi_lista m WHERE m.user_id = u.id) as en_mi_lista,
+               0 as traducciones_usadas
+        FROM users u
+        WHERE u.tier = 'premium'
+        ORDER BY u.subscription_expires_at ASC
+      `, [], (err, rows) => { if (err) reject(err); else resolve(rows || []); });
+    });
+    res.json({ usuarios });
+  } catch (err) {
+    console.error('Error /admin/usuarios/premium:', err.message);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+router.get('/usuarios/:id', verifyAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const usuario = await new Promise((resolve, reject) => {
+      db.get(
+        `SELECT id, email, tier, subscription_expires_at, created_at, last_login_at FROM users WHERE id = ?`,
+        [id], (err, row) => { if (err) reject(err); else resolve(row); }
+      );
+    });
+    if (!usuario) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+    const patrones = await new Promise((resolve, reject) => {
+      db.all(`
+        SELECT pr.patron_id as id, pat.titulo, pat.paginas, pr.pagina_actual, pr.completado, pr.ultimo_acceso
+        FROM progreso pr
+        LEFT JOIN patrones pat ON pat.id = pr.patron_id
+        WHERE pr.user_id = ?
+        ORDER BY pr.ultimo_acceso DESC
+      `, [id], (err, rows) => { if (err) reject(err); else resolve(rows || []); });
+    });
+
+    res.json({ usuario, patrones });
+  } catch (err) {
+    console.error('Error /admin/usuarios/:id:', err.message);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+router.patch('/usuarios/:id/tier', verifyAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { tier } = req.body;
+    if (!['free', 'premium'].includes(tier)) {
+      return res.status(400).json({ error: 'Tier inválido' });
+    }
+    const expires = tier === 'premium'
+      ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+      : null;
+    await new Promise((resolve, reject) => {
+      db.run(`UPDATE users SET tier = ?, subscription_expires_at = ? WHERE id = ?`,
+        [tier, expires, id], function(err) { if (err) reject(err); else resolve(); });
+    });
+    res.json({ tier, subscription_expires_at: expires });
+  } catch (err) {
+    console.error('Error PATCH /admin/usuarios/:id/tier:', err.message);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+router.delete('/usuarios/:id', verifyAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    for (const sql of [
+      `DELETE FROM progreso WHERE user_id = ?`,
+      `DELETE FROM mi_lista WHERE user_id = ?`,
+      `DELETE FROM preview_mensual WHERE user_id = ?`,
+      `DELETE FROM pagos WHERE user_id = ?`,
+      `DELETE FROM users WHERE id = ?`,
+    ]) {
+      await new Promise((resolve, reject) => {
+        db.run(sql, [id], (err) => { if (err) reject(err); else resolve(); });
+      });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error DELETE /admin/usuarios/:id:', err.message);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// ── Analytics ─────────────────────────────────────────────────────────────────
+
+router.get('/analytics', verifyAdmin, async (req, res) => {
+  try {
+    const hoy    = new Date().toISOString().slice(0, 10);
+    const hace7  = new Date(Date.now() - 7  * 86400000).toISOString().slice(0, 10);
+    const hace30 = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+    const hace5  = new Date(Date.now() - 5  * 86400000).toISOString().slice(0, 10);
+
+    const [main, visitasPorDia, usuariosPorDia, topPatrones] = await Promise.all([
+      new Promise((resolve, reject) => {
+        db.get(`
+          SELECT
+            (SELECT COUNT(*)               FROM progreso WHERE date(ultimo_acceso) = ?)  as visitasHoy,
+            (SELECT COUNT(DISTINCT user_id) FROM progreso WHERE date(ultimo_acceso) = ?)  as usuariosUnicosHoy,
+            (SELECT COUNT(*) FROM users WHERE tier = 'free')                              as usuariosFree,
+            (SELECT COUNT(*) FROM users WHERE tier = 'premium')                           as usuariosPremium,
+            (SELECT COUNT(*)               FROM progreso WHERE date(ultimo_acceso) >= ?) as visitasSemana,
+            (SELECT COUNT(DISTINCT user_id) FROM progreso WHERE date(ultimo_acceso) >= ?) as usuariosUnicosSemana,
+            (SELECT COUNT(*) FROM users WHERE date(created_at) = ?)                      as registrosHoy,
+            (SELECT COUNT(*) FROM users WHERE date(created_at) >= ?)                     as registrosSemana,
+            (SELECT COUNT(*)               FROM progreso WHERE date(ultimo_acceso) >= ?) as apertuasMes,
+            (SELECT COUNT(DISTINCT user_id) FROM progreso WHERE date(ultimo_acceso) >= ?) as usuariosUnicosMes,
+            (SELECT COUNT(*) FROM users WHERE tier = 'free'    AND id NOT IN (SELECT DISTINCT user_id FROM progreso WHERE date(ultimo_acceso) >= ?)) as inactivosFree,
+            (SELECT COUNT(*) FROM users WHERE tier = 'premium' AND id NOT IN (SELECT DISTINCT user_id FROM progreso WHERE date(ultimo_acceso) >= ?)) as inactivosPremium
+        `, [hoy, hoy, hace7, hace7, hoy, hace7, hace30, hace30, hace5, hace5],
+          (err, row) => { if (err) reject(err); else resolve(row); }
+        );
+      }),
+
+      new Promise((resolve, reject) => {
+        db.all(`
+          SELECT date(ultimo_acceso) as dia, COUNT(*) as visitas
+          FROM progreso WHERE date(ultimo_acceso) >= ?
+          GROUP BY date(ultimo_acceso) ORDER BY dia ASC
+        `, [hace30], (err, rows) => { if (err) reject(err); else resolve(rows || []); });
+      }),
+
+      new Promise((resolve, reject) => {
+        db.all(`
+          SELECT date(ultimo_acceso) as dia, COUNT(DISTINCT user_id) as usuarios
+          FROM progreso WHERE date(ultimo_acceso) >= ?
+          GROUP BY date(ultimo_acceso) ORDER BY dia ASC
+        `, [hace30], (err, rows) => { if (err) reject(err); else resolve(rows || []); });
+      }),
+
+      new Promise((resolve, reject) => {
+        db.all(`
+          SELECT pr.patron_id, pat.titulo, COUNT(*) as visitas
+          FROM progreso pr
+          LEFT JOIN patrones pat ON pat.id = pr.patron_id
+          GROUP BY pr.patron_id ORDER BY visitas DESC LIMIT 10
+        `, [], (err, rows) => { if (err) reject(err); else resolve(rows || []); });
+      }),
+    ]);
+
+    res.json({ ...main, visitasPorDia, usuariosPorDia, topPatrones, paises: [] });
+  } catch (err) {
+    console.error('Error /admin/analytics:', err.message);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 module.exports = router;
