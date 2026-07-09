@@ -135,7 +135,7 @@ LOOP_VPS = (
     '        try:\n'
     "            client = TelegramClient('/root/crochetflix_session', api_id, api_hash)\n"
     '            async with client:\n'
-    '                await sincronizar_patrones(client)\n'
+    '                await sincronizar_patrones()\n'
     '        except Exception as e:\n'
     "            print('[ERROR] ' + str(e))\n"
     '        procesar_pdfs_nuevos()\n'
