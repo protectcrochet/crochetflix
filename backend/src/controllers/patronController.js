@@ -39,10 +39,10 @@ RÈGLES:
 3. Сохраняйте формат. Отвечайте ТОЛЬКО переведённым текстом.`,
 };
 
-async function groqPost(payload) {
+async function groqPost(payload, maxIntentos = 3) {
   const key = process.env.GROQ_API_KEY;
   if (!key) throw new Error('GROQ_API_KEY no configurado');
-  for (let intento = 0; intento < 3; intento++) {
+  for (let intento = 0; intento < maxIntentos; intento++) {
     try {
       const resp = await axios.post(
         'https://api.groq.com/openai/v1/chat/completions',
@@ -52,8 +52,8 @@ async function groqPost(payload) {
       return resp.data.choices[0].message.content.trim();
     } catch (e) {
       if (e.response?.status === 429) {
-        if (intento < 2) {
-          await new Promise(r => setTimeout(r, 20000)); // wait 20s then retry
+        if (intento < maxIntentos - 1) {
+          await new Promise(r => setTimeout(r, 20000));
           continue;
         }
         throw new Error('rate_limit');
@@ -81,10 +81,8 @@ async function myMemoryTraducir(texto, idiomaDestino) {
 
 async function traducirTexto(texto, idioma) {
   try {
-    return await myMemoryTraducir(texto, idioma);
-  } catch {
-    // fallback a Groq si MyMemory falla
-    return groqPost({
+    // Groq es muy rápido (1-3s). Un solo intento — si hay 429, caemos a MyMemory de inmediato.
+    return await groqPost({
       model: 'llama-3.3-70b-versatile',
       messages: [
         { role: 'system', content: SISTEMAS[idioma] },
@@ -92,7 +90,10 @@ async function traducirTexto(texto, idioma) {
       ],
       temperature: 0.2,
       max_tokens: 4096,
-    });
+    }, 1);
+  } catch {
+    // Si Groq falla (rate limit, error de red, etc.) → MyMemory sin límites
+    return myMemoryTraducir(texto, idioma);
   }
 }
 
