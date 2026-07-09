@@ -1,6 +1,6 @@
 import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { Home, Bookmark, Download, User, LogOut, Search } from 'lucide-react';
+import { Home, Bookmark, Download, User, LogOut, Grid3X3 } from 'lucide-react';
 
 export default function Layout() {
   const { user, logout } = useAuth();
@@ -21,9 +21,9 @@ export default function Layout() {
           </Link>
 
           <div className="flex items-center gap-4">
-            <button className="p-2 hover:bg-gray-800 rounded-full">
-              <Search className="w-5 h-5" />
-            </button>
+            <Link to="/catalogo" className="p-2 hover:bg-gray-800 rounded-full hidden sm:block">
+              <Grid3X3 className="w-5 h-5" />
+            </Link>
 
             {user ? (
               <div className="flex items-center gap-3">
@@ -51,13 +51,13 @@ export default function Layout() {
             <Home className="w-5 h-5" />
             <span className="text-xs mt-1">Inicio</span>
           </Link>
+          <Link to="/catalogo" className="flex flex-col items-center p-2 text-gray-400 hover:text-white">
+            <Grid3X3 className="w-5 h-5" />
+            <span className="text-xs mt-1">Catálogo</span>
+          </Link>
           <Link to="/mi-lista" className="flex flex-col items-center p-2 text-gray-400 hover:text-white">
             <Bookmark className="w-5 h-5" />
             <span className="text-xs mt-1">Mi lista</span>
-          </Link>
-          <Link to="/descargas" className="flex flex-col items-center p-2 text-gray-400 hover:text-white">
-            <Download className="w-5 h-5" />
-            <span className="text-xs mt-1">Descargas</span>
           </Link>
           <Link to="/perfil" className="flex flex-col items-center p-2 text-gray-400 hover:text-white">
             <User className="w-5 h-5" />

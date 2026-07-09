@@ -8,6 +8,7 @@ import Viewer from './pages/Viewer';
 import MiLista from './pages/MiLista';
 import Descargas from './pages/Descargas';
 import Perfil from './pages/Perfil';
+import Catalogo from './pages/Catalogo';
 import Admin from './pages/Admin';
 
 function App() {
@@ -22,6 +23,7 @@ function App() {
           <Route path="mi-lista" element={<MiLista />} />
           <Route path="descargas" element={<Descargas />} />
           <Route path="perfil" element={<Perfil />} />
+          <Route path="catalogo" element={<Catalogo />} />
         </Route>
         <Route path="/admin" element={<Admin />} />
       </Routes>
