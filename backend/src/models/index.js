@@ -140,6 +140,24 @@ function initTables() {
       });
     });
 
+    // Traducciones (caché por página + control semanal)
+    db.run(`CREATE TABLE IF NOT EXISTS traducciones_paginas (
+      id TEXT PRIMARY KEY,
+      patron_id TEXT NOT NULL,
+      pagina INTEGER NOT NULL,
+      idioma TEXT NOT NULL,
+      texto_traducido TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(patron_id, pagina, idioma)
+    )`);
+
+    db.run(`CREATE TABLE IF NOT EXISTS traducciones_uso (
+      user_id TEXT NOT NULL,
+      patron_id TEXT NOT NULL,
+      semana TEXT NOT NULL,
+      PRIMARY KEY (user_id, patron_id, semana)
+    )`);
+
     console.log('✅ Tablas inicializadas');
   });
 }

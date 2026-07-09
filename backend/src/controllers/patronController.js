@@ -1,4 +1,95 @@
 const db = require('../models');
+const path = require('path');
+const fs = require('fs');
+const crypto = require('crypto');
+const axios = require('axios');
+
+const UPLOADS_DIR = path.join(__dirname, '../../uploads/patrones');
+
+const dbGet = (sql, p) => new Promise((res, rej) => db.get(sql, p, (err, row) => err ? rej(err) : res(row)));
+const dbRun = (sql, p) => new Promise((res, rej) => db.run(sql, p, function(err) { err ? rej(err) : res(this); }));
+
+const SISTEMAS = {
+  es: `Eres un traductor profesional de patrones de crochet al español mexicano.
+REGLAS:
+1. Traduce TODO el texto al español. Ninguna palabra puede quedar en otro idioma.
+2. Abreviaturas: sc→pb, dc→pa, hdc→mpa, tr→pad, sl st→pd, ch→cad, inc→aum, dec→dism, sc2tog→pb2jun, BLO→hta, FLO→hte, MR→anillo mágico, yo→hp, rnd→vta, rep→rep, sts→p.
+3. Conserva el formato exacto: saltos de línea, numeración de vueltas, paréntesis con conteos.
+4. Responde ÚNICAMENTE con el texto traducido.`,
+  en: `You are a professional crochet pattern translator to English.
+RULES:
+1. Translate EVERYTHING to English. No Spanish words in the output.
+2. US abbreviations: pb→sc, pa→dc, mpa→hdc, pad→tr, pd→sl st, cad→ch, aum→inc, dism→dec, MR→magic ring, vta→rnd, sts→sts.
+3. Preserve exact format: line breaks, round numbering, stitch counts in parentheses.
+4. Reply ONLY with the translated text.`,
+  pt: `Você é um tradutor de padrões de crochê para o português brasileiro.
+REGRAS:
+1. Traduza TUDO para o português. Nenhuma palavra em espanhol.
+2. Abreviações: sc→pb, dc→pa, sl st→pp, ch→cad, inc→aum, dec→dim, MR→AM, rnd→v.
+3. Conserve o formato exato. Responda APENAS com o texto traduzido.`,
+  fr: `Vous êtes un traducteur de patrons de crochet en français.
+RÈGLES:
+1. Traduisez TOUT en français. Aucun mot espagnol.
+2. Abréviations: sc→ms, dc→br, sl st→mc, ch→ml, inc→aug, dec→dim, MR→AM, rnd→rg.
+3. Conservez le format exact. Répondez UNIQUEMENT avec le texte traduit.`,
+  ru: `Вы — переводчик схем вязания крючком на русский язык.
+ПРАВИЛА:
+1. Переведите ВСЁ на русский. Никаких испанских слов.
+2. Сокращения: sc→сбн, dc→стн, sl st→сс, ch→вп, inc→пр, dec→уб, MR→КА, rnd→ряд.
+3. Сохраняйте формат. Отвечайте ТОЛЬКО переведённым текстом.`,
+};
+
+async function groqTraducirTexto(texto, idioma) {
+  const key = process.env.GROQ_API_KEY;
+  if (!key) throw new Error('GROQ_API_KEY no configurado');
+  const resp = await axios.post(
+    'https://api.groq.com/openai/v1/chat/completions',
+    {
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        { role: 'system', content: SISTEMAS[idioma] },
+        { role: 'user', content: texto },
+      ],
+      temperature: 0.2,
+      max_tokens: 4096,
+    },
+    { headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, timeout: 60000 }
+  );
+  return resp.data.choices[0].message.content.trim();
+}
+
+async function groqVisionTraducir(imgBase64, idioma) {
+  const key = process.env.GROQ_API_KEY;
+  if (!key) throw new Error('GROQ_API_KEY no configurado');
+  const nombre = { es: 'español', en: 'English', pt: 'português', fr: 'français', ru: 'русский' }[idioma] || idioma;
+  const models = ['meta-llama/llama-4-scout-17b-16e-instruct', 'meta-llama/llama-4-maverick-17b-128e-instruct'];
+  for (const model of models) {
+    try {
+      const resp = await axios.post(
+        'https://api.groq.com/openai/v1/chat/completions',
+        {
+          model,
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'text', text: `Extrae TODO el texto de esta página de patrón de crochet y tradúcelo al ${nombre}. Mantén la estructura (listas, pasos, abreviaturas). Devuelve SOLO el texto traducido.` },
+              { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${imgBase64}` } },
+            ],
+          }],
+          temperature: 0.2,
+          max_tokens: 4096,
+        },
+        { headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, timeout: 60000 }
+      );
+      const texto = resp.data.choices?.[0]?.message?.content?.trim();
+      if (texto) return texto;
+    } catch (e) {
+      if (e.response?.status !== 429) continue;
+      await new Promise(r => setTimeout(r, 30000));
+    }
+  }
+  throw new Error('No se pudo traducir');
+}
 
 // Listar patrones (con info de preview gratis)
 exports.listar = async (req, res) => {
@@ -205,5 +296,96 @@ exports.toggleMiLista = async (req, res) => {
   } catch (err) {
     console.error('Error toggle mi lista:', err);
     res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+// Traducir página de patrón
+exports.traducir = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { idioma, pagina } = req.body;
+    const userId = req.userId;
+
+    const IDIOMAS_VALIDOS = ['es', 'en', 'pt', 'ru', 'fr'];
+    if (!IDIOMAS_VALIDOS.includes(idioma)) return res.status(400).json({ error: 'Idioma no soportado' });
+    const paginaNum = parseInt(pagina) || 1;
+
+    const patron = await dbGet('SELECT id, idioma FROM patrones WHERE id = ? AND activo = 1', [id]);
+    if (!patron) return res.status(404).json({ error: 'Patrón no encontrado' });
+
+    // Caché: devolver sin contar límite si ya existe
+    const cached = await dbGet(
+      'SELECT texto_traducido FROM traducciones_paginas WHERE patron_id = ? AND pagina = ? AND idioma = ?',
+      [id, paginaNum, idioma]
+    );
+    if (cached) return res.json({ texto: cached.texto_traducido, cached: true });
+
+    // Control semanal (lunes a domingo)
+    const hoy = new Date();
+    const diaSemana = hoy.getDay() === 0 ? 6 : hoy.getDay() - 1;
+    const lunes = new Date(hoy);
+    lunes.setDate(hoy.getDate() - diaSemana);
+    const semana = lunes.toISOString().slice(0, 10);
+
+    const LIMITE = 5;
+    const yaUsado = await dbGet(
+      'SELECT 1 FROM traducciones_uso WHERE user_id = ? AND patron_id = ? AND semana = ?',
+      [userId, id, semana]
+    );
+    if (!yaUsado) {
+      const usados = await dbGet(
+        'SELECT COUNT(DISTINCT patron_id) as n FROM traducciones_uso WHERE user_id = ? AND semana = ?',
+        [userId, semana]
+      );
+      if ((usados?.n || 0) >= LIMITE) {
+        return res.status(403).json({
+          error: 'limite_traduccion',
+          mensaje: `Alcanzaste el límite de ${LIMITE} patrones traducidos esta semana. Se renueva el lunes.`,
+        });
+      }
+      await dbRun(
+        'INSERT OR IGNORE INTO traducciones_uso (user_id, patron_id, semana) VALUES (?, ?, ?)',
+        [userId, id, semana]
+      );
+    }
+
+    // Intentar primero con imagen ya convertida
+    const imgPath = path.join(UPLOADS_DIR, id, `pagina_${paginaNum}.jpg`);
+    let traduccion = null;
+
+    if (fs.existsSync(imgPath)) {
+      const imgBase64 = fs.readFileSync(imgPath).toString('base64');
+      traduccion = await groqVisionTraducir(imgBase64, idioma);
+    } else {
+      // Fallback: extraer texto del PDF si existe
+      const patronDir = path.join(UPLOADS_DIR, id);
+      if (fs.existsSync(patronDir)) {
+        const pdf = fs.readdirSync(patronDir).find(f => f.endsWith('.pdf'));
+        if (pdf) {
+          const { execSync } = require('child_process');
+          try {
+            const texto = execSync(
+              `pdftotext -f ${paginaNum} -l ${paginaNum} "${path.join(patronDir, pdf)}" -`,
+              { timeout: 15000 }
+            ).toString().trim();
+            if (texto) traduccion = await groqTraducirTexto(texto, idioma);
+          } catch {}
+        }
+      }
+    }
+
+    if (!traduccion) return res.status(400).json({ error: 'No se pudo obtener el texto de esta página' });
+
+    const newId = crypto.randomBytes(8).toString('hex');
+    await dbRun(
+      'INSERT OR REPLACE INTO traducciones_paginas (id, patron_id, pagina, idioma, texto_traducido) VALUES (?, ?, ?, ?, ?)',
+      [newId, id, paginaNum, idioma, traduccion]
+    );
+
+    res.json({ texto: traduccion, cached: false });
+
+  } catch (err) {
+    console.error('[traduccion]', err.message);
+    res.status(500).json({ error: err.message || 'No se pudo traducir' });
   }
 };
