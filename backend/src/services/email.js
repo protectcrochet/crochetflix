@@ -7,7 +7,7 @@ const FRONT_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 async function enviarVerificacion(email, token) {
   const link = `${FRONT_URL}/verificar-email?token=${token}`;
 
-  await resend.emails.send({
+  const { error } = await resend.emails.send({
     from: FROM,
     to: email,
     subject: 'Verifica tu correo — CrochetFlix 🧶',
@@ -46,6 +46,7 @@ async function enviarVerificacion(email, token) {
 </html>
     `.trim(),
   });
+  if (error) throw new Error(`Resend error: ${error.message}`);
 }
 
 module.exports = { enviarVerificacion };
