@@ -511,6 +511,7 @@ export default function Admin() {
     categoria: 'amigurumi', subcategoria: 'animales', dificultad: 'principiante',
     idioma: 'es', tiempo_minutos: '', es_preview: false, es_solo_premium: false,
   });
+  const [analisis, setAnalisis] = useState({ cargando: false, data: null, error: null });
   const [archivoPDF, setArchivoPDF] = useState(null);
   const [imagenesFiles, setImagenesFiles] = useState([]);
   const [modoSubida, setModoSubida] = useState('pdf'); // 'pdf' | 'imagenes'
@@ -799,6 +800,7 @@ export default function Admin() {
         timeout: 180000,
       });
       setMensaje({ tipo: 'ok', texto: `"${res.data.patron.titulo}" creado con ${res.data.patron.paginas} páginas` });
+      setAnalisis({ cargando: false, data: null, error: null });
       setForm({ titulo: '', descripcion: '', autor: '', diseñadora: '', categoria: 'amigurumi', subcategoria: 'animales', dificultad: 'principiante', idioma: 'es', tiempo_minutos: '', es_preview: false });
       setArchivoPDF(null);
       setImagenesFiles([]);
@@ -810,6 +812,35 @@ export default function Admin() {
       setMensaje({ tipo: 'error', texto: err.response?.data?.error || 'Error subiendo patrón' });
     } finally {
       setCargando(false);
+    }
+  };
+
+  const analizarConIA = async () => {
+    if (!form.titulo.trim() && !archivoPDF) return;
+    setAnalisis({ cargando: true, data: null, error: null });
+    try {
+      const data = new FormData();
+      data.append('titulo', form.titulo);
+      data.append('descripcion', form.descripcion || '');
+      data.append('diseñadora', form.diseñadora || '');
+      if (archivoPDF) data.append('pdf', archivoPDF);
+      const res = await api.post('/admin/patrones/analizar', data, {
+        headers: { ...authHeader, 'Content-Type': 'multipart/form-data' },
+        timeout: 60000,
+      });
+      const d = res.data;
+      setAnalisis({ cargando: false, data: d, error: null });
+      // Auto-aplicar sugerencias al formulario
+      setForm(f => ({
+        ...f,
+        ...(d.titulo && !f.titulo.trim() ? { titulo: d.titulo } : {}),
+        ...(d.diseñadora && !f.diseñadora.trim() ? { diseñadora: d.diseñadora } : {}),
+        ...(d.categoria ? { categoria: d.categoria } : {}),
+        ...(d.subcategoria !== undefined ? { subcategoria: d.subcategoria } : {}),
+        ...(d.idioma ? { idioma: d.idioma } : {}),
+      }));
+    } catch (err) {
+      setAnalisis({ cargando: false, data: null, error: err.response?.data?.error || 'Error en análisis' });
     }
   };
 
@@ -1132,6 +1163,57 @@ export default function Admin() {
             <label className="block text-sm text-gray-400 mb-1">Descripción</label>
             <textarea value={form.descripcion} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
               rows={3} className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-crochet-primary resize-none" />
+          </div>
+
+          {/* Análisis con IA */}
+          <div className="space-y-3">
+            <button type="button" onClick={analizarConIA}
+              disabled={analisis.cargando || (!form.titulo.trim() && !archivoPDF)}
+              className="flex items-center gap-2 px-4 py-2 bg-purple-700 hover:bg-purple-600 disabled:opacity-40 rounded-lg text-sm font-medium transition">
+              {analisis.cargando ? <Loader className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              {analisis.cargando ? 'Analizando con IA…' : '✨ Analizar con IA'}
+            </button>
+            {analisis.error && <p className="text-red-400 text-xs">{analisis.error}</p>}
+            {analisis.data && (
+              <div className="border border-gray-600 rounded-lg p-4 space-y-3 bg-gray-900/50">
+                {analisis.data.duplicados?.length > 0 ? (
+                  <div className="bg-yellow-900/40 border border-yellow-600/40 rounded p-3">
+                    <p className="text-yellow-300 text-sm font-semibold mb-2">⚠️ Posibles duplicados ({analisis.data.duplicados.length})</p>
+                    {analisis.data.duplicados.map(d => (
+                      <div key={d.id} className="flex justify-between text-xs text-yellow-200 py-1 border-b border-yellow-800/30 last:border-0">
+                        <span className="truncate mr-2">"{d.titulo}"</span>
+                        <span className="text-yellow-400 shrink-0">{Math.round(d.similitud * 100)}% similar</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-green-400 text-xs">✅ Sin duplicados detectados</p>
+                )}
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  {analisis.data.titulo && (
+                    <div className="bg-gray-700/60 rounded px-2 py-1.5">
+                      <p className="text-gray-400 mb-0.5">Título extraído</p>
+                      <p className="text-white font-medium truncate">{analisis.data.titulo}</p>
+                    </div>
+                  )}
+                  {analisis.data.diseñadora && (
+                    <div className="bg-gray-700/60 rounded px-2 py-1.5">
+                      <p className="text-gray-400 mb-0.5">Diseñadora</p>
+                      <p className="text-white font-medium truncate">{analisis.data.diseñadora}</p>
+                    </div>
+                  )}
+                  <div className="bg-gray-700/60 rounded px-2 py-1.5">
+                    <p className="text-gray-400 mb-0.5">Categoría</p>
+                    <p className="text-white font-medium">{analisis.data.categoria}{analisis.data.subcategoria ? ` / ${analisis.data.subcategoria}` : ''}</p>
+                  </div>
+                  <div className="bg-gray-700/60 rounded px-2 py-1.5">
+                    <p className="text-gray-400 mb-0.5">Idioma</p>
+                    <p className="text-white font-medium">{IDIOMAS.find(i => i.value === analisis.data.idioma)?.label || analisis.data.idioma}</p>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500">Los campos se han actualizado automáticamente con las sugerencias.</p>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

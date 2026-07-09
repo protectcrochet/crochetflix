@@ -106,6 +106,19 @@ function initTables() {
       FOREIGN KEY (patron_id) REFERENCES patrones(id)
     )`);
 
+    // Migraciones adicionales de patrones
+    const patronMigraciones = [
+      `ALTER TABLE patrones ADD COLUMN pdf_hash TEXT`,
+      `ALTER TABLE patrones ADD COLUMN es_solo_premium INTEGER DEFAULT 0`,
+    ];
+    patronMigraciones.forEach(sql => {
+      db.run(sql, (err) => {
+        if (err && !err.message.includes('duplicate column name')) {
+          console.error('Error migración:', err.message);
+        }
+      });
+    });
+
     console.log('✅ Tablas inicializadas');
   });
 }
