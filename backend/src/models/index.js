@@ -131,6 +131,8 @@ function initTables() {
     const userMigraciones = [
       `ALTER TABLE users ADD COLUMN last_login_at TIMESTAMP`,
       `ALTER TABLE users ADD COLUMN login_count INTEGER DEFAULT 0`,
+      `ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 0`,
+      `ALTER TABLE users ADD COLUMN email_verification_token TEXT`,
     ];
     userMigraciones.forEach(sql => {
       db.run(sql, (err) => {
@@ -157,6 +159,9 @@ function initTables() {
       semana TEXT NOT NULL,
       PRIMARY KEY (user_id, patron_id, semana)
     )`);
+
+    // Usuarios existentes ya son confiables — marcarlos como verificados
+    db.run(`UPDATE users SET email_verified = 1 WHERE email_verified = 0 AND email_verification_token IS NULL`);
 
     console.log('✅ Tablas inicializadas');
   });
