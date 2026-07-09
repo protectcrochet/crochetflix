@@ -58,9 +58,10 @@ def b64(path):
 
 VISION_MODELS = [
     'meta-llama/llama-4-scout-17b-16e-instruct',
-    'llama-3.2-90b-vision-preview',
-    'llama-3.2-11b-vision-preview',
+    'meta-llama/llama-4-maverick-17b-128e-instruct',
 ]
+
+RATE_LIMIT_SLEEP = 30  # segundos a esperar tras 429
 
 
 def groq_vision(api_key, imagenes):
@@ -81,31 +82,39 @@ def groq_vision(api_key, imagenes):
         })
 
     for modelo in VISION_MODELS:
-        try:
-            resp = _req.post(
-                'https://api.groq.com/openai/v1/chat/completions',
-                headers={
-                    'Authorization': 'Bearer ' + api_key,
-                    'Content-Type': 'application/json',
-                },
-                json={
-                    'model': modelo,
-                    'messages': [{'role': 'user', 'content': contenido}],
-                    'temperature': 0.1,
-                    'max_tokens': 150,
-                },
-                timeout=40
-            )
-            if resp.status_code != 200:
-                print(f'    [Groq {modelo} → {resp.status_code}]', resp.text[:150])
-                continue
-            texto = resp.json()['choices'][0]['message']['content'].strip()
-            i = texto.find('{')
-            j = texto.rfind('}') + 1
-            if i >= 0 and j > i:
-                return json.loads(texto[i:j])
-        except Exception as e:
-            print(f'    [Groq {modelo} error]', e)
+        intentos = 2
+        for intento in range(intentos):
+            try:
+                resp = _req.post(
+                    'https://api.groq.com/openai/v1/chat/completions',
+                    headers={
+                        'Authorization': 'Bearer ' + api_key,
+                        'Content-Type': 'application/json',
+                    },
+                    json={
+                        'model': modelo,
+                        'messages': [{'role': 'user', 'content': contenido}],
+                        'temperature': 0.1,
+                        'max_tokens': 150,
+                    },
+                    timeout=40
+                )
+                if resp.status_code == 429:
+                    print(f'    [Groq {modelo} → 429 rate limit, esperando {RATE_LIMIT_SLEEP}s...]')
+                    time.sleep(RATE_LIMIT_SLEEP)
+                    continue
+                if resp.status_code != 200:
+                    print(f'    [Groq {modelo} → {resp.status_code}]', resp.text[:150])
+                    break
+                texto = resp.json()['choices'][0]['message']['content'].strip()
+                i = texto.find('{')
+                j = texto.rfind('}') + 1
+                if i >= 0 and j > i:
+                    return json.loads(texto[i:j])
+                break
+            except Exception as e:
+                print(f'    [Groq {modelo} error]', e)
+                break
 
     return None
 
@@ -193,14 +202,14 @@ def main():
             continue
 
         res = groq_vision(api_key, imgs)
-        time.sleep(1)
+        time.sleep(3)
 
         # Si faltan datos, probar últimas páginas
         if res and (not res.get('titulo') or not res.get('diseñadora')):
             imgs_fin = ultimas_paginas(pid, n=2)
             if imgs_fin:
                 res2 = groq_vision(api_key, imgs_fin)
-                time.sleep(1)
+                time.sleep(3)
                 if res2:
                     if not res.get('titulo') and res2.get('titulo'):
                         res['titulo'] = res2['titulo']
