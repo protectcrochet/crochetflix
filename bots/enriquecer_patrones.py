@@ -175,7 +175,10 @@ def main():
         SELECT id, titulo, diseñadora FROM patrones
         WHERE activo = 1
           AND (titulo IS NULL OR titulo = ''
-               OR diseñadora IS NULL OR diseñadora = '')
+               OR diseñadora IS NULL OR diseñadora = ''
+               OR LOWER(titulo) IN ('telegram','sin título','sin titulo','untitled',
+                                    'pattern','crochet','amigurumi','patron','n/a',
+                                    'diseñadora','autor','file','pdf'))
         ORDER BY created_at DESC
     """)
     todos = cur.fetchall()
@@ -231,9 +234,17 @@ def main():
 
         print(f'  → titulo="{nuevo_titulo}"  diseñadora="{nueva_dis}"')
 
-        # Titulo "malo": vacío o solo números/caracteres raros
-        titulo_malo = (not titulo or titulo.replace(' ', '').isdigit()
-                       or len(titulo.replace(' ', '')) < 3)
+        TITULOS_MALOS = {
+            'telegram', 'sin título', 'sin titulo', 'untitled',
+            'pattern', 'crochet', 'amigurumi', 'patron', 'n/a',
+            'diseñadora', 'autor', 'file', 'pdf',
+        }
+        titulo_malo = (
+            not titulo
+            or titulo.replace(' ', '').isdigit()
+            or len(titulo.replace(' ', '')) < 3
+            or titulo.strip().lower() in TITULOS_MALOS
+        )
 
         campos, vals = [], []
         if nuevo_titulo and titulo_malo:
