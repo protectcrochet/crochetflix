@@ -1,6 +1,5 @@
 #!/bin/bash
 # CrochetFlix - Patch bots: loop + fecha inicio 15-Jun-2026
-# Los scripts originales deben existir en /root/ (ya tienen las credenciales)
 set -e
 
 PYTHON=/root/venv/bin/python3
@@ -14,15 +13,13 @@ echo ""
 echo "[1/4] Backup..."
 cp /root/sync_patrones_vps.py /root/sync_patrones_vps.py.bak
 cp /root/sync_mermaid.py      /root/sync_mermaid.py.bak
-echo "    OK: backups en *.bak"
+echo "    OK"
 
 # ── 2. Fijar fecha en las BDs ─────────────────────────────────────────────────
 echo "[2/4] Fijando fecha de inicio en las bases de datos..."
 $PYTHON - << 'PYEOF'
 import sqlite3
-
 FECHA = "2026-06-15T00:00:00+00:00"
-
 for db in ['/root/crochetflix.db', '/root/mermaid.db']:
     try:
         conn = sqlite3.connect(db)
@@ -37,26 +34,14 @@ for db in ['/root/crochetflix.db', '/root/mermaid.db']:
         print("    ERROR " + db + ": " + str(e))
 PYEOF
 
-# ── 3. Agregar loop a los scripts ─────────────────────────────────────────────
+# ── 3. Escribir script de parche Python ───────────────────────────────────────
 echo "[3/4] Aplicando parche (loop + fix Python 3.12)..."
 
-patch_script() {
-    local FILE=$1
-    local SESSION=$2
-
-    # Quitar el bloque final original y agregar el nuevo loop
-    $PYTHON - << PYEOF
+# IMPORTANTE: heredoc con comillas ('PYEOF') para que bash NO interprete nada
+cat > /tmp/bot_patch.py << 'PYEOF'
 import re, sys
 
-path = "$FILE"
-session = "$SESSION"
-
-with open(path, 'r') as f:
-    content = f.read()
-
-# Eliminar el bloque final original (from "with client:" al final)
-content = re.sub(r'\nwith client:.*', '', content, flags=re.DOTALL)
-content = content.rstrip() + '''
+LOOP_PATRONES = """
 
 # ============ LOOP PRINCIPAL ============
 import asyncio
@@ -68,29 +53,39 @@ _sq3.register_converter('TIMESTAMP', lambda x: _dt.fromisoformat(x.decode()))
 
 async def main():
     while True:
-        print('\\n[' + _dt.now().strftime('%Y-%m-%d %H:%M:%S') + '] Sincronizando...')
+        print('')
+        print('[' + _dt.now().strftime('%Y-%m-%d %H:%M:%S') + '] Sincronizando...')
         try:
-            cli = TelegramClient('$session', api_id, api_hash)
+            cli = TelegramClient('/root/crochetflix_session', api_id, api_hash)
             async with cli:
                 await sincronizar_patrones()
         except Exception as e:
             print('[ERROR] ' + str(e))
-        print('Esperando 30 min...\\n')
+        print('Esperando 30 min...')
         await asyncio.sleep(1800)
 
 if __name__ == '__main__':
     asyncio.run(main())
-'''
+"""
 
-with open(path, 'w') as f:
-    f.write(content)
+LOOP_MERMAID = LOOP_PATRONES.replace('/root/crochetflix_session', '/root/mermaid_session')
 
-print("    OK: " + path)
+def patch(path, loop):
+    with open(path, 'r') as f:
+        content = f.read()
+    # Eliminar bloque "with client:" hasta el final
+    content = re.sub(r'\nwith client:.*', '', content, flags=re.DOTALL)
+    content = content.rstrip() + loop
+    with open(path, 'w') as f:
+        f.write(content)
+    print("    OK: " + path)
+
+patch('/root/sync_patrones_vps.py', LOOP_PATRONES)
+patch('/root/sync_mermaid.py',      LOOP_MERMAID)
 PYEOF
-}
 
-patch_script /root/sync_patrones_vps.py crochetflix_session
-patch_script /root/sync_mermaid.py      mermaid_session
+$PYTHON /tmp/bot_patch.py
+rm /tmp/bot_patch.py
 
 # ── 4. Reiniciar PM2 ──────────────────────────────────────────────────────────
 echo "[4/4] Reiniciando bots en PM2..."
