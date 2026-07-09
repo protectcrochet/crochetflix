@@ -117,7 +117,7 @@ exports.historial = async (req, res) => {
     const patrones = await new Promise((resolve, reject) => {
       db.all(`
         SELECT pr.patron_id as id, pat.titulo, pat.thumbnail_path, pat.paginas,
-               pat.diseñadora, pat.autor, pat.categoria,
+               pat.autor, pat.categoria,
                pr.pagina_actual, pr.completado, pr.ultimo_acceso
         FROM progreso pr
         JOIN patrones pat ON pat.id = pr.patron_id
