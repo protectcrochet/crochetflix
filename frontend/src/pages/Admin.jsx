@@ -2083,7 +2083,7 @@ function ColeccionesPanel({ authHeader }) {
   };
 
   const toggleActivo = async (col) => {
-    await api.patch(`/admin/colecciones/${col.id}`, { activo: col.activo ? 0 : 1 }, { headers: authHeader });
+    await api.patch(`/admin/colecciones/${col.id}`, { activo: col.activa ? 0 : 1 }, { headers: authHeader });
     cargar();
   };
 
@@ -2159,8 +2159,8 @@ function ColeccionesPanel({ authHeader }) {
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 <button onClick={() => toggleActivo(col)}
-                  className={`px-2 py-1 rounded text-xs font-medium ${col.activo ? 'bg-green-900/50 text-green-400' : 'bg-gray-700 text-gray-500'}`}>
-                  {col.activo ? 'Activa' : 'Oculta'}
+                  className={`px-2 py-1 rounded text-xs font-medium ${col.activa ? 'bg-green-900/50 text-green-400' : 'bg-gray-700 text-gray-500'}`}>
+                  {col.activa ? 'Activa' : 'Oculta'}
                 </button>
                 <button onClick={() => setEditando({ ...col })} className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-white text-xs">✏️</button>
                 <button onClick={() => abrirColeccion(col)} className="p-1.5 hover:bg-violet-700/50 rounded text-gray-400 hover:text-white text-xs">🖼 Patrones</button>

@@ -765,8 +765,8 @@ router.post('/colecciones', verifyAdmin, async (req, res) => {
     const id = uuidv4();
     await new Promise((resolve, reject) => {
       db.run(
-        `INSERT INTO colecciones (id, nombre, descripcion, orden) VALUES (?,?,?,?)`,
-        [id, nombre, descripcion || '', orden || 0],
+        `INSERT INTO colecciones (id, nombre, descripcion, emoji, orden) VALUES (?,?,?,?,?)`,
+        [id, nombre, descripcion || '', emoji || '🧶', orden || 0],
         function(err) { if (err) reject(err); else resolve(); }
       );
     });
@@ -784,10 +784,11 @@ router.patch('/colecciones/:id', verifyAdmin, async (req, res) => {
         `UPDATE colecciones SET
           nombre = COALESCE(?, nombre),
           descripcion = COALESCE(?, descripcion),
+          emoji = COALESCE(?, emoji),
           orden = COALESCE(?, orden),
           activa = COALESCE(?, activa)
          WHERE id = ?`,
-        [nombre, descripcion, orden, activo !== undefined ? (activo ? 1 : 0) : null, req.params.id],
+        [nombre, descripcion, emoji || null, orden, activo !== undefined ? (activo ? 1 : 0) : null, req.params.id],
         function(err) { if (err) reject(err); else resolve(); }
       );
     });
