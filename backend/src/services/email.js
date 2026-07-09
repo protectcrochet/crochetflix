@@ -19,7 +19,7 @@ async function enviarVerificacion(email, token) {
 <body style="margin:0;padding:0;background:#0f0f0f;font-family:Arial,sans-serif;">
   <div style="max-width:520px;margin:40px auto;padding:0 16px;">
     <div style="background:#1a1a1a;border-radius:16px;overflow:hidden;">
-      <div style="background:#e85d04;padding:24px 32px;text-align:center;">
+      <div style="background:#dc2626;padding:24px 32px;text-align:center;">
         <h1 style="margin:0;color:#fff;font-size:26px;letter-spacing:-0.5px;">🧶 CrochetFlix</h1>
       </div>
       <div style="padding:32px;">
@@ -29,7 +29,7 @@ async function enviarVerificacion(email, token) {
         </p>
         <div style="text-align:center;margin-bottom:28px;">
           <a href="${link}"
-             style="display:inline-block;background:#e85d04;color:#fff;text-decoration:none;padding:14px 36px;border-radius:50px;font-weight:bold;font-size:16px;">
+             style="display:inline-block;background:#dc2626;color:#fff;text-decoration:none;padding:14px 36px;border-radius:50px;font-weight:bold;font-size:16px;">
             Verificar mi correo
           </a>
         </div>
