@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Limpia títulos y diseñadoras con valor 'Telegram' u otros placeholders.
+Limpia títulos, diseñadoras y autores con valor 'Telegram' u otros placeholders.
 Pone NULL para que el script de enriquecimiento los rellene correctamente.
 
 Uso:
@@ -46,21 +46,13 @@ def main():
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
 
-    # Cualquier título que CONTENGA "telegram" (ej: "Telegram", "From Telegram", "Telegram - crochet")
+    # --- titulo ---
     cur.execute(
         "UPDATE patrones SET titulo = NULL WHERE activo = 1 AND LOWER(titulo) LIKE '%telegram%'"
     )
     t1 = cur.rowcount
     print(f'Títulos con "telegram" limpiados: {t1}')
 
-    # Cualquier diseñadora que CONTENGA "telegram"
-    cur.execute(
-        "UPDATE patrones SET diseñadora = NULL WHERE activo = 1 AND LOWER(diseñadora) LIKE '%telegram%'"
-    )
-    d1 = cur.rowcount
-    print(f'Diseñadoras con "telegram" limpiadas: {d1}')
-
-    # Títulos exactos malos
     placeholders_t = ','.join('?' * len(TITULOS_MALOS))
     cur.execute(
         f"UPDATE patrones SET titulo = NULL WHERE activo = 1 AND LOWER(titulo) IN ({placeholders_t})",
@@ -69,7 +61,13 @@ def main():
     t2 = cur.rowcount
     print(f'Otros títulos malos limpiados: {t2}')
 
-    # Diseñadoras exactas malas
+    # --- diseñadora ---
+    cur.execute(
+        "UPDATE patrones SET diseñadora = NULL WHERE activo = 1 AND LOWER(diseñadora) LIKE '%telegram%'"
+    )
+    d1 = cur.rowcount
+    print(f'Diseñadoras con "telegram" limpiadas: {d1}')
+
     placeholders_d = ','.join('?' * len(DIS_MALAS))
     cur.execute(
         f"UPDATE patrones SET diseñadora = NULL WHERE activo = 1 AND LOWER(diseñadora) IN ({placeholders_d})",
@@ -78,10 +76,24 @@ def main():
     d2 = cur.rowcount
     print(f'Otras diseñadoras malas limpiadas: {d2}')
 
+    # --- autor (también se busca en el catálogo) ---
+    cur.execute(
+        "UPDATE patrones SET autor = NULL WHERE activo = 1 AND LOWER(autor) LIKE '%telegram%'"
+    )
+    a1 = cur.rowcount
+    print(f'Autores con "telegram" limpiados: {a1}')
+
+    cur.execute(
+        f"UPDATE patrones SET autor = NULL WHERE activo = 1 AND LOWER(autor) IN ({placeholders_d})",
+        DIS_MALAS
+    )
+    a2 = cur.rowcount
+    print(f'Otros autores malos limpiados: {a2}')
+
     conn.commit()
     conn.close()
 
-    total = t1 + d1 + t2 + d2
+    total = t1 + t2 + d1 + d2 + a1 + a2
     print(f'\n✅ Total limpiados: {total}')
     print('Ahora ejecuta:')
     print('   python3 enriquecer_patrones.py &')

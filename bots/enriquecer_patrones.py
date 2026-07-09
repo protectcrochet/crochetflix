@@ -172,17 +172,21 @@ def main():
     cur  = conn.cursor()
 
     cur.execute("""
-        SELECT id, titulo, diseñadora FROM patrones
+        SELECT id, titulo, diseñadora, autor FROM patrones
         WHERE activo = 1
           AND (titulo IS NULL OR titulo = ''
                OR diseñadora IS NULL OR diseñadora = ''
+               OR autor IS NULL OR autor = ''
                OR LOWER(titulo) LIKE '%telegram%'
                OR LOWER(diseñadora) LIKE '%telegram%'
+               OR LOWER(autor) LIKE '%telegram%'
                OR LOWER(titulo) IN ('sin título','sin titulo','untitled',
                                     'pattern','crochet','amigurumi','patron','n/a',
                                     'diseñadora','autor','autora','file','pdf')
                OR LOWER(diseñadora) IN ('diseñadora','autor','autora','desconocida',
-                                        'unknown','n/a','sin nombre','pdf','file'))
+                                        'unknown','n/a','sin nombre','pdf','file')
+               OR LOWER(autor) IN ('diseñadora','autor','autora','desconocida',
+                                   'unknown','n/a','sin nombre','telegram','pdf','file'))
         ORDER BY created_at DESC
     """)
     todos = cur.fetchall()
@@ -198,9 +202,9 @@ def main():
     actualizados  = 0
     sin_imagenes  = 0
 
-    for i, (pid, titulo, dis) in enumerate(todos, 1):
+    for i, (pid, titulo, dis, autor) in enumerate(todos, 1):
         print(f'[{i}/{total}] {pid}')
-        print(f'  titulo={titulo or "(vacío)"}  diseñadora={dis or "(vacío)"}')
+        print(f'  titulo={titulo or "(vacío)"}  diseñadora={dis or "(vacío)"}  autor={autor or "(vacío)"}')
 
         imgs = primeras_paginas(pid, n=3)
         if not imgs:
@@ -252,10 +256,17 @@ def main():
             or titulo.replace(' ', '').isdigit()
             or len(titulo.replace(' ', '')) < 3
             or titulo.strip().lower() in TITULOS_MALOS
+            or 'telegram' in titulo.lower()
         )
         dis_mala = (
             not dis
             or dis.strip().lower() in DIS_MALAS
+            or 'telegram' in dis.lower()
+        )
+        autor_malo = (
+            not autor
+            or autor.strip().lower() in DIS_MALAS
+            or 'telegram' in autor.lower()
         )
 
         campos, vals = [], []
@@ -264,6 +275,9 @@ def main():
             vals.append(nuevo_titulo)
         if nueva_dis and dis_mala:
             campos.append('diseñadora = ?')
+            vals.append(nueva_dis)
+        if nueva_dis and autor_malo:
+            campos.append('autor = ?')
             vals.append(nueva_dis)
 
         if campos:
