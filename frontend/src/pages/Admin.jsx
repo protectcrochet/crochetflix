@@ -2055,10 +2055,16 @@ function ColeccionesPanel({ authHeader }) {
   const [forma, setForma] = useState({ nombre: '', descripcion: '', emoji: '🧶', orden: 0 });
   const [creando, setCreando] = useState(false);
   const [editando, setEditando] = useState(null);
+  const [guardando, setGuardando] = useState(false);
+  const [errorCol, setErrorCol] = useState('');
 
   const cargar = async () => {
-    const r = await api.get('/admin/colecciones', { headers: authHeader });
-    setCols(r.data || []);
+    try {
+      const r = await api.get('/admin/colecciones', { headers: authHeader });
+      setCols(r.data || []);
+    } catch (e) {
+      setErrorCol('Error cargando colecciones');
+    }
   };
 
   useEffect(() => { cargar(); }, []);
@@ -2072,26 +2078,53 @@ function ColeccionesPanel({ authHeader }) {
 
   const crear = async () => {
     if (!forma.nombre.trim()) return;
-    await api.post('/admin/colecciones', forma, { headers: authHeader });
-    setCreando(false); setForma({ nombre: '', descripcion: '', emoji: '🧶', orden: 0 });
-    cargar();
+    try {
+      await api.post('/admin/colecciones', forma, { headers: authHeader });
+      setCreando(false); setForma({ nombre: '', descripcion: '', emoji: '🧶', orden: 0 });
+      await cargar();
+    } catch (e) {
+      setErrorCol('Error al crear: ' + (e.response?.data?.error || e.message));
+    }
   };
 
   const guardarEdicion = async () => {
-    await api.patch(`/admin/colecciones/${editando.id}`, editando, { headers: authHeader });
-    setEditando(null); cargar();
+    setGuardando(true);
+    setErrorCol('');
+    try {
+      await api.patch(`/admin/colecciones/${editando.id}`, {
+        nombre: editando.nombre,
+        descripcion: editando.descripcion,
+        emoji: editando.emoji,
+        orden: editando.orden,
+      }, { headers: authHeader });
+      setEditando(null);
+      await cargar();
+    } catch (e) {
+      setErrorCol('Error al guardar: ' + (e.response?.data?.error || e.message));
+    } finally {
+      setGuardando(false);
+    }
   };
 
   const toggleActivo = async (col) => {
-    await api.patch(`/admin/colecciones/${col.id}`, { activo: col.activa ? 0 : 1 }, { headers: authHeader });
-    cargar();
+    setErrorCol('');
+    try {
+      await api.patch(`/admin/colecciones/${col.id}`, { activo: col.activa ? 0 : 1 }, { headers: authHeader });
+      await cargar();
+    } catch (e) {
+      setErrorCol('Error al cambiar estado: ' + (e.response?.data?.error || e.message));
+    }
   };
 
   const eliminar = async (id) => {
     if (!confirm('¿Eliminar esta colección?')) return;
-    await api.delete(`/admin/colecciones/${id}`, { headers: authHeader });
-    if (seleccionada?.id === id) setSeleccionada(null);
-    cargar();
+    try {
+      await api.delete(`/admin/colecciones/${id}`, { headers: authHeader });
+      if (seleccionada?.id === id) setSeleccionada(null);
+      await cargar();
+    } catch (e) {
+      setErrorCol('Error al eliminar');
+    }
   };
 
   const buscarPatrones = async (q) => {
@@ -2124,6 +2157,12 @@ function ColeccionesPanel({ authHeader }) {
           + Nueva colección
         </button>
       </div>
+
+      {errorCol && (
+        <div className="bg-red-900/50 border border-red-700 text-red-300 text-sm px-3 py-2 rounded-lg">
+          {errorCol}
+        </div>
+      )}
 
       {creando && (
         <div className="bg-gray-800 rounded-xl p-4 space-y-3">
@@ -2184,7 +2223,9 @@ function ColeccionesPanel({ authHeader }) {
                     className="w-16 bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm" />
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={guardarEdicion} className="px-3 py-1.5 bg-violet-700 hover:bg-violet-600 rounded text-sm">Guardar</button>
+                  <button onClick={guardarEdicion} disabled={guardando} className="px-3 py-1.5 bg-violet-700 hover:bg-violet-600 rounded text-sm disabled:opacity-50">
+                    {guardando ? 'Guardando...' : 'Guardar'}
+                  </button>
                   <button onClick={() => setEditando(null)} className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm">Cancelar</button>
                 </div>
               </div>
