@@ -17,8 +17,8 @@ export default function Perfil() {
 
   // Precios con descuento del 25%
   const precios = {
-    mensual: { original: 4.99, descuento: 3.74 },
-    anual:   { original: 49.99, descuento: 37.49 }
+    mensual: { original: 5.99, descuento: 4.49 },
+    anual:   { original: 59.99, descuento: 44.99 }
   };
 
   useEffect(() => {
@@ -236,7 +236,7 @@ export default function Perfil() {
               className="w-full btn-primary py-3 flex items-center justify-center gap-2"
             >
               {loading ? <Loader className="w-5 h-5 animate-spin" /> : <CreditCard className="w-5 h-5" />}
-              {loading ? 'Procesando...' : tieneDescuento ? 'Suscribirme — $3.74 USD/mes' : 'Suscribirme mensual'}
+              {loading ? 'Procesando...' : tieneDescuento ? 'Suscribirme — $4.49 USD/mes' : 'Suscribirme mensual'}
             </button>
             <p className="text-xs text-gray-500 text-center mt-2">
               Pago seguro vía Stripe. Cancela en cualquier momento.
@@ -284,7 +284,7 @@ export default function Perfil() {
               className="w-full bg-purple-600 hover:bg-purple-700 text-white py-3 rounded font-bold flex items-center justify-center gap-2 transition"
             >
               {loading ? <Loader className="w-5 h-5 animate-spin" /> : <CreditCard className="w-5 h-5" />}
-              {loading ? 'Procesando...' : tieneDescuento ? 'Suscribirme — $37.49 USD/año' : 'Suscribirme anual'}
+              {loading ? 'Procesando...' : tieneDescuento ? 'Suscribirme — $44.99 USD/año' : 'Suscribirme anual'}
             </button>
             <p className="text-xs text-gray-500 text-center mt-2">
               Pago seguro vía Stripe. Cancela en cualquier momento.
