@@ -17,7 +17,7 @@ const IDIOMAS_TRAD = [
 ];
 import { PRECIOS, detectarMoneda } from '../utils/geoMoneda';
 
-const RE_VUELTA = /^((?:vta|rnd|row|vuelta|round|р(?:яд)?|rg)\.?\s*\d+|\d+[\.:)])\s*/i;
+const RE_VUELTA = /^((?:vta|rnd|row|vuelta|round|р(?:яд)?|rg)\.?\s*\d+|\d+[\.:\)])\s*/i;
 const RE_HEADER = /^(CABEZA|CUERPO|PATAS?|BRAZOS?|OREJAS?|OJOS?|COLA|RELLENO|MATERIALES?|INSTRUCCIONES?|HEAD|BODY|LEGS?|ARMS?|EARS?|EYES?|TAIL|FILLING|HEAD PIECE|BODY PIECE)[:\s]/i;
 
 function LineaPatron({ linea }) {
@@ -32,7 +32,7 @@ function LineaPatron({ linea }) {
   // Round/row line
   const m = t.match(RE_VUELTA);
   if (m) {
-    const num = m[0].trim().replace(/[:\.]$/, '');
+    const num = m[0].trim().replace(/[:.]$/, '');
     const resto = t.slice(m[0].length);
     return (
       <div className="flex gap-2 items-baseline py-0.5">
@@ -166,11 +166,7 @@ export default function Viewer() {
       img.src = url;
       api.post('/viewer/progreso', { patronId: id, paginaActual: numero });
     } catch (err) {
-      if (err.response?.status === 402) {
-        setPaginaError('solo_premium');
-      } else {
-        setPaginaError(`Error ${err.response?.status || ''}: ${err.message}`);
-      }
+      setPaginaError(err.response?.data?.error || `Error ${err.response?.status || ''}: ${err.message}`);
       setLoadingPagina(false);
     }
   };
@@ -247,22 +243,15 @@ export default function Viewer() {
       if (data?.error === 'limite_traduccion') {
         setTextoTraducido(`⚠️ ${data.mensaje}`);
       } else {
-        setTextoTraducido(`⚠️ ${data?.error || 'No se pudo traducir'}`);
+        setTextoTraducido(`Error: ${data?.error || 'No se pudo traducir'}`);
       }
     } finally {
       setTraduciendo(false);
     }
   };
 
-  // Al cambiar de página: mostrar caché si existe, limpiar si no (no auto-llamar API)
   useEffect(() => {
-    if (!tradPanel || !idiomaTraduccion) return;
-    const key = `${id}_${idiomaTraduccion}_${paginaActual}`;
-    if (traduccionesCache.current[key]) {
-      setTextoTraducido(traduccionesCache.current[key]);
-    } else {
-      setTextoTraducido('');
-    }
+    if (tradPanel && idiomaTraduccion && textoTraducido) traducir(idiomaTraduccion, paginaActual);
   }, [paginaActual]);
 
   const marcarCompletado = async () => {
@@ -294,7 +283,7 @@ export default function Viewer() {
     <div className="flex flex-col items-center justify-center min-h-96 px-4 py-12 text-center">
       <Lock className="w-16 h-16 text-gray-600 mb-4" />
       <h2 className="text-xl font-bold mb-2">Crea una cuenta gratis</h2>
-      <p className="text-gray-400 mb-1">Regístrate gratis: <strong className="text-white">1 patrón de prueba gratuito</strong>.</p>
+      <p className="text-gray-400 mb-1">Regístrate gratis: <strong className="text-white">3 patrones de prueba</strong> y luego <strong className="text-white">1 nuevo gratis cada mes</strong>.</p>
       <p className="text-gray-500 text-sm mb-6">No necesitas tarjeta de crédito.</p>
       <div className="flex gap-3 flex-wrap justify-center">
         <button onClick={() => navigate(`/register?redirect=/patron/${id}`)} className="btn-primary">Registrarme gratis</button>
@@ -318,9 +307,9 @@ export default function Viewer() {
           <span className="bg-yellow-500/20 text-yellow-400 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">✨ Precio de lanzamiento</span>
         </div>
         <Crown className="w-14 h-14 text-yellow-400 my-4" />
-        <h2 className="text-2xl font-bold mb-2">¡Tu patrón de prueba gratuito ya fue utilizado!</h2>
+        <h2 className="text-2xl font-bold mb-2">¡Tus 3 patrones gratuitos ya están agotados!</h2>
         <p className="text-gray-400 mb-6">
-          Únete a las suscriptoras Premium y accede a los <strong className="text-white">+8,000 patrones</strong> del catálogo completo, sin límites.
+          Pero no tienes que parar aquí — únete a las <strong className="text-white">+{Math.max(12, 12)} suscriptoras Premium</strong> y accede a los <strong className="text-white">+8,000 patrones</strong> del catálogo completo, sin límites.
         </p>
 
         <div className="w-full bg-gray-800 border border-yellow-500/50 rounded-2xl p-6 mb-4 relative overflow-hidden">
@@ -447,30 +436,14 @@ export default function Viewer() {
             <Loader className="w-10 h-10 text-crochet-primary animate-spin" />
           </div>
         )}
-        {paginaError === 'solo_premium' ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center z-20 bg-gray-950/97 px-6 py-8 text-center">
-            <Crown className="w-14 h-14 text-yellow-400 mb-4" />
-            <h2 className="text-xl font-bold text-white mb-2">Este patrón es exclusivo Premium ⭐</h2>
-            <p className="text-gray-400 mb-6 max-w-xs">
-              ¡No te quedes fuera! Suscríbete y accede a <strong className="text-white">+8,000 patrones</strong> sin límites.
-            </p>
-            <button
-              onClick={() => navigate('/perfil')}
-              className="w-full max-w-xs py-3.5 bg-yellow-500 hover:bg-yellow-400 text-black font-bold rounded-xl transition text-base mb-3">
-              ¡Suscribirme ahora!
-            </button>
-            <button onClick={() => navigate(-1)} className="text-sm text-gray-500 hover:text-gray-300 mt-1">
-              ← Volver al catálogo
-            </button>
-          </div>
-        ) : paginaError ? (
+        {paginaError && (
           <div className="absolute inset-0 flex items-center justify-center z-10">
             <div className="bg-red-900/80 text-red-200 px-6 py-4 rounded-lg text-center max-w-sm">
               <p className="font-bold mb-1">Error cargando página</p>
               <p className="text-sm">{paginaError}</p>
             </div>
           </div>
-        ) : null}
+        )}
         <canvas
           ref={canvasRef}
           className="absolute top-1/2 left-1/2"
@@ -609,29 +582,21 @@ export default function Viewer() {
               ))}
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto px-4 pb-6 border-t border-gray-800 pt-3">
-            {traduciendo ? (
-              <div className="flex flex-col items-center gap-2 text-gray-500 py-8 justify-center">
-                <Loader className="w-5 h-5 animate-spin text-crochet-primary" />
-                <span className="text-sm">Traduciendo página {paginaActual}...</span>
-                <span className="text-xs text-gray-600">Primera vez tarda ~15 seg, luego es instantáneo</span>
-              </div>
-            ) : textoTraducido ? (
-              <div className="divide-y divide-gray-800/40">
-                {textoTraducido.split('\n').map((linea, i) => (
-                  <LineaPatron key={i} linea={linea} />
-                ))}
-              </div>
-            ) : idiomaTraduccion ? (
-              <div className="flex justify-center py-8">
-                <button
-                  onClick={() => traducir(idiomaTraduccion, paginaActual)}
-                  className="px-5 py-2.5 bg-crochet-primary text-white text-sm rounded-full font-medium hover:opacity-90 active:scale-95 transition">
-                  Traducir esta página
-                </button>
-              </div>
-            ) : null}
-          </div>
+          {(traduciendo || textoTraducido) && (
+            <div className="flex-1 overflow-y-auto px-4 pb-6 border-t border-gray-800 pt-3">
+              {traduciendo ? (
+                <div className="flex items-center gap-2 text-gray-500 py-8 justify-center">
+                  <Loader className="w-4 h-4 animate-spin" /> Traduciendo página {paginaActual}...
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-800/40">
+                  {textoTraducido.split('\n').map((linea, i) => (
+                    <LineaPatron key={i} linea={linea} />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
