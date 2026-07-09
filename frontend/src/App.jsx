@@ -8,6 +8,7 @@ import Viewer from './pages/Viewer';
 import MiLista from './pages/MiLista';
 import Descargas from './pages/Descargas';
 import Perfil from './pages/Perfil';
+import Admin from './pages/Admin';
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
           <Route path="descargas" element={<Descargas />} />
           <Route path="perfil" element={<Perfil />} />
         </Route>
+        <Route path="/admin" element={<Admin />} />
       </Routes>
     </AuthProvider>
   );
