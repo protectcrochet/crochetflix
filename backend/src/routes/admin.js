@@ -285,7 +285,11 @@ router.get('/patrones', verifyAdmin, async (req, res) => {
   try {
     const patrones = await new Promise((resolve, reject) => {
       db.all(
-        'SELECT id, titulo, categoria, es_premium, es_solo_premium, paginas, created_at FROM patrones ORDER BY created_at DESC',
+        `SELECT id, titulo, descripcion, autor, diseñadora, categoria, subcategoria,
+                dificultad, idioma, tiempo_minutos, paginas, activo, es_preview,
+                es_premium, es_solo_premium, pdf_hash, pdf_corrupto, conversion_intentos,
+                destacado, tendencia, verificado, hero_position, thumbnail_path, created_at
+         FROM patrones ORDER BY created_at DESC`,
         [],
         (err, rows) => {
           if (err) reject(err);
