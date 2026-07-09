@@ -39,23 +39,40 @@ RÈGLES:
 3. Сохраняйте формат. Отвечайте ТОЛЬКО переведённым текстом.`,
 };
 
-async function groqTraducirTexto(texto, idioma) {
+async function groqPost(payload) {
   const key = process.env.GROQ_API_KEY;
   if (!key) throw new Error('GROQ_API_KEY no configurado');
-  const resp = await axios.post(
-    'https://api.groq.com/openai/v1/chat/completions',
-    {
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        { role: 'system', content: SISTEMAS[idioma] },
-        { role: 'user', content: texto },
-      ],
-      temperature: 0.2,
-      max_tokens: 4096,
-    },
-    { headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, timeout: 60000 }
-  );
-  return resp.data.choices[0].message.content.trim();
+  for (let intento = 0; intento < 3; intento++) {
+    try {
+      const resp = await axios.post(
+        'https://api.groq.com/openai/v1/chat/completions',
+        payload,
+        { headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, timeout: 90000 }
+      );
+      return resp.data.choices[0].message.content.trim();
+    } catch (e) {
+      if (e.response?.status === 429) {
+        if (intento < 2) {
+          await new Promise(r => setTimeout(r, 20000)); // wait 20s then retry
+          continue;
+        }
+        throw new Error('rate_limit');
+      }
+      throw e;
+    }
+  }
+}
+
+async function groqTraducirTexto(texto, idioma) {
+  return groqPost({
+    model: 'llama-3.3-70b-versatile',
+    messages: [
+      { role: 'system', content: SISTEMAS[idioma] },
+      { role: 'user', content: texto },
+    ],
+    temperature: 0.2,
+    max_tokens: 4096,
+  });
 }
 
 function resizeImgPath(imgPath) {
@@ -78,26 +95,18 @@ async function groqVisionTraducir(imgPath, idioma) {
   const imgBase64 = fs.readFileSync(resizedPath).toString('base64');
   if (resizedPath !== imgPath) { try { fs.unlinkSync(resizedPath); } catch {} }
 
-  // Single model attempt — no retry to avoid doubling timeout
-  const resp = await axios.post(
-    'https://api.groq.com/openai/v1/chat/completions',
-    {
-      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'text', text: `Extrae TODO el texto de esta página de patrón de crochet y tradúcelo al ${nombre}. Mantén la estructura. Devuelve SOLO el texto traducido.` },
-          { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${imgBase64}` } },
-        ],
-      }],
-      temperature: 0.2,
-      max_tokens: 1500,
-    },
-    { headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, timeout: 90000 }
-  );
-  const texto = resp.data.choices?.[0]?.message?.content?.trim();
-  if (!texto) throw new Error('Respuesta vacía de Groq');
-  return texto;
+  return groqPost({
+    model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+    messages: [{
+      role: 'user',
+      content: [
+        { type: 'text', text: `Extrae TODO el texto de esta página de patrón de crochet y tradúcelo al ${nombre}. Mantén la estructura. Devuelve SOLO el texto traducido.` },
+        { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${imgBase64}` } },
+      ],
+    }],
+    temperature: 0.2,
+    max_tokens: 1500,
+  });
 }
 
 // Listar patrones (con info de preview gratis)
@@ -398,6 +407,9 @@ exports.traducir = async (req, res) => {
 
   } catch (err) {
     console.error('[traduccion]', err.message);
-    res.status(500).json({ error: err.message || 'No se pudo traducir' });
+    if (err.message === 'rate_limit') {
+      return res.status(503).json({ error: 'Servicio ocupado. Intenta en 1 minuto.' });
+    }
+    res.status(500).json({ error: 'No se pudo traducir' });
   }
 };
