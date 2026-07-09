@@ -35,3 +35,7 @@ Thumbs.db
 *.swp
 *.swo
 
+# Bot scripts with hardcoded credentials (live on server at /root/)
+bots/sync_patrones_vps.py
+bots/sync_mermaid.py
+
