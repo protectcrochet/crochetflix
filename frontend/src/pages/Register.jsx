@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Mail } from 'lucide-react';
 
 export default function Register() {
   const [email, setEmail] = useState('');
@@ -10,6 +10,7 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [registrado, setRegistrado] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
 
@@ -31,13 +32,31 @@ export default function Register() {
 
     try {
       await register(email, password);
-      navigate('/');
+      setRegistrado(true);
     } catch (err) {
       setError(err.response?.data?.error || 'Error al registrarse');
     } finally {
       setLoading(false);
     }
   };
+
+  if (registrado) {
+    return (
+      <div className="min-h-[70vh] flex items-center justify-center px-4">
+        <div className="w-full max-w-md text-center">
+          <Mail className="w-16 h-16 text-crochet-primary mx-auto mb-4" />
+          <h1 className="text-2xl font-bold mb-2">¡Cuenta creada!</h1>
+          <p className="text-gray-400 mb-1">
+            Te enviamos un correo a <strong className="text-white">{email}</strong>
+          </p>
+          <p className="text-gray-500 text-sm mb-6">Haz clic en el enlace del correo para verificar tu cuenta.</p>
+          <button onClick={() => navigate('/')} className="btn-primary px-8 py-3">
+            Explorar CrochetFlix
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4">

@@ -8,5 +8,7 @@ router.post('/login', authController.login);
 router.get('/me', authMiddleware, authController.me);
 router.get('/historial', authMiddleware, authController.historial);
 router.get('/referidos', authMiddleware, authController.referidos);
+router.get('/verificar-email', authController.verificarEmail);
+router.post('/reenviar-verificacion', authMiddleware, authController.reenviarVerificacion);
 
 module.exports = router;

@@ -10,6 +10,7 @@ import Descargas from './pages/Descargas';
 import Perfil from './pages/Perfil';
 import Catalogo from './pages/Catalogo';
 import Admin from './pages/Admin';
+import VerificarEmail from './pages/VerificarEmail';
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
           <Route path="descargas" element={<Descargas />} />
           <Route path="perfil" element={<Perfil />} />
           <Route path="catalogo" element={<Catalogo />} />
+          <Route path="verificar-email" element={<VerificarEmail />} />
         </Route>
         <Route path="/admin" element={<Admin />} />
       </Routes>
