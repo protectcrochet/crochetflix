@@ -110,6 +110,14 @@ function initTables() {
     const patronMigraciones = [
       `ALTER TABLE patrones ADD COLUMN pdf_hash TEXT`,
       `ALTER TABLE patrones ADD COLUMN es_solo_premium INTEGER DEFAULT 0`,
+      `ALTER TABLE patrones ADD COLUMN diseñadora TEXT`,
+      `ALTER TABLE patrones ADD COLUMN subcategoria TEXT`,
+      `ALTER TABLE patrones ADD COLUMN idioma TEXT DEFAULT 'es'`,
+      `ALTER TABLE patrones ADD COLUMN destacado INTEGER DEFAULT 0`,
+      `ALTER TABLE patrones ADD COLUMN tendencia INTEGER DEFAULT 0`,
+      `ALTER TABLE patrones ADD COLUMN verificado INTEGER DEFAULT 0`,
+      `ALTER TABLE patrones ADD COLUMN pdf_corrupto INTEGER DEFAULT 0`,
+      `ALTER TABLE patrones ADD COLUMN hero_position TEXT`,
     ];
     patronMigraciones.forEach(sql => {
       db.run(sql, (err) => {
