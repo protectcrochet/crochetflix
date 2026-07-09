@@ -112,32 +112,6 @@ exports.login = async (req, res) => {
   }
 };
 
-exports.historial = async (req, res) => {
-  try {
-    const patrones = await new Promise((resolve, reject) => {
-      db.all(`
-        SELECT pr.patron_id as id, pat.titulo, pat.thumbnail_path, pat.paginas,
-               pat.diseñadora, pat.autor, pat.categoria,
-               pr.pagina_actual, pr.completado, pr.ultimo_acceso
-        FROM progreso pr
-        JOIN patrones pat ON pat.id = pr.patron_id
-        WHERE pr.user_id = ? AND pat.activo = 1
-        ORDER BY pr.ultimo_acceso DESC
-        LIMIT 12
-      `, [req.userId], (err, rows) => { if (err) reject(err); else resolve(rows || []); });
-    });
-    res.json({ patrones });
-  } catch (err) {
-    console.error('Error historial:', err);
-    res.status(500).json({ error: 'Error interno' });
-  }
-};
-
-exports.referidos = async (req, res) => {
-  // Placeholder — se puede implementar sistema de referidos en el futuro
-  res.json({ codigo: null, referidos: 0, descuento: 0 });
-};
-
 exports.me = async (req, res) => {
   try {
     const user = await new Promise((resolve, reject) => {
