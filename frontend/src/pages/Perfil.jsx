@@ -1,25 +1,44 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
-import { Crown, Check, Clock, Loader, CreditCard, Tag, Calendar, Star, History } from 'lucide-react';
+import { Crown, Check, Clock, Loader, CreditCard, Calendar, Star, History } from 'lucide-react';
+
+const PRECIOS_GEO = {
+  MX: { moneda: 'MXN', simbolo: '$', mensual: 100,   anual: 1000,  locale: 'es-MX' },
+  US: { moneda: 'USD', simbolo: '$', mensual: 5.99,  anual: 59.99, locale: 'en-US' },
+  CA: { moneda: 'CAD', simbolo: '$', mensual: 7.99,  anual: 79.99, locale: 'en-CA' },
+  CO: { moneda: 'COP', simbolo: '$', mensual: 25000, anual: 250000,locale: 'es-CO' },
+  AR: { moneda: 'ARS', simbolo: '$', mensual: 5000,  anual: 50000, locale: 'es-AR' },
+  PE: { moneda: 'PEN', simbolo: 'S/', mensual: 22,   anual: 220,   locale: 'es-PE' },
+  CL: { moneda: 'CLP', simbolo: '$', mensual: 5500,  anual: 55000, locale: 'es-CL' },
+  ES: { moneda: 'EUR', simbolo: '€', mensual: 5.49,  anual: 54.99, locale: 'es-ES' },
+  DEFAULT: { moneda: 'USD', simbolo: '$', mensual: 5.99, anual: 59.99, locale: 'en-US' },
+};
+
+function formatPrecio(monto, geo) {
+  return new Intl.NumberFormat(geo.locale, {
+    style: 'currency', currency: geo.moneda, maximumFractionDigits: monto >= 100 ? 0 : 2
+  }).format(monto);
+}
 
 export default function Perfil() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [suscInfo, setSuscInfo] = useState(null);
+  const [geo, setGeo] = useState(PRECIOS_GEO.DEFAULT);
 
   const esPremium = user?.tier === 'premium';
-  const tieneDescuento = user?.new_account_discount === 1;
-  const expira = user?.subscription_expires_at 
+  const expira = user?.subscription_expires_at
     ? new Date(user.subscription_expires_at).toLocaleDateString('es-MX')
     : null;
 
-  // Precios con descuento del 25%
-  const precios = {
-    mensual: { original: 5.99, descuento: 4.49 },
-    anual:   { original: 59.99, descuento: 44.99 }
-  };
+  useEffect(() => {
+    fetch('https://ipapi.co/json/')
+      .then(r => r.json())
+      .then(d => setGeo(PRECIOS_GEO[d.country_code] || PRECIOS_GEO.DEFAULT))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!esPremium) return;
@@ -49,16 +68,6 @@ export default function Perfil() {
     <div className="max-w-2xl mx-auto px-4 py-6">
       <h1 className="text-2xl font-bold mb-6">Perfil</h1>
 
-      {/* Banner descuento cuenta nueva */}
-      {tieneDescuento && !esPremium && (
-        <div className="bg-gradient-to-r from-crochet-primary/30 to-purple-900/30 border border-crochet-primary rounded-lg p-4 mb-6 flex items-center gap-3">
-          <Tag className="w-5 h-5 text-crochet-primary flex-shrink-0" />
-          <div>
-            <p className="font-bold text-crochet-primary">¡25% de descuento por ser cuenta nueva!</p>
-            <p className="text-sm text-gray-300">Este descuento se aplica automáticamente en tu primera suscripción.</p>
-          </div>
-        </div>
-      )}
 
       {/* Info usuario */}
       <div className="bg-gray-800 rounded-lg p-6 mb-6">
@@ -197,20 +206,8 @@ export default function Perfil() {
                 <span className="text-xs text-crochet-primary">Flexibilidad total</span>
               </div>
               <div className="text-right">
-                {tieneDescuento && (
-                  <div className="text-sm text-gray-400 line-through">${precios.mensual.original} USD</div>
-                )}
-                <div className="flex items-baseline gap-1">
-                  <span className="text-2xl font-bold">
-                    ${tieneDescuento ? precios.mensual.descuento : precios.mensual.original}
-                  </span>
-                  <span className="text-sm text-gray-400">USD/mes</span>
-                </div>
-                {tieneDescuento && (
-                  <span className="inline-block bg-green-600 text-white text-xs font-bold px-2 py-0.5 rounded mt-1">
-                    25% OFF
-                  </span>
-                )}
+                <div className="text-2xl font-bold">{formatPrecio(geo.mensual, geo)}</div>
+                <div className="text-xs text-gray-400">{geo.moneda}/mes</div>
               </div>
             </div>
             <ul className="space-y-2 text-sm text-gray-300 mb-4">
@@ -236,7 +233,7 @@ export default function Perfil() {
               className="w-full btn-primary py-3 flex items-center justify-center gap-2"
             >
               {loading ? <Loader className="w-5 h-5 animate-spin" /> : <CreditCard className="w-5 h-5" />}
-              {loading ? 'Procesando...' : tieneDescuento ? 'Suscribirme — $4.49 USD/mes' : 'Suscribirme mensual'}
+              {loading ? 'Procesando...' : `Suscribirme — ${formatPrecio(geo.mensual, geo)}/mes`}
             </button>
             <p className="text-xs text-gray-500 text-center mt-2">
               Pago seguro vía Stripe. Cancela en cualquier momento.
@@ -251,20 +248,8 @@ export default function Perfil() {
                 <span className="text-xs text-purple-400">Ahorra 2 meses</span>
               </div>
               <div className="text-right">
-                {tieneDescuento && (
-                  <div className="text-sm text-gray-400 line-through">${precios.anual.original} USD</div>
-                )}
-                <div className="flex items-baseline gap-1">
-                  <span className="text-2xl font-bold">
-                    ${tieneDescuento ? precios.anual.descuento : precios.anual.original}
-                  </span>
-                  <span className="text-sm text-gray-400">USD/año</span>
-                </div>
-                {tieneDescuento && (
-                  <span className="inline-block bg-green-600 text-white text-xs font-bold px-2 py-0.5 rounded mt-1">
-                    25% OFF
-                  </span>
-                )}
+                <div className="text-2xl font-bold">{formatPrecio(geo.anual, geo)}</div>
+                <div className="text-xs text-gray-400">{geo.moneda}/año</div>
               </div>
             </div>
             <ul className="space-y-2 text-sm text-gray-300 mb-4">
@@ -284,7 +269,7 @@ export default function Perfil() {
               className="w-full bg-purple-600 hover:bg-purple-700 text-white py-3 rounded font-bold flex items-center justify-center gap-2 transition"
             >
               {loading ? <Loader className="w-5 h-5 animate-spin" /> : <CreditCard className="w-5 h-5" />}
-              {loading ? 'Procesando...' : tieneDescuento ? 'Suscribirme — $44.99 USD/año' : 'Suscribirme anual'}
+              {loading ? 'Procesando...' : `Suscribirme — ${formatPrecio(geo.anual, geo)}/año`}
             </button>
             <p className="text-xs text-gray-500 text-center mt-2">
               Pago seguro vía Stripe. Cancela en cualquier momento.
