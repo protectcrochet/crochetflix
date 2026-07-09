@@ -24,7 +24,12 @@ exports.listar = async (req, res) => {
     if (destacado === '1') { sql += ' AND p.destacado = 1'; }
     if (tendencia === '1') { sql += ' AND p.tendencia = 1'; }
     if (search) {
-      sql += ' AND (p.titulo LIKE ? OR p.autor LIKE ? OR p.diseñadora LIKE ?)';
+      // Use CASE WHEN so that fields with placeholder values like "Telegram" are excluded from search
+      sql += ` AND (
+        p.titulo LIKE ?
+        OR (CASE WHEN LOWER(p.autor) LIKE '%telegram%' OR LOWER(p.autor) IN ('autor','autora','diseñadora','desconocida','n/a','sin nombre','pdf','file') THEN NULL ELSE p.autor END) LIKE ?
+        OR (CASE WHEN LOWER(p.diseñadora) LIKE '%telegram%' OR LOWER(p.diseñadora) IN ('autor','autora','diseñadora','desconocida','n/a','sin nombre','pdf','file') THEN NULL ELSE p.diseñadora END) LIKE ?
+      )`;
       params.push(`%${search}%`, `%${search}%`, `%${search}%`);
     }
 
@@ -33,9 +38,20 @@ exports.listar = async (req, res) => {
     const lim = parseInt(limit) || 0;
     if (lim > 0) sql += ` LIMIT ${lim}`;
 
+    const BAD_VALUES = new Set(['telegram','autor','autora','diseñadora','desconocida','unknown','n/a','sin nombre','pdf','file']);
+    const cleanField = (v) => {
+      if (!v) return null;
+      const lower = v.toLowerCase();
+      if (lower.includes('telegram') || BAD_VALUES.has(lower)) return null;
+      return v;
+    };
+
     const [patrones, total] = await Promise.all([
       new Promise((resolve, reject) => {
-        db.all(sql, params, (err, rows) => { if (err) reject(err); else resolve(rows || []); });
+        db.all(sql, params, (err, rows) => {
+          if (err) reject(err);
+          else resolve((rows || []).map(p => ({ ...p, autor: cleanField(p.autor), diseñadora: cleanField(p.diseñadora) })));
+        });
       }),
       new Promise((resolve, reject) => {
         db.get(`SELECT COUNT(*) as n FROM patrones WHERE activo = 1 AND paginas > 0`, [],
