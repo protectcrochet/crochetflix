@@ -107,9 +107,9 @@ exports.detalle = async (req, res) => {
           [userId], (err, r) => { if (err) reject(err); else resolve(r); });
       });
       patronesUsados = row?.n || 0;
-      errorAcceso = 'sin_suscripcion';
+      errorAcceso = 'limite_free';
     } else if (!tieneAcceso) {
-      errorAcceso = 'no_autenticado';
+      errorAcceso = 'sin_registro';
     }
 
     // Progreso del usuario
