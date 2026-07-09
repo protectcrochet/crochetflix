@@ -213,10 +213,21 @@ def main():
 
         nuevo_titulo = res.get('titulo')
         nueva_dis    = res.get('diseñadora')
+
+        # Groq a veces devuelve el string literal "null"
+        if nuevo_titulo in ('null', 'None', 'NULL', ''):
+            nuevo_titulo = None
+        if nueva_dis in ('null', 'None', 'NULL', ''):
+            nueva_dis = None
+
         print(f'  → titulo="{nuevo_titulo}"  diseñadora="{nueva_dis}"')
 
+        # Titulo "malo": vacío o solo números/caracteres raros
+        titulo_malo = (not titulo or titulo.replace(' ', '').isdigit()
+                       or len(titulo.replace(' ', '')) < 3)
+
         campos, vals = [], []
-        if nuevo_titulo and not titulo:
+        if nuevo_titulo and titulo_malo:
             campos.append('titulo = ?')
             vals.append(nuevo_titulo)
         if nueva_dis and not dis:
