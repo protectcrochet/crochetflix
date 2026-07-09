@@ -178,7 +178,9 @@ def main():
                OR diseñadora IS NULL OR diseñadora = ''
                OR LOWER(titulo) IN ('telegram','sin título','sin titulo','untitled',
                                     'pattern','crochet','amigurumi','patron','n/a',
-                                    'diseñadora','autor','file','pdf'))
+                                    'diseñadora','autor','file','pdf')
+               OR LOWER(diseñadora) IN ('diseñadora','autor','autora','desconocida',
+                                        'unknown','n/a','sin nombre','telegram','pdf','file'))
         ORDER BY created_at DESC
     """)
     todos = cur.fetchall()
@@ -239,18 +241,26 @@ def main():
             'pattern', 'crochet', 'amigurumi', 'patron', 'n/a',
             'diseñadora', 'autor', 'file', 'pdf',
         }
+        DIS_MALAS = {
+            'diseñadora', 'autor', 'autora', 'desconocida',
+            'unknown', 'n/a', 'sin nombre', 'telegram', 'pdf', 'file',
+        }
         titulo_malo = (
             not titulo
             or titulo.replace(' ', '').isdigit()
             or len(titulo.replace(' ', '')) < 3
             or titulo.strip().lower() in TITULOS_MALOS
         )
+        dis_mala = (
+            not dis
+            or dis.strip().lower() in DIS_MALAS
+        )
 
         campos, vals = [], []
         if nuevo_titulo and titulo_malo:
             campos.append('titulo = ?')
             vals.append(nuevo_titulo)
-        if nueva_dis and not dis:
+        if nueva_dis and dis_mala:
             campos.append('diseñadora = ?')
             vals.append(nueva_dis)
 
