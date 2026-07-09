@@ -99,6 +99,16 @@ exports.detalle = async (req, res) => {
       }
     }
 
+    // Progreso del usuario (fetch early — needed for free-limit check)
+    const progresoRaw = await new Promise((resolve, reject) => {
+      db.get(
+        'SELECT pagina_actual, completado, descargado_offline FROM progreso WHERE user_id = ? AND patron_id = ?',
+        [userId, id],
+        (err, row) => { if (err) reject(err); else resolve(row || null); }
+      );
+    });
+    const progreso = progresoRaw || { pagina_actual: 1, completado: 0, descargado_offline: 0 };
+
     // Contar patrones abiertos por usuario free
     let patronesUsados = 0;
     if (!tieneAcceso && userId) {
@@ -107,19 +117,15 @@ exports.detalle = async (req, res) => {
           [userId], (err, r) => { if (err) reject(err); else resolve(r); });
       });
       patronesUsados = row?.n || 0;
-      errorAcceso = 'limite_free';
+      // Grant access if under 3-pattern limit OR if user already started this pattern
+      if (patronesUsados < 3 || progresoRaw !== null) {
+        tieneAcceso = true;
+      } else {
+        errorAcceso = 'limite_free';
+      }
     } else if (!tieneAcceso) {
       errorAcceso = 'sin_registro';
     }
-
-    // Progreso del usuario
-    const progreso = await new Promise((resolve, reject) => {
-      db.get(
-        'SELECT pagina_actual, completado, descargado_offline FROM progreso WHERE user_id = ? AND patron_id = ?',
-        [userId, id],
-        (err, row) => { if (err) reject(err); else resolve(row || { pagina_actual: 1, completado: 0, descargado_offline: 0 }); }
-      );
-    });
 
     res.json({
       patron,
