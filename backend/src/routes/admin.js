@@ -200,49 +200,19 @@ Reglas:
 // ── Subir patrón ──────────────────────────────────────────────────────────────
 
 router.post('/patrones', verifyAdmin, upload.single('pdf'), async (req, res) => {
+  const pdfPath = req.file?.path;
   try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No se subió ningún PDF' });
-    }
+    if (!req.file) return res.status(400).json({ error: 'No se subió ningún PDF' });
 
-    const { titulo, descripcion, categoria, esPremium, esSoloPremium } = req.body;
-    
+    const { titulo, descripcion, autor, diseñadora, categoria, subcategoria,
+            dificultad, idioma, tiempo_minutos, es_preview, es_solo_premium, esPremium } = req.body;
+
     if (!titulo || !categoria) {
-      fs.unlinkSync(req.file.path);
+      fs.unlinkSync(pdfPath);
       return res.status(400).json({ error: 'Título y categoría son obligatorios' });
     }
 
-    const id = uuidv4();
-    const pdfPath = req.file.path;
-    const pdfFilename = req.file.filename;
-    
-    const { fromPath } = require('pdf2pic');
-    const uploadDir = path.join(__dirname, '../../uploads/patrones');
-    const imagenesDir = path.join(uploadDir, 'imagenes', id);
-    
-    if (!fs.existsSync(imagenesDir)) {
-      fs.mkdirSync(imagenesDir, { recursive: true });
-    }
-
-    const options = {
-      density: 150,
-      saveFilename: 'page',
-      savePath: imagenesDir,
-      format: 'png',
-      width: 1200,
-      height: 1600
-    };
-
-    const convert = fromPath(pdfPath, options);
-    const response = await convert.bulk(-1);
-    
-    const totalPaginas = response.length;
-    const imagenes = response.map((img, index) => ({
-      pagina: index + 1,
-      url: `/uploads/patrones/imagenes/${id}/page_${index + 1}.png`
-    }));
-
-    // Verificar hash para evitar PDFs duplicados
+    // Hash para detectar duplicados exactos
     const pdfHash = crypto.createHash('sha256').update(fs.readFileSync(pdfPath)).digest('hex');
     const hashExistente = await new Promise((resolve, reject) => {
       db.get('SELECT id, titulo FROM patrones WHERE pdf_hash = ?', [pdfHash], (err, row) => {
@@ -254,29 +224,60 @@ router.post('/patrones', verifyAdmin, upload.single('pdf'), async (req, res) => 
       return res.status(409).json({ error: `PDF duplicado: ya existe "${hashExistente.titulo}"`, patronExistente: hashExistente });
     }
 
+    const patronId = `patron-${uuidv4()}`;
+    const { fromPath } = require('pdf2pic');
+    const patronDir = path.join(__dirname, '../../uploads/patrones', patronId);
+    if (!fs.existsSync(patronDir)) fs.mkdirSync(patronDir, { recursive: true });
+
+    const convert = fromPath(pdfPath, {
+      density: 150,
+      saveFilename: 'pagina',
+      savePath: patronDir,
+      format: 'jpeg',
+      width: 1200,
+      height: 1600,
+    });
+
+    const response = await convert.bulk(-1);
+    const totalPaginas = response.length;
+
+    // Insertar patrón
     await new Promise((resolve, reject) => {
       db.run(
-        `INSERT INTO patrones (id, titulo, descripcion, categoria, es_premium, es_solo_premium, pdf_filename, pdf_hash, total_paginas, imagenes, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-        [id, titulo, descripcion, categoria, esPremium === 'true' ? 1 : 0, esSoloPremium === 'true' ? 1 : 0, pdfFilename, pdfHash, totalPaginas, JSON.stringify(imagenes)],
-        function(err) {
-          if (err) reject(err);
-          resolve();
-        }
+        `INSERT INTO patrones (id, titulo, descripcion, autor, diseñadora, categoria, subcategoria,
+          dificultad, idioma, tiempo_minutos, es_preview, es_premium, es_solo_premium, pdf_hash, paginas, activo, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'))`,
+        [patronId, titulo, descripcion || '', autor || '', diseñadora || '',
+         categoria, subcategoria || '', dificultad || 'principiante', idioma || 'es',
+         parseInt(tiempo_minutos) || null,
+         es_preview === 'true' ? 1 : 0,
+         esPremium === 'true' ? 1 : 0,
+         es_solo_premium === 'true' ? 1 : 0,
+         pdfHash, totalPaginas],
+        function(err) { if (err) reject(err); else resolve(); }
       );
     });
 
-    res.json({
-      success: true,
-      patron: { id, titulo, categoria, totalPaginas, esPremium: esPremium === 'true' }
-    });
+    // Insertar páginas
+    for (let i = 0; i < totalPaginas; i++) {
+      await new Promise((resolve, reject) => {
+        db.run(
+          'INSERT INTO paginas (id, patron_id, numero, archivo_path) VALUES (?, ?, ?, ?)',
+          [uuidv4(), patronId, i + 1, `patrones/${patronId}/pagina_${i + 1}.jpg`],
+          function(err) { if (err) reject(err); else resolve(); }
+        );
+      });
+    }
+
+    // Eliminar PDF original (ya convertido)
+    fs.unlinkSync(pdfPath);
+
+    res.json({ success: true, patron: { id: patronId, titulo, categoria, paginas: totalPaginas } });
 
   } catch (err) {
     console.error('Error subiendo patrón:', err);
-    if (req.file && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
-    }
-    res.status(500).json({ error: 'Error procesando el patrón' });
+    if (pdfPath && fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath);
+    res.status(500).json({ error: 'Error procesando el patrón: ' + err.message });
   }
 });
 
@@ -284,7 +285,7 @@ router.get('/patrones', verifyAdmin, async (req, res) => {
   try {
     const patrones = await new Promise((resolve, reject) => {
       db.all(
-        'SELECT id, titulo, categoria, es_premium, es_solo_premium, total_paginas, created_at FROM patrones ORDER BY created_at DESC',
+        'SELECT id, titulo, categoria, es_premium, es_solo_premium, paginas, created_at FROM patrones ORDER BY created_at DESC',
         [],
         (err, rows) => {
           if (err) reject(err);
@@ -302,30 +303,23 @@ router.delete('/patrones/:id', verifyAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const patron = await new Promise((resolve, reject) => {
-      db.get('SELECT pdf_filename FROM patrones WHERE id = ?', [id], (err, row) => {
-        if (err) reject(err);
-        resolve(row);
+      db.get('SELECT id FROM patrones WHERE id = ?', [id], (err, row) => {
+        if (err) reject(err); else resolve(row);
       });
     });
 
-    if (!patron) {
-      return res.status(404).json({ error: 'Patrón no encontrado' });
-    }
+    if (!patron) return res.status(404).json({ error: 'Patrón no encontrado' });
 
-    const uploadDir = path.join(__dirname, '../../uploads/patrones');
-    const pdfPath = path.join(uploadDir, patron.pdf_filename);
-    const imagenesDir = path.join(uploadDir, 'imagenes', id);
+    // Eliminar carpeta de imágenes del patrón
+    const patronDir = path.join(__dirname, '../../uploads/patrones', id);
+    if (fs.existsSync(patronDir)) fs.rmSync(patronDir, { recursive: true, force: true });
 
-    if (fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath);
-    if (fs.existsSync(imagenesDir)) {
-      fs.rmSync(imagenesDir, { recursive: true, force: true });
-    }
-
+    // Eliminar páginas y patrón de la BD
     await new Promise((resolve, reject) => {
-      db.run('DELETE FROM patrones WHERE id = ?', [id], function(err) {
-        if (err) reject(err);
-        resolve();
-      });
+      db.run('DELETE FROM paginas WHERE patron_id = ?', [id], function(err) { if (err) reject(err); else resolve(); });
+    });
+    await new Promise((resolve, reject) => {
+      db.run('DELETE FROM patrones WHERE id = ?', [id], function(err) { if (err) reject(err); else resolve(); });
     });
 
     res.json({ success: true, message: 'Patrón eliminado' });
