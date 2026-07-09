@@ -21,9 +21,26 @@ db.run(`CREATE TABLE IF NOT EXISTS coleccion_patrones (
 )`);
 
 router.get('/', (req, res) => {
-  db.all(`SELECT * FROM colecciones WHERE activa = 1 ORDER BY orden ASC, created_at DESC`, [], (err, rows) => {
+  db.all(`SELECT * FROM colecciones WHERE activa = 1 ORDER BY orden ASC, created_at DESC`, [], (err, cols) => {
     if (err) return res.status(500).json({ error: 'Error interno' });
-    res.json(rows || []);
+    if (!cols || cols.length === 0) return res.json([]);
+
+    let pendientes = cols.length;
+    const resultado = cols.map(c => ({ ...c, patrones: [] }));
+
+    resultado.forEach((col, i) => {
+      db.all(
+        `SELECT p.* FROM patrones p
+         JOIN coleccion_patrones cp ON cp.patron_id = p.id
+         WHERE cp.coleccion_id = ? AND p.activo = 1
+         ORDER BY cp.orden ASC`,
+        [col.id],
+        (err2, patrones) => {
+          resultado[i].patrones = patrones || [];
+          if (--pendientes === 0) res.json(resultado);
+        }
+      );
+    });
   });
 });
 
