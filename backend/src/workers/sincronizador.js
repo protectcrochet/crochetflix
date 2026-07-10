@@ -28,11 +28,25 @@ function contarCorruptos(cb) {
   );
 }
 
+function bajarVencidos() {
+  db.run(
+    `UPDATE users SET tier = 'free', subscription_expires_at = NULL
+     WHERE tier = 'premium' AND subscription_expires_at IS NOT NULL
+       AND subscription_expires_at < datetime('now')`,
+    [],
+    function(err) {
+      if (err) { console.error('[worker] Error bajando vencidos:', err.message); return; }
+      if (this.changes > 0) console.log(`[worker] ${this.changes} suscripción(es) vencida(s) → free`);
+    }
+  );
+}
+
 function ciclo() {
+  bajarVencidos();
   const pdfsBot = contarPdfsBot();
   contarPendientes(pendientes => {
     contarCorruptos(corruptos => {
-      const nuevos = 0; // procesados en tiempo real por el endpoint POST /patrones
+      const nuevos = 0;
       console.log(`[worker] Ciclo — PDFs bot: ${pdfsBot}, nuevos: ${nuevos}, pendientes: ${pendientes}, corruptos: ${corruptos}`);
     });
   });

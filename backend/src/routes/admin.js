@@ -431,8 +431,8 @@ router.get('/stats', verifyAdmin, async (req, res) => {
           (SELECT COUNT(*) FROM patrones WHERE destacado = 1) as heroes,
           (SELECT COUNT(*) FROM patrones WHERE tendencia = 1) as tendencia,
           (SELECT COUNT(*) FROM users) as total_users,
-          (SELECT COUNT(*) FROM users WHERE tier = 'premium') as premium_users,
-          (SELECT COUNT(*) FROM users WHERE tier != 'premium') as usuariosFree`,
+          (SELECT COUNT(*) FROM users WHERE tier = 'premium' AND subscription_expires_at > datetime('now')) as premium_users,
+          (SELECT COUNT(*) FROM users WHERE tier != 'premium' OR subscription_expires_at <= datetime('now') OR subscription_expires_at IS NULL) as usuariosFree`,
         [],
         (err, r) => { if (err) reject(err); else resolve(r); }
       );
@@ -599,8 +599,8 @@ router.get('/analytics', verifyAdmin, async (req, res) => {
           SELECT
             (SELECT COUNT(*)               FROM progreso WHERE date(ultimo_acceso) = ?)  as visitasHoy,
             (SELECT COUNT(DISTINCT user_id) FROM progreso WHERE date(ultimo_acceso) = ?)  as usuariosUnicosHoy,
-            (SELECT COUNT(*) FROM users WHERE tier = 'free')                              as usuariosFree,
-            (SELECT COUNT(*) FROM users WHERE tier = 'premium')                           as usuariosPremium,
+            (SELECT COUNT(*) FROM users WHERE tier = 'free' OR subscription_expires_at <= datetime('now') OR subscription_expires_at IS NULL) as usuariosFree,
+            (SELECT COUNT(*) FROM users WHERE tier = 'premium' AND subscription_expires_at > datetime('now')) as usuariosPremium,
             (SELECT COUNT(*)               FROM progreso WHERE date(ultimo_acceso) >= ?) as visitasSemana,
             (SELECT COUNT(DISTINCT user_id) FROM progreso WHERE date(ultimo_acceso) >= ?) as usuariosUnicosSemana,
             (SELECT COUNT(*) FROM users WHERE date(created_at) = ?)                      as registrosHoy,
