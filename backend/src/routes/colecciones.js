@@ -20,6 +20,14 @@ db.run(`ALTER TABLE colecciones ADD COLUMN emoji TEXT DEFAULT '🧶'`, (err) => 
   }
 });
 
+db.run(`ALTER TABLE colecciones ADD COLUMN activa BOOLEAN DEFAULT 1`, (err) => {
+  if (err && !err.message.includes('duplicate column name')) {
+    console.error('Error migración activa colecciones:', err.message);
+  }
+});
+
+db.run(`UPDATE colecciones SET activa = 1 WHERE activa IS NULL`);
+
 db.run(`CREATE TABLE IF NOT EXISTS coleccion_patrones (
   coleccion_id TEXT NOT NULL,
   patron_id TEXT NOT NULL,
