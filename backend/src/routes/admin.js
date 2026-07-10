@@ -10,6 +10,9 @@ const db = require('../models');
 
 const ADMIN_SECRET = process.env.ADMIN_SECRET;
 
+let groqRunning = false;
+let groqProgreso = { actualizados: 0, restantes: 0 };
+
 function verifyAdmin(req, res, next) {
   const authHeader = req.headers['x-admin-secret'] || req.body.adminSecret;
   
@@ -197,6 +200,87 @@ Reglas:
   }
 });
 
+// ── Groq: extracción masiva de metadatos ──────────────────────────────────────
+
+router.post('/patrones/extraer-metadatos-groq', verifyAdmin, async (req, res) => {
+  const groqApiKey = process.env.GROQ_API_KEY;
+  if (!groqApiKey) return res.status(500).json({ error: 'GROQ_API_KEY no configurada' });
+
+  if (groqRunning) {
+    return res.json({ message: `Groq ya está corriendo (${groqProgreso.restantes} restantes)` });
+  }
+
+  let pendientes;
+  try {
+    pendientes = await new Promise((resolve, reject) => {
+      db.all(
+        `SELECT id, titulo, diseñadora FROM patrones
+         WHERE activo = 1 AND paginas > 0
+           AND (titulo IS NULL OR titulo = '' OR diseñadora IS NULL OR diseñadora = '')
+         ORDER BY created_at DESC`,
+        [],
+        (err, rows) => { if (err) reject(err); else resolve(rows || []); }
+      );
+    });
+  } catch (err) {
+    return res.status(500).json({ error: 'Error consultando patrones' });
+  }
+
+  if (!pendientes.length) {
+    return res.json({ message: 'No hay patrones pendientes de análisis Groq' });
+  }
+
+  groqRunning = true;
+  groqProgreso = { actualizados: 0, restantes: pendientes.length };
+  res.json({ message: `Iniciando análisis Groq para ${pendientes.length} patrones…` });
+
+  const uploadsDir = path.join(__dirname, '../../uploads');
+
+  (async () => {
+    for (const patron of pendientes) {
+      try {
+        const patronDir = path.join(uploadsDir, 'patrones', patron.id);
+        if (!fs.existsSync(patronDir)) { groqProgreso.restantes--; continue; }
+
+        const base64Images = [];
+        for (let p = 1; p <= 3; p++) {
+          const imgPath = path.join(patronDir, `pagina_${p}.jpg`);
+          if (!fs.existsSync(imgPath)) break;
+          base64Images.push(fs.readFileSync(imgPath).toString('base64'));
+        }
+
+        if (!base64Images.length) { groqProgreso.restantes--; continue; }
+
+        const extraido = await extraerConVision(groqApiKey, base64Images);
+
+        if (extraido) {
+          const nuevoTitulo = (extraido.titulo && !patron.titulo) ? extraido.titulo : patron.titulo;
+          const nuevaDiseñadora = (extraido.diseñadora && !patron.diseñadora) ? extraido.diseñadora : patron.diseñadora;
+          await new Promise(resolve => {
+            db.run(
+              `UPDATE patrones SET titulo = ?, diseñadora = ? WHERE id = ?`,
+              [nuevoTitulo || '', nuevaDiseñadora || '', patron.id],
+              () => resolve()
+            );
+          });
+          groqProgreso.actualizados++;
+        }
+
+        groqProgreso.restantes--;
+        // Respect Groq rate limits: ~2s between vision calls
+        await new Promise(r => setTimeout(r, 2000));
+      } catch (err) {
+        console.error(`[Groq batch] Error en ${patron.id}:`, err.message);
+        groqProgreso.restantes--;
+        await new Promise(r => setTimeout(r, 3000));
+      }
+    }
+
+    groqRunning = false;
+    console.log(`[Groq batch] Completado: ${groqProgreso.actualizados} actualizados`);
+  })();
+});
+
 // ── Subir patrón ──────────────────────────────────────────────────────────────
 
 router.post('/patrones', verifyAdmin, upload.single('pdf'), async (req, res) => {
@@ -371,8 +455,9 @@ router.get('/stats', verifyAdmin, async (req, res) => {
       tendencia: row.tendencia || 0,
       porCategoria,
       dmca_pendientes: 0,
-      metadatosRunning: false,
-      groqRunning: false,
+      metadatosRunning: groqRunning,
+      groqRunning,
+      groqProgreso,
       categoriasRunning: false,
       openaiRunning: false,
       total_users: row.total_users || 0,
