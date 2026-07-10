@@ -146,7 +146,7 @@ router.post('/patrones/analizar', verifyAdmin, upload.single('pdf'), async (req,
 
     // Análisis de texto: duplicados + categoría + idioma
     const patrones = await new Promise((resolve, reject) => {
-      db.all('SELECT id, titulo FROM patrones WHERE activo = 1 ORDER BY created_at DESC LIMIT 300', [], (err, rows) => {
+      db.all('SELECT id, titulo FROM patrones WHERE activo = 1 ORDER BY created_at DESC LIMIT 50', [], (err, rows) => {
         if (err) reject(err); else resolve(rows || []);
       });
     });
