@@ -216,7 +216,8 @@ router.post('/patrones/extraer-metadatos-groq', verifyAdmin, async (req, res) =>
       db.all(
         `SELECT id, titulo, diseñadora FROM patrones
          WHERE activo = 1 AND paginas > 0
-           AND (titulo IS NULL OR titulo = '' OR diseñadora IS NULL OR diseñadora = '')
+           AND (titulo IS NULL OR titulo = '' OR titulo LIKE '%.pdf' OR titulo LIKE '%patron-%'
+                OR diseñadora IS NULL OR diseñadora = '')
          ORDER BY created_at DESC`,
         [],
         (err, rows) => { if (err) reject(err); else resolve(rows || []); }
@@ -254,8 +255,9 @@ router.post('/patrones/extraer-metadatos-groq', verifyAdmin, async (req, res) =>
         const extraido = await extraerConVision(groqApiKey, base64Images);
 
         if (extraido) {
-          const nuevoTitulo = (extraido.titulo && !patron.titulo) ? extraido.titulo : patron.titulo;
-          const nuevaDiseñadora = (extraido.diseñadora && !patron.diseñadora) ? extraido.diseñadora : patron.diseñadora;
+          // Prefer Groq's extracted value; fall back to what's already in DB
+          const nuevoTitulo = extraido.titulo || patron.titulo;
+          const nuevaDiseñadora = extraido.diseñadora || patron.diseñadora;
           await new Promise(resolve => {
             db.run(
               `UPDATE patrones SET titulo = ?, diseñadora = ? WHERE id = ?`,
