@@ -331,9 +331,14 @@ router.post('/patrones', verifyAdmin, upload.single('pdf'), async (req, res) => 
     const response = await convert.bulk(-1);
     const totalPaginas = response.length;
 
-    // Usar los nombres reales generados por pdf2pic
-    const pageFiles = response.map(r => path.basename(r.path));
-    const thumbnailPath = pageFiles[0] ? `/uploads/patrones/${patronId}/${pageFiles[0]}` : null;
+    // Renombrar archivos al formato estándar pagina_N.jpg
+    for (let i = 0; i < totalPaginas; i++) {
+      const orig = response[i].path;
+      const dest = path.join(patronDir, `pagina_${i + 1}.jpg`);
+      if (orig !== dest) fs.renameSync(orig, dest);
+    }
+
+    const thumbnailPath = `/uploads/patrones/${patronId}/pagina_1.jpg`;
 
     // Insertar patrón
     await new Promise((resolve, reject) => {
@@ -352,12 +357,12 @@ router.post('/patrones', verifyAdmin, upload.single('pdf'), async (req, res) => 
       );
     });
 
-    // Insertar páginas con el nombre real del archivo
+    // Insertar páginas con el nombre estándar
     for (let i = 0; i < totalPaginas; i++) {
       await new Promise((resolve, reject) => {
         db.run(
           'INSERT INTO paginas (id, patron_id, numero, archivo_path) VALUES (?, ?, ?, ?)',
-          [uuidv4(), patronId, i + 1, `patrones/${patronId}/${pageFiles[i]}`],
+          [uuidv4(), patronId, i + 1, `patrones/${patronId}/pagina_${i + 1}.jpg`],
           function(err) { if (err) reject(err); else resolve(); }
         );
       });
