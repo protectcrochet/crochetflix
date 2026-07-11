@@ -243,12 +243,16 @@ router.post('/patrones/extraer-metadatos-groq', verifyAdmin, async (req, res) =>
         const patronDir = path.join(uploadsDir, 'patrones', patron.id);
         if (!fs.existsSync(patronDir)) { groqProgreso.restantes--; continue; }
 
-        const base64Images = [];
-        for (let p = 1; p <= 3; p++) {
-          const imgPath = path.join(patronDir, `pagina_${p}.jpg`);
-          if (!fs.existsSync(imgPath)) break;
-          base64Images.push(fs.readFileSync(imgPath).toString('base64'));
-        }
+        const imgFiles = fs.readdirSync(patronDir)
+          .filter(f => /\.(jpg|jpeg)$/i.test(f))
+          .sort((a, b) => {
+            const n = s => parseInt(s.match(/(\d+)/)?.[1] || '0');
+            return n(a) - n(b);
+          });
+
+        const base64Images = imgFiles.slice(0, 3).map(f =>
+          fs.readFileSync(path.join(patronDir, f)).toString('base64')
+        );
 
         if (!base64Images.length) { groqProgreso.restantes--; continue; }
 
@@ -327,29 +331,33 @@ router.post('/patrones', verifyAdmin, upload.single('pdf'), async (req, res) => 
     const response = await convert.bulk(-1);
     const totalPaginas = response.length;
 
+    // Usar los nombres reales generados por pdf2pic
+    const pageFiles = response.map(r => path.basename(r.path));
+    const thumbnailPath = pageFiles[0] ? `/uploads/patrones/${patronId}/${pageFiles[0]}` : null;
+
     // Insertar patrón
     await new Promise((resolve, reject) => {
       db.run(
         `INSERT INTO patrones (id, titulo, descripcion, autor, diseñadora, categoria, subcategoria,
-          dificultad, idioma, tiempo_minutos, es_preview, es_premium, es_solo_premium, pdf_hash, paginas, activo, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'))`,
+          dificultad, idioma, tiempo_minutos, es_preview, es_premium, es_solo_premium, pdf_hash, paginas, thumbnail_path, activo, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'))`,
         [patronId, titulo, descripcion || '', autor || '', diseñadora || '',
          categoria, subcategoria || '', dificultad || 'principiante', idioma || 'es',
          parseInt(tiempo_minutos) || null,
          es_preview === 'true' ? 1 : 0,
          esPremium === 'true' ? 1 : 0,
          es_solo_premium === 'true' ? 1 : 0,
-         pdfHash, totalPaginas],
+         pdfHash, totalPaginas, thumbnailPath],
         function(err) { if (err) reject(err); else resolve(); }
       );
     });
 
-    // Insertar páginas
+    // Insertar páginas con el nombre real del archivo
     for (let i = 0; i < totalPaginas; i++) {
       await new Promise((resolve, reject) => {
         db.run(
           'INSERT INTO paginas (id, patron_id, numero, archivo_path) VALUES (?, ?, ?, ?)',
-          [uuidv4(), patronId, i + 1, `patrones/${patronId}/pagina_${i + 1}.jpg`],
+          [uuidv4(), patronId, i + 1, `patrones/${patronId}/${pageFiles[i]}`],
           function(err) { if (err) reject(err); else resolve(); }
         );
       });
