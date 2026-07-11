@@ -166,7 +166,7 @@ export default function Viewer() {
       img.src = url;
       api.post('/viewer/progreso', { patronId: id, paginaActual: numero });
     } catch (err) {
-      if (err.response?.status === 402) {
+      if (err.response?.status === 402 || err.response?.status === 403) {
         setPaginaError('solo_premium');
       } else {
         setPaginaError(`Error ${err.response?.status || ''}: ${err.message}`);
