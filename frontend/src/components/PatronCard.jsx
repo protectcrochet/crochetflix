@@ -1,10 +1,10 @@
 import { Link } from 'react-router-dom';
-import { Clock, Star, Download, Crown } from 'lucide-react';
+import { Clock, Star, Download } from 'lucide-react';
 
 export default function PatronCard({ patron }) {
   return (
     <Link to={`/patron/${patron.id}`} className="card-hover flex-shrink-0 w-40 sm:w-48">
-      <div className={`relative aspect-[3/4] rounded-lg overflow-hidden bg-gray-800 ${patron.es_solo_premium === 1 ? 'ring-2 ring-yellow-400' : ''}`}>
+      <div className="relative aspect-[3/4] rounded-lg overflow-hidden bg-gray-800">
         {/* Thumbnail */}
         <img
           src={patron.thumbnail_path || '/placeholder-patron.jpg'}
@@ -18,24 +18,12 @@ export default function PatronCard({ patron }) {
           {patron.es_preview === 1 && (
             <span className="bg-green-600 text-xs px-2 py-0.5 rounded font-bold">GRATIS</span>
           )}
-          {patron.es_solo_premium === 1 && (
-            <span className="bg-yellow-400 text-black text-xs px-2 py-1 rounded-md font-black flex items-center gap-1 shadow-lg">
-              <Crown className="w-3 h-3" /> PREMIUM
-            </span>
-          )}
           {patron.offline === 1 && (
             <span className="bg-blue-600 text-xs px-2 py-0.5 rounded">
               <Download className="w-3 h-3 inline" />
             </span>
           )}
         </div>
-
-        {/* Overlay premium en la parte inferior */}
-        {patron.es_solo_premium === 1 && (
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-yellow-500/70 to-transparent py-2 px-2">
-            <p className="text-black text-xs font-bold text-center leading-tight">Solo Premium</p>
-          </div>
-        )}
 
         {/* Progreso */}
         {patron.en_progreso === 1 && (
