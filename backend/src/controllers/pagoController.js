@@ -252,6 +252,17 @@ async function activarPremium(orderId, plan) {
     });
 
     console.log(`Premium activado: usuario ${pago.user_id}, expira ${fechaExpiracion.toISOString()}`);
+
+    // Notificar al usuario por correo
+    try {
+      const { enviarConfirmacionPago } = require('../services/email');
+      const usuario = await new Promise((resolve, reject) => {
+        db.get('SELECT email FROM users WHERE id = ?', [pago.user_id], (err, row) => { if (err) reject(err); else resolve(row); });
+      });
+      if (usuario?.email) await enviarConfirmacionPago(usuario.email, fechaExpiracion.toISOString());
+    } catch (emailErr) {
+      console.error('Error enviando email confirmación pago:', emailErr.message);
+    }
   } catch (err) {
     console.error('Error activando premium:', err);
     throw err;

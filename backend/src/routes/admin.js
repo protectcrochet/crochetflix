@@ -472,6 +472,27 @@ router.get('/stats', verifyAdmin, async (req, res) => {
   }
 });
 
+// ── Email manual de confirmación de pago ──────────────────────────────────────
+
+router.post('/usuarios/:id/enviar-confirmacion-pago', verifyAdmin, async (req, res) => {
+  try {
+    const usuario = await new Promise((resolve, reject) => {
+      db.get('SELECT email, tier, subscription_expires_at FROM users WHERE id = ?', [req.params.id],
+        (err, row) => { if (err) reject(err); else resolve(row); });
+    });
+    if (!usuario) return res.status(404).json({ error: 'Usuario no encontrado' });
+    if (usuario.tier !== 'premium' || !usuario.subscription_expires_at) {
+      return res.status(400).json({ error: 'El usuario no tiene premium activo' });
+    }
+    const { enviarConfirmacionPago } = require('../services/email');
+    await enviarConfirmacionPago(usuario.email, usuario.subscription_expires_at);
+    res.json({ success: true, email: usuario.email });
+  } catch (err) {
+    console.error('Error enviando confirmación pago:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Usuarios ──────────────────────────────────────────────────────────────────
 
 router.get('/usuarios', verifyAdmin, async (req, res) => {
