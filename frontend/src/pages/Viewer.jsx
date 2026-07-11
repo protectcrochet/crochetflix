@@ -166,8 +166,10 @@ export default function Viewer() {
       img.src = url;
       api.post('/viewer/progreso', { patronId: id, paginaActual: numero });
     } catch (err) {
-      if (err.response?.status === 402 || err.response?.status === 403) {
+      if (err.response?.status === 402) {
         setPaginaError('solo_premium');
+      } else if (err.response?.status === 403) {
+        setPaginaError('limite_free');
       } else {
         setPaginaError(`Error ${err.response?.status || ''}: ${err.message}`);
       }
@@ -472,6 +474,22 @@ export default function Viewer() {
             <button
               onClick={() => navigate('/perfil')}
               className="w-full max-w-xs py-3.5 bg-yellow-500 hover:bg-yellow-400 text-black font-bold rounded-xl transition text-base mb-3">
+              ¡Suscribirme ahora!
+            </button>
+            <button onClick={() => navigate(-1)} className="text-sm text-gray-500 hover:text-gray-300 mt-1">
+              ← Volver al catálogo
+            </button>
+          </div>
+        ) : paginaError === 'limite_free' ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center z-20 bg-gray-950/97 px-6 py-8 text-center">
+            <Crown className="w-14 h-14 text-crochet-primary mb-4" />
+            <h2 className="text-xl font-bold text-white mb-2">Ya usaste tu patrón gratuito</h2>
+            <p className="text-gray-400 mb-6 max-w-xs">
+              Suscríbete a Premium y disfruta de <strong className="text-white">+8,000 patrones</strong> del catálogo completo sin límites.
+            </p>
+            <button
+              onClick={() => navigate('/perfil')}
+              className="w-full max-w-xs py-3.5 bg-crochet-primary hover:bg-red-700 text-white font-bold rounded-xl transition text-base mb-3">
               ¡Suscribirme ahora!
             </button>
             <button onClick={() => navigate(-1)} className="text-sm text-gray-500 hover:text-gray-300 mt-1">
