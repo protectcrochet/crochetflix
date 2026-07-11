@@ -4,7 +4,7 @@ import { Clock, Star, Download } from 'lucide-react';
 export default function PatronCard({ patron }) {
   return (
     <Link to={`/patron/${patron.id}`} className="card-hover flex-shrink-0 w-40 sm:w-48">
-      <div className="relative aspect-[3/4] rounded-lg overflow-hidden bg-gray-800">
+      <div className={`relative aspect-[3/4] rounded-lg overflow-hidden bg-gray-800 ${patron.es_solo_premium === 1 ? 'ring-2 ring-yellow-400' : ''}`}>
         {/* Thumbnail */}
         <img
           src={patron.thumbnail_path || '/placeholder-patron.jpg'}
