@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const axios = require('axios');
 const db = require('../models');
 
 const UPLOADS = path.join(__dirname, '../../../uploads/patrones');
@@ -41,8 +42,36 @@ function bajarVencidos() {
   );
 }
 
+function autoGroq() {
+  const { groqRunning } = require('../routes/admin');
+  if (groqRunning) return; // ya está corriendo
+
+  db.get(
+    `SELECT COUNT(*) as n FROM patrones
+     WHERE activo = 1 AND paginas > 0
+       AND (titulo IS NULL OR titulo = '' OR titulo LIKE '%.pdf' OR titulo LIKE '%patron-%'
+            OR diseñadora IS NULL OR diseñadora = '')`,
+    [],
+    (err, row) => {
+      if (err || !row?.n) return;
+      const pendientes = row.n;
+      if (pendientes === 0) return;
+
+      const adminSecret = process.env.ADMIN_SECRET;
+      if (!adminSecret) return;
+
+      console.log(`[worker] ${pendientes} patrones sin metadata — disparando Groq automático`);
+      axios.post('http://localhost:3001/api/admin/patrones/extraer-metadatos-groq', {}, {
+        headers: { 'x-admin-secret': adminSecret },
+        timeout: 5000,
+      }).catch(err => console.error('[worker] Error disparando Groq:', err.message));
+    }
+  );
+}
+
 function ciclo() {
   bajarVencidos();
+  autoGroq();
   const pdfsBot = contarPdfsBot();
   contarPendientes(pendientes => {
     contarCorruptos(corruptos => {

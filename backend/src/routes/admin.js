@@ -954,3 +954,7 @@ router.delete('/colecciones/:id/patrones/:patron_id', verifyAdmin, async (req, r
 });
 
 module.exports = router;
+module.exports.groqRunning = false;
+Object.defineProperty(module.exports, 'groqRunning', {
+  get: () => groqRunning,
+});
