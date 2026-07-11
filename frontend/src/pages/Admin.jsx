@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { Upload, Trash2, Eye, EyeOff, Plus, FileText, Image, Loader, LogOut, Download, Sparkles, Star, Flame, Search, X, ExternalLink, LayoutGrid, List, ChevronLeft, ChevronRight, ShieldCheck } from 'lucide-react';
@@ -483,6 +484,9 @@ export default function Admin() {
   const [autenticado, setAutenticado] = useState(false);
   const [patrones, setPatrones] = useState([]);
   const [mostrando, setMostrando] = useState('lista'); // 'lista' | 'nuevo' | 'dmca' | 'analytics'
+  const [usuariosPremium, setUsuariosPremium] = useState([]);
+  const [loadingPremium, setLoadingPremium] = useState(false);
+  const [filtroPremium, setFiltroPremium] = useState('todos');
   const [dmcaClaims, setDmcaClaims] = useState([]);
   const [dmcaCargando, setDmcaCargando] = useState(false);
   const [analytics, setAnalytics] = useState(null);
@@ -507,6 +511,7 @@ export default function Admin() {
     categoria: 'amigurumi', subcategoria: 'animales', dificultad: 'principiante',
     idioma: 'es', tiempo_minutos: '', es_preview: false, es_solo_premium: false,
   });
+  const [analisis, setAnalisis] = useState({ cargando: false, data: null, error: null });
   const [archivoPDF, setArchivoPDF] = useState(null);
   const [imagenesFiles, setImagenesFiles] = useState([]);
   const [modoSubida, setModoSubida] = useState('pdf'); // 'pdf' | 'imagenes'
@@ -545,6 +550,18 @@ export default function Admin() {
       const res = await api.get('/admin/stats', { headers: authHeader });
       setStats(res.data);
     } catch {}
+  };
+
+  const cargarUsuariosPremium = async () => {
+    setLoadingPremium(true);
+    try {
+      const res = await api.get('/admin/usuarios/premium', { headers: authHeader });
+      setUsuariosPremium(res.data.usuarios || []);
+    } catch (err) {
+      console.error('Error premium:', err);
+    } finally {
+      setLoadingPremium(false);
+    }
   };
 
   useEffect(() => {
@@ -783,7 +800,8 @@ export default function Admin() {
         timeout: 180000,
       });
       setMensaje({ tipo: 'ok', texto: `"${res.data.patron.titulo}" creado con ${res.data.patron.paginas} páginas` });
-      setForm({ titulo: '', descripcion: '', autor: '', diseñadora: '', categoria: 'amigurumi', subcategoria: 'animales', dificultad: 'principiante', idioma: 'es', tiempo_minutos: '', es_preview: false, es_solo_premium: false });
+      setAnalisis({ cargando: false, data: null, error: null });
+      setForm({ titulo: '', descripcion: '', autor: '', diseñadora: '', categoria: 'amigurumi', subcategoria: 'animales', dificultad: 'principiante', idioma: 'es', tiempo_minutos: '', es_preview: false });
       setArchivoPDF(null);
       setImagenesFiles([]);
       if (pdfRef.current) pdfRef.current.value = '';
@@ -794,6 +812,35 @@ export default function Admin() {
       setMensaje({ tipo: 'error', texto: err.response?.data?.error || 'Error subiendo patrón' });
     } finally {
       setCargando(false);
+    }
+  };
+
+  const analizarConIA = async () => {
+    if (!form.titulo.trim() && !archivoPDF) return;
+    setAnalisis({ cargando: true, data: null, error: null });
+    try {
+      const data = new FormData();
+      data.append('titulo', form.titulo);
+      data.append('descripcion', form.descripcion || '');
+      data.append('diseñadora', form.diseñadora || '');
+      if (archivoPDF) data.append('pdf', archivoPDF);
+      const res = await api.post('/admin/patrones/analizar', data, {
+        headers: { ...authHeader, 'Content-Type': 'multipart/form-data' },
+        timeout: 60000,
+      });
+      const d = res.data;
+      setAnalisis({ cargando: false, data: d, error: null });
+      // Auto-aplicar sugerencias al formulario
+      setForm(f => ({
+        ...f,
+        ...(d.titulo && !f.titulo.trim() ? { titulo: d.titulo } : {}),
+        ...(d.diseñadora && !f.diseñadora.trim() ? { diseñadora: d.diseñadora } : {}),
+        ...(d.categoria ? { categoria: d.categoria } : {}),
+        ...(d.subcategoria !== undefined ? { subcategoria: d.subcategoria } : {}),
+        ...(d.idioma ? { idioma: d.idioma } : {}),
+      }));
+    } catch (err) {
+      setAnalisis({ cargando: false, data: null, error: err.response?.data?.error || 'Error en análisis' });
     }
   };
 
@@ -985,6 +1032,11 @@ export default function Admin() {
             className={`flex items-center gap-1.5 px-3 py-2 rounded text-sm font-medium transition ${mostrando === 'emails' ? 'bg-pink-700 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
             ✉️ Emails
           </button>
+          <button
+            onClick={() => { setMostrando('premium'); if (usuariosPremium.length === 0) cargarUsuariosPremium(); }}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded text-sm font-medium transition ${mostrando === 'premium' ? 'bg-yellow-600 text-black' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
+            Premio Premium
+          </button>
           <button onClick={cerrarSesion} className="text-gray-400 hover:text-white p-2">
             <LogOut className="w-5 h-5" />
           </button>
@@ -1045,34 +1097,34 @@ export default function Admin() {
           <div className="mb-3">
             <div className="flex justify-between text-xs text-gray-400 mb-1">
               <span>PDFs convertidos a imágenes</span>
-              <span className="font-semibold text-white">{stats.convertidos.toLocaleString()} / {stats.total.toLocaleString()}</span>
+              <span className="font-semibold text-white">{(stats.convertidos ?? 0).toLocaleString()} / {(stats.total ?? 0).toLocaleString()}</span>
             </div>
             <div className="w-full bg-gray-700 rounded-full h-2">
               <div
                 className="bg-crochet-primary h-2 rounded-full transition-all"
-                style={{ width: `${stats.total > 0 ? Math.round((stats.convertidos / stats.total) * 100) : 0}%` }}
+                style={{ width: `${(stats.total ?? 0) > 0 ? Math.round(((stats.convertidos ?? 0) / stats.total) * 100) : 0}%` }}
               />
             </div>
             <div className="flex justify-between text-xs mt-1">
               <span className="text-gray-500">
-                {stats.pendientes.toLocaleString()} pendientes
-                {stats.corruptos > 0 && <span className="text-red-400 ml-2">· {stats.corruptos} con error (PDF dañado)</span>}
+                {(stats.pendientes ?? 0).toLocaleString()} pendientes
+                {(stats.corruptos ?? 0) > 0 && <span className="text-red-400 ml-2">· {stats.corruptos} con error (PDF dañado)</span>}
               </span>
-              <span className="text-crochet-primary font-semibold">{stats.total > 0 ? Math.round((stats.convertidos / stats.total) * 100) : 0}%</span>
+              <span className="text-crochet-primary font-semibold">{(stats.total ?? 0) > 0 ? Math.round(((stats.convertidos ?? 0) / stats.total) * 100) : 0}%</span>
             </div>
           </div>
 
           {/* Chips de resumen */}
           <div className="flex flex-wrap gap-2 text-xs mb-3">
-            <span className="bg-gray-700 px-2 py-1 rounded">📥 {stats.archivosBot.toLocaleString()} PDFs en disco</span>
-            <span className="bg-gray-700 px-2 py-1 rounded">✔ {stats.verificados.toLocaleString()} verificados</span>
-            <span className="bg-gray-700 px-2 py-1 rounded">⭐ {stats.heroes}/12 hero</span>
-            <span className="bg-gray-700 px-2 py-1 rounded">🔥 {stats.tendencia} en tendencia</span>
+            <span className="bg-gray-700 px-2 py-1 rounded">📥 {(stats.archivosBot ?? 0).toLocaleString()} PDFs en disco</span>
+            <span className="bg-gray-700 px-2 py-1 rounded">✔ {(stats.verificados ?? 0).toLocaleString()} verificados</span>
+            <span className="bg-gray-700 px-2 py-1 rounded">⭐ {stats.heroes ?? 0}/12 hero</span>
+            <span className="bg-gray-700 px-2 py-1 rounded">🔥 {stats.tendencia ?? 0} en tendencia</span>
           </div>
 
           {/* Por categoría */}
           <div className="flex flex-wrap gap-1.5">
-            {stats.porCategoria.map(c => (
+            {(stats.porCategoria ?? []).map(c => (
               <span key={c.categoria} className="bg-gray-700/60 text-gray-300 text-xs px-2 py-0.5 rounded capitalize">
                 {c.categoria} <strong>{c.n}</strong>
               </span>
@@ -1111,6 +1163,57 @@ export default function Admin() {
             <label className="block text-sm text-gray-400 mb-1">Descripción</label>
             <textarea value={form.descripcion} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
               rows={3} className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-crochet-primary resize-none" />
+          </div>
+
+          {/* Análisis con IA */}
+          <div className="space-y-3">
+            <button type="button" onClick={analizarConIA}
+              disabled={analisis.cargando || (!form.titulo.trim() && !archivoPDF)}
+              className="flex items-center gap-2 px-4 py-2 bg-purple-700 hover:bg-purple-600 disabled:opacity-40 rounded-lg text-sm font-medium transition">
+              {analisis.cargando ? <Loader className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              {analisis.cargando ? 'Analizando con IA…' : '✨ Analizar con IA'}
+            </button>
+            {analisis.error && <p className="text-red-400 text-xs">{analisis.error}</p>}
+            {analisis.data && (
+              <div className="border border-gray-600 rounded-lg p-4 space-y-3 bg-gray-900/50">
+                {analisis.data.duplicados?.length > 0 ? (
+                  <div className="bg-yellow-900/40 border border-yellow-600/40 rounded p-3">
+                    <p className="text-yellow-300 text-sm font-semibold mb-2">⚠️ Posibles duplicados ({analisis.data.duplicados.length})</p>
+                    {analisis.data.duplicados.map(d => (
+                      <div key={d.id} className="flex justify-between text-xs text-yellow-200 py-1 border-b border-yellow-800/30 last:border-0">
+                        <span className="truncate mr-2">"{d.titulo}"</span>
+                        <span className="text-yellow-400 shrink-0">{Math.round(d.similitud * 100)}% similar</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-green-400 text-xs">✅ Sin duplicados detectados</p>
+                )}
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  {analisis.data.titulo && (
+                    <div className="bg-gray-700/60 rounded px-2 py-1.5">
+                      <p className="text-gray-400 mb-0.5">Título extraído</p>
+                      <p className="text-white font-medium truncate">{analisis.data.titulo}</p>
+                    </div>
+                  )}
+                  {analisis.data.diseñadora && (
+                    <div className="bg-gray-700/60 rounded px-2 py-1.5">
+                      <p className="text-gray-400 mb-0.5">Diseñadora</p>
+                      <p className="text-white font-medium truncate">{analisis.data.diseñadora}</p>
+                    </div>
+                  )}
+                  <div className="bg-gray-700/60 rounded px-2 py-1.5">
+                    <p className="text-gray-400 mb-0.5">Categoría</p>
+                    <p className="text-white font-medium">{analisis.data.categoria}{analisis.data.subcategoria ? ` / ${analisis.data.subcategoria}` : ''}</p>
+                  </div>
+                  <div className="bg-gray-700/60 rounded px-2 py-1.5">
+                    <p className="text-gray-400 mb-0.5">Idioma</p>
+                    <p className="text-white font-medium">{IDIOMAS.find(i => i.value === analisis.data.idioma)?.label || analisis.data.idioma}</p>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500">Los campos se han actualizado automáticamente con las sugerencias.</p>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1169,7 +1272,7 @@ export default function Admin() {
           <div className="flex items-center gap-3">
             <input type="checkbox" id="esSoloPremium" checked={form.es_solo_premium}
               onChange={e => setForm(f => ({ ...f, es_solo_premium: e.target.checked }))}
-              className="w-4 h-4 accent-yellow-500" />
+              className="w-4 h-4 accent-purple-500" />
             <label htmlFor="esSoloPremium" className="text-sm text-gray-300">
               ⭐ Solo Premium (exclusivo para suscriptoras)
             </label>
@@ -1347,7 +1450,7 @@ export default function Admin() {
                           {p.destacado === 1 && <span className="bg-yellow-600 text-xs px-1.5 py-0.5 rounded">HERO</span>}
                           {p.tendencia === 1 && <span className="bg-orange-600 text-xs px-1.5 py-0.5 rounded">TREND</span>}
                           {p.es_preview === 1 && <span className="bg-green-700 text-xs px-1.5 py-0.5 rounded">GRATIS</span>}
-                          {p.es_solo_premium === 1 && <span className="bg-yellow-500 text-black text-xs px-1.5 py-0.5 rounded font-bold">⭐ PREMIUM</span>}
+                          {p.es_solo_premium === 1 && <span className="bg-purple-700 text-xs px-1.5 py-0.5 rounded">⭐ PREMIUM</span>}
                           {!p.activo && <span className="bg-gray-600 text-xs px-1.5 py-0.5 rounded">OCULTO</span>}
                           {p.pdf_corrupto === 1 && p.paginas === 0 && <span className="bg-red-800 text-xs px-1.5 py-0.5 rounded" title={`${p.conversion_intentos} intentos fallidos`}>ERROR PDF</span>}
                         </div>
@@ -1609,20 +1712,6 @@ export default function Admin() {
                 ))}
               </div>
 
-              {/* Fila suscripciones */}
-              <div className="grid grid-cols-3 gap-4">
-                {[
-                  { label: 'Suscripciones activas', value: analytics.premiumActivos, color: 'text-green-400', hint: 'Premium con fecha vigente' },
-                  { label: 'Suscripciones vencidas', value: analytics.premiumVencidos, color: 'text-yellow-500', hint: 'Premium expirado sin renovar' },
-                  { label: 'Cancelaron', value: analytics.exPremium, color: 'text-red-400', hint: 'Eran premium, ahora son free' },
-                ].map(({ label, value, color, hint }) => (
-                  <div key={label} className="bg-gray-800/50 rounded-xl p-3 text-center" title={hint}>
-                    <p className={`text-2xl font-bold ${color}`}>{value?.toLocaleString()}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{label}</p>
-                  </div>
-                ))}
-              </div>
-
               {/* Gráficas lado a lado */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Aperturas últimos 7 días */}
@@ -1855,7 +1944,7 @@ export default function Admin() {
               <div className="flex items-center gap-3">
                 <input type="checkbox" id="editSoloPremium" checked={!!editForm.es_solo_premium}
                   onChange={e => setEditForm(f => ({ ...f, es_solo_premium: e.target.checked }))}
-                  className="w-4 h-4 accent-yellow-500" />
+                  className="w-4 h-4 accent-purple-500" />
                 <label htmlFor="editSoloPremium" className="text-sm text-gray-300">⭐ Solo Premium</label>
               </div>
 
@@ -1884,6 +1973,74 @@ export default function Admin() {
       {mostrando === 'emails' && (
         <EmailBlastPanel authHeader={authHeader} stats={stats} />
       )}
+
+      {/* Panel Premium Analytics */}
+      {mostrando === 'premium' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <h2 className="text-xl font-bold text-yellow-400">Usuarios Premium ({usuariosPremium.length})</h2>
+            <div className="flex gap-2 flex-wrap">
+              {['todos', 'activos', 'vencen_pronto', 'vencidos'].map(f => (
+                <button key={f} onClick={() => setFiltroPremium(f)}
+                  className={`px-3 py-1 rounded text-xs font-medium transition ${filtroPremium === f ? 'bg-yellow-500 text-black' : 'bg-gray-700 hover:bg-gray-600'}`}>
+                  {f === 'todos' ? 'Todos' : f === 'activos' ? 'Activos' : f === 'vencen_pronto' ? 'Vencen 7 dias' : 'Vencidos'}
+                </button>
+              ))}
+              <button onClick={cargarUsuariosPremium} className="px-3 py-1 rounded text-xs bg-gray-700 hover:bg-gray-600">Actualizar</button>
+            </div>
+          </div>
+          {loadingPremium ? (
+            <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-400" /></div>
+          ) : (
+            <div className="bg-gray-800 rounded-xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-gray-400 border-b border-gray-700">
+                      <th className="px-4 py-3">Email</th>
+                      <th className="px-4 py-3">Vence</th>
+                      <th className="px-4 py-3 text-center">Patrones</th>
+                      <th className="px-4 py-3 text-center">Completados</th>
+                      <th className="px-4 py-3 text-center">Mi Lista</th>
+                      <th className="px-4 py-3 text-center">Traducciones</th>
+                      <th className="px-4 py-3">Ultimo acceso</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {usuariosPremium
+                      .filter(u => {
+                        const dias = Math.ceil((new Date(u.subscription_expires_at) - new Date()) / (1000*60*60*24));
+                        if (filtroPremium === 'activos') return dias > 7;
+                        if (filtroPremium === 'vencen_pronto') return dias <= 7 && dias > 0;
+                        if (filtroPremium === 'vencidos') return dias <= 0;
+                        return true;
+                      })
+                      .map(u => {
+                        const dias = Math.ceil((new Date(u.subscription_expires_at) - new Date()) / (1000*60*60*24));
+                        const colorDias = dias <= 0 ? 'text-red-400' : dias <= 7 ? 'text-yellow-400' : 'text-green-400';
+                        return (
+                          <tr key={u.id} className="border-b border-gray-800 hover:bg-gray-700/30">
+                            <td className="px-4 py-2 text-xs">{u.email}</td>
+                            <td className={`px-4 py-2 text-xs font-mono ${colorDias}`}>
+                              {dias <= 0 ? `Vencido hace ${Math.abs(dias)}d` : `${dias}d restantes`}
+                            </td>
+                            <td className="px-4 py-2 text-center">{u.patrones_leidos ?? 0}</td>
+                            <td className="px-4 py-2 text-center">{u.patrones_completados ?? 0}</td>
+                            <td className="px-4 py-2 text-center">{u.en_mi_lista ?? 0}</td>
+                            <td className="px-4 py-2 text-center">{u.traducciones_usadas ?? 0}</td>
+                            <td className="px-4 py-2 text-xs text-gray-400">
+                              {u.last_login_at ? new Date(u.last_login_at).toLocaleDateString('es-MX') : '-'}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -1898,10 +2055,16 @@ function ColeccionesPanel({ authHeader }) {
   const [forma, setForma] = useState({ nombre: '', descripcion: '', emoji: '🧶', orden: 0 });
   const [creando, setCreando] = useState(false);
   const [editando, setEditando] = useState(null);
+  const [guardando, setGuardando] = useState(false);
+  const [errorCol, setErrorCol] = useState('');
 
   const cargar = async () => {
-    const r = await api.get('/admin/colecciones', { headers: authHeader });
-    setCols(r.data || []);
+    try {
+      const r = await api.get('/admin/colecciones', { headers: authHeader });
+      setCols(r.data || []);
+    } catch (e) {
+      setErrorCol('Error cargando colecciones');
+    }
   };
 
   useEffect(() => { cargar(); }, []);
@@ -1915,26 +2078,53 @@ function ColeccionesPanel({ authHeader }) {
 
   const crear = async () => {
     if (!forma.nombre.trim()) return;
-    await api.post('/admin/colecciones', forma, { headers: authHeader });
-    setCreando(false); setForma({ nombre: '', descripcion: '', emoji: '🧶', orden: 0 });
-    cargar();
+    try {
+      await api.post('/admin/colecciones', forma, { headers: authHeader });
+      setCreando(false); setForma({ nombre: '', descripcion: '', emoji: '🧶', orden: 0 });
+      await cargar();
+    } catch (e) {
+      setErrorCol('Error al crear: ' + (e.response?.data?.error || e.message));
+    }
   };
 
   const guardarEdicion = async () => {
-    await api.patch(`/admin/colecciones/${editando.id}`, editando, { headers: authHeader });
-    setEditando(null); cargar();
+    setGuardando(true);
+    setErrorCol('');
+    try {
+      await api.patch(`/admin/colecciones/${editando.id}`, {
+        nombre: editando.nombre,
+        descripcion: editando.descripcion,
+        emoji: editando.emoji,
+        orden: editando.orden,
+      }, { headers: authHeader });
+      setEditando(null);
+      await cargar();
+    } catch (e) {
+      setErrorCol('Error al guardar: ' + (e.response?.data?.error || e.message));
+    } finally {
+      setGuardando(false);
+    }
   };
 
   const toggleActivo = async (col) => {
-    await api.patch(`/admin/colecciones/${col.id}`, { activo: col.activo ? 0 : 1 }, { headers: authHeader });
-    cargar();
+    setErrorCol('');
+    try {
+      await api.patch(`/admin/colecciones/${col.id}`, { activo: col.activa ? 0 : 1 }, { headers: authHeader });
+      await cargar();
+    } catch (e) {
+      setErrorCol('Error al cambiar estado: ' + (e.response?.data?.error || e.message));
+    }
   };
 
   const eliminar = async (id) => {
     if (!confirm('¿Eliminar esta colección?')) return;
-    await api.delete(`/admin/colecciones/${id}`, { headers: authHeader });
-    if (seleccionada?.id === id) setSeleccionada(null);
-    cargar();
+    try {
+      await api.delete(`/admin/colecciones/${id}`, { headers: authHeader });
+      if (seleccionada?.id === id) setSeleccionada(null);
+      await cargar();
+    } catch (e) {
+      setErrorCol('Error al eliminar');
+    }
   };
 
   const buscarPatrones = async (q) => {
@@ -1967,6 +2157,12 @@ function ColeccionesPanel({ authHeader }) {
           + Nueva colección
         </button>
       </div>
+
+      {errorCol && (
+        <div className="bg-red-900/50 border border-red-700 text-red-300 text-sm px-3 py-2 rounded-lg">
+          {errorCol}
+        </div>
+      )}
 
       {creando && (
         <div className="bg-gray-800 rounded-xl p-4 space-y-3">
@@ -2002,8 +2198,8 @@ function ColeccionesPanel({ authHeader }) {
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 <button onClick={() => toggleActivo(col)}
-                  className={`px-2 py-1 rounded text-xs font-medium ${col.activo ? 'bg-green-900/50 text-green-400' : 'bg-gray-700 text-gray-500'}`}>
-                  {col.activo ? 'Activa' : 'Oculta'}
+                  className={`px-2 py-1 rounded text-xs font-medium ${col.activa ? 'bg-green-900/50 text-green-400' : 'bg-gray-700 text-gray-500'}`}>
+                  {col.activa ? 'Activa' : 'Oculta'}
                 </button>
                 <button onClick={() => setEditando({ ...col })} className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-white text-xs">✏️</button>
                 <button onClick={() => abrirColeccion(col)} className="p-1.5 hover:bg-violet-700/50 rounded text-gray-400 hover:text-white text-xs">🖼 Patrones</button>
@@ -2027,7 +2223,9 @@ function ColeccionesPanel({ authHeader }) {
                     className="w-16 bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm" />
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={guardarEdicion} className="px-3 py-1.5 bg-violet-700 hover:bg-violet-600 rounded text-sm">Guardar</button>
+                  <button onClick={guardarEdicion} disabled={guardando} className="px-3 py-1.5 bg-violet-700 hover:bg-violet-600 rounded text-sm disabled:opacity-50">
+                    {guardando ? 'Guardando...' : 'Guardar'}
+                  </button>
                   <button onClick={() => setEditando(null)} className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm">Cancelar</button>
                 </div>
               </div>
@@ -2219,7 +2417,7 @@ function EmailBlastPanel({ authHeader, stats }) {
         {enviando ? <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /> Enviando...</> : `✉️ Enviar a usuarios free`}
       </button>
 
-      <p className="text-xs text-gray-500">El link de cancelar suscripción se agrega automáticamente al final de cada email.</p>
+      <p className="text-xs text-gray-500 mt-1">Solo se envía a usuarias con cuenta gratuita activa. No incluye usuarias premium.</p>
     </div>
   );
 }
