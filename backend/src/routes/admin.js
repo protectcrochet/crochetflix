@@ -176,19 +176,19 @@ Reglas:
 - duplicados: solo incluye si similitud >= 0.75, array vacío si no hay
 - subcategoria: "" si la categoría no es amigurumi`;
 
-    const groqRes = await axios.post(
-      'https://api.groq.com/openai/v1/chat/completions',
-      { model: 'llama-3.1-8b-instant', messages: [{ role: 'user', content: prompt }], temperature: 0.1, max_tokens: 600 },
-      { headers: { Authorization: `Bearer ${groqApiKey}`, 'Content-Type': 'application/json' }, timeout: 20000 }
-    );
-
-    const content = groqRes.data.choices[0].message.content.trim();
-    let resultado;
+    let resultado = { idioma: 'es', categoria: 'otro', subcategoria: '', duplicados: [] };
     try {
+      const groqRes = await axios.post(
+        'https://api.groq.com/openai/v1/chat/completions',
+        { model: 'llama-3.1-8b-instant', messages: [{ role: 'user', content: prompt }], temperature: 0.1, max_tokens: 600 },
+        { headers: { Authorization: `Bearer ${groqApiKey}`, 'Content-Type': 'application/json' }, timeout: 20000 }
+      );
+      const content = groqRes.data.choices[0].message.content.trim();
       const match = content.match(/\{[\s\S]*\}/);
       resultado = JSON.parse(match ? match[0] : content);
-    } catch {
-      resultado = { idioma: 'es', categoria: 'otro', subcategoria: '', duplicados: [] };
+    } catch (groqErr) {
+      // Rate limit o error de Groq — continuar con valores por defecto
+      console.warn('[analizar] Groq no disponible, usando defaults:', groqErr?.response?.data?.error?.message || groqErr.message);
     }
 
     res.json({ titulo: titulo || null, diseñadora: diseñadora || null, ...resultado });
