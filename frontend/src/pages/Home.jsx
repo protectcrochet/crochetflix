@@ -116,7 +116,6 @@ export default function Home() {
   const [buscando, setBuscando] = useState(false);
   const [continua, setContinua] = useState([]);
   const [patronesAleatorios, setPatronesAleatorios] = useState([]);
-  const [popupOferta, setPopupOferta] = useState(false);
   const [moneda, setMoneda] = useState('USD');
   const [colecciones, setColecciones] = useState([]);
 
@@ -124,14 +123,6 @@ export default function Home() {
     cargarPatrones(); cargarAleatorios(); detectarMoneda().then(setMoneda);
     api.get('/colecciones').then(r => setColecciones(r.data || [])).catch(() => {});
   }, []);
-
-  useEffect(() => {
-    if (!user || user.tier === 'premium') return;
-    if (new Date() > new Date('2026-07-07')) return;
-    if (!sessionStorage.getItem('popup_regreso_visto')) {
-      setTimeout(() => setPopupOferta(true), 1200);
-    }
-  }, [user]);
 
   useEffect(() => {
     if (!user) { setContinua([]); return; }
@@ -340,56 +331,6 @@ export default function Home() {
         </>
       )}
 
-      {/* Banner ¡Estamos de regreso! */}
-      {popupOferta && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/70 backdrop-blur-sm">
-          <div className="relative w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl">
-            <div className="absolute inset-0 bg-gradient-to-br from-pink-600 via-crochet-primary to-purple-700" />
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(255,255,255,0.15),_transparent_60%)]" />
-
-            <div className="relative p-7">
-              <button
-                onClick={() => { setPopupOferta(false); sessionStorage.setItem('popup_regreso_visto', '1'); }}
-                className="absolute top-4 right-4 text-white/60 hover:text-white transition">
-                <X className="w-5 h-5" />
-              </button>
-
-              <div className="inline-flex items-center gap-1.5 bg-white/20 backdrop-blur-sm rounded-full px-3 py-1 text-xs font-bold text-white mb-4">
-                🧶 AVISO IMPORTANTE
-              </div>
-
-              <h2 className="text-3xl font-black text-white mb-2">¡Estamos de regreso!</h2>
-              <p className="text-white/80 text-sm mb-5">
-                Tuvimos unos temas con la pasarela de pagos, pero ya está restablecido.
-              </p>
-
-              <div className="bg-white/15 rounded-xl px-4 py-3 mb-5">
-                <p className="text-white font-bold text-sm mb-1">Cambios importantes</p>
-                <p className="text-white/80 text-xs">A partir de hoy la versión gratuita incluye solo <strong className="text-white">1 patrón de prueba</strong>.</p>
-              </div>
-
-              <ul className="text-white/80 text-xs space-y-1.5 mb-6">
-                <li>✓ Acceso ilimitado a +8,000 patrones</li>
-                <li>✓ Traducción automática a tu idioma</li>
-                <li>✓ Guarda progreso y favoritos</li>
-                <li>✓ Patrones nuevos todos los días</li>
-              </ul>
-
-              <Link to="/perfil"
-                onClick={() => { setPopupOferta(false); sessionStorage.setItem('popup_regreso_visto', '1'); }}
-                className="block w-full bg-white text-crochet-primary font-black text-center py-3.5 rounded-2xl text-base hover:bg-gray-100 transition shadow-lg">
-                ¡Suscríbete ya! →
-              </Link>
-
-              <button
-                onClick={() => { setPopupOferta(false); sessionStorage.setItem('popup_regreso_visto', '1'); }}
-                className="w-full text-center text-xs text-white/40 hover:text-white/70 mt-3 transition">
-                Ahora no
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
