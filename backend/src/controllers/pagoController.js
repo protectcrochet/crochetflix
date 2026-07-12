@@ -116,9 +116,14 @@ exports.crearPago = [crearPagoRateLimit, async (req, res) => {
       return res.status(400).json({ error: 'Ya tienes una suscripción activa' });
     }
 
-    const unit_amount = precioData.unit_amount;
+    const PROMO_ACTIVA = new Date() <= new Date('2026-07-16T23:59:59');
+    const unit_amount = PROMO_ACTIVA
+      ? Math.round(precioData.unit_amount * 0.75)
+      : precioData.unit_amount;
     const montoRegistro = unit_amount / (precioData.ceroDecimal ? 1 : 100);
-    const label = 'CrochetFlix Premium — Mensual';
+    const label = PROMO_ACTIVA
+      ? 'CrochetFlix Premium — Mensual (25% OFF 🎉)'
+      : 'CrochetFlix Premium — Mensual';
 
     const orderId = `CF-${uuidv4()}`;
     const pagoId = uuidv4();
@@ -127,7 +132,7 @@ exports.crearPago = [crearPagoRateLimit, async (req, res) => {
       db.run(
         `INSERT INTO pagos (id, user_id, order_id, monto_usd, status, plan, descuento_aplicado, created_at)
          VALUES (?, ?, ?, ?, 'pending', ?, ?, datetime('now'))`,
-        [pagoId, userId, orderId, montoRegistro, plan, 0],
+        [pagoId, userId, orderId, montoRegistro, plan, PROMO_ACTIVA ? 25 : 0],
         function(err) { if (err) reject(err); resolve(); }
       );
     });
@@ -163,7 +168,7 @@ exports.crearPago = [crearPagoRateLimit, async (req, res) => {
       session_id: session.id,
       order_id: orderId,
       amount: montoRegistro,
-      descuento_aplicado: false,
+      descuento_aplicado: PROMO_ACTIVA,
       currency: precioData.moneda,
       plan
     });
