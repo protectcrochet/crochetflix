@@ -145,7 +145,7 @@ export default function Home() {
     try {
       const [resAll, resDestacados, resTendencia] = await Promise.all([
         api.get('/patrones'),
-        api.get('/patrones', { params: { destacado: '1', limit: 12 } }),
+        api.get('/patrones', { params: { destacado: '1', limit: 15 } }),
         api.get('/patrones', { params: { tendencia: '1', limit: 16 } }),
       ]);
       const data = resAll.data.patrones || [];
