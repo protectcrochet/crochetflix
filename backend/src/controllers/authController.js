@@ -10,6 +10,10 @@ const JWT_EXPIRES = process.env.JWT_EXPIRES_IN || '7d';
 
 const DOMINIOS_BLOQUEADOS = [
   'buloan.com', 'duvips.com',
+  'fivejm.com', 'bncinema.com', 'lovadio.com', 'brixozu.com',
+  'mails1.org', 'skkdke.com', 'ozsaip.com', 'necub.com',
+  'wnbaldwy.com', 'lnovic.com', 'initwag.com', 'hoadkf.com',
+  'bltiwd.com', 'asitrai.com', 'preparmy.com',
 ];
 
 exports.register = async (req, res) => {
