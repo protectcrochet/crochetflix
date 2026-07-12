@@ -133,7 +133,7 @@ Reglas:
     });
 
     const modelo = imageBase64
-      ? 'meta-llama/llama-4-maverick-17b-128e-instruct-fp8'
+      ? 'llama-4-scout-17b-16e-instruct'
       : 'llama3-8b-8192';
 
     const response = await groq.chat.completions.create({
