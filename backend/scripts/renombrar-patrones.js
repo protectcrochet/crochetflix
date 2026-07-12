@@ -132,16 +132,44 @@ Reglas:
 - Solo responde con el título, sin comillas ni puntuación al final`
     });
 
-    const modelo = imageBase64
-      ? 'llama-4-scout-17b-16e-instruct'
-      : 'llama3-8b-8192';
+    // Intentar primero con vision, si falla usar solo texto
+    const MODELOS_VISION = [
+      'meta-llama/llama-4-scout-17b-16e-instruct',
+      'llama-4-scout-17b-16e-instruct',
+    ];
 
-    const response = await groq.chat.completions.create({
-      model: modelo,
-      messages: [{ role: 'user', content }],
-      max_tokens: 100,
-      temperature: 0.4
-    });
+    let response = null;
+
+    if (imageBase64) {
+      for (const modelo of MODELOS_VISION) {
+        try {
+          response = await groq.chat.completions.create({
+            model: modelo,
+            messages: [{ role: 'user', content }],
+            max_tokens: 100,
+            temperature: 0.4
+          });
+          break; // Si funcionó, salir del loop
+        } catch (vErr) {
+          if (vErr.status === 404) continue; // Probar siguiente modelo
+          throw vErr; // Otro error, propagar
+        }
+      }
+    }
+
+    // Fallback: texto sin imagen
+    if (!response) {
+      const contentTexto = [{
+        type: 'text',
+        text: `Genera un título creativo y descriptivo en español para un patrón de crochet/amigurumi que tiene ${patron.paginas || '?'} páginas. Puede ser un personaje, animal, muñeco u objeto tejido a crochet. Solo el título (máximo 60 caracteres), sin comillas ni puntuación al final.`
+      }];
+      response = await groq.chat.completions.create({
+        model: 'llama3-8b-8192',
+        messages: [{ role: 'user', content: contentTexto }],
+        max_tokens: 80,
+        temperature: 0.7
+      });
+    }
 
     const raw = response.choices[0]?.message?.content?.trim() || '';
     const titulo = raw
