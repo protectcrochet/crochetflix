@@ -7,18 +7,20 @@
  *   node scripts/renombrar-patrones.js 0        → procesa lote 0 (primeros 50)
  *   node scripts/renombrar-patrones.js 1        → procesa lote 1 (siguientes 50)
  *   ...
+ *
+ * Estrategia:
+ *   1. Si el título tiene texto legible tras el hash → limpiarlo directamente (sin Groq)
+ *   2. Si solo tiene números/basura → usar Groq Vision con la thumbnail
  */
 
 const sqlite3 = require('sqlite3').verbose();
 const Groq = require('groq-sdk');
-const fs = require('fs');
-const path = require('path');
 const https = require('https');
 
 const DB_PATH = '/var/www/crochetflix-app/database/crochetflix.sqlite';
 const SITE_URL = 'https://crochetflix.app';
 const BATCH_SIZE = 50;
-const DELAY_MS = 1200; // ~50 req/min, bien dentro del límite de Groq
+const DELAY_GROQ_MS = 1200;
 
 const BATCH = process.argv[2] !== undefined ? parseInt(process.argv[2]) : null;
 
@@ -40,9 +42,49 @@ const dbRun = (sql, p = []) => new Promise((res, rej) =>
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-// Patrón: título que empieza con hash hex (8+ chars hex) seguido de espacio o es todo hex
 function tieneHashPrefix(titulo) {
   return /^[0-9a-fA-F]{8,}\s/.test(titulo || '') || /^[0-9a-fA-F]{16,}$/.test(titulo || '');
+}
+
+/**
+ * Intenta limpiar el título extrayendo el texto real tras el hash.
+ * Devuelve null si lo que queda son solo números/basura.
+ */
+function limpiarTitulo(titulo) {
+  // Quitar hash hex del inicio (16 chars + espacio)
+  let limpio = titulo.replace(/^[0-9a-fA-F]{8,}\s+/, '').trim();
+
+  // Quitar sufijos comunes de archivos
+  limpio = limpio
+    .replace(/[\s_-]?pdf$/i, '')
+    .replace(/[\s_-]?Pdf$/i, '')
+    .replace(/\.pdf$/i, '')
+    .trim();
+
+  // Quitar sufijos como "1Pdf", "2Pdf", " 1", " 2" al final
+  limpio = limpio.replace(/\s*\d+pdf$/i, '').trim();
+  limpio = limpio.replace(/\s+\d+$/, '').trim();
+
+  // Quitar IDs numéricos largos de TikTok/redes (10+ dígitos)
+  limpio = limpio.replace(/\d{10,}/g, '').trim();
+
+  // Quitar prefijos numéricos solos: "2 5", "1 5", etc.
+  limpio = limpio.replace(/^\d+\s+\d*\s*/, '').trim();
+
+  // Limpiar dobles espacios
+  limpio = limpio.replace(/\s{2,}/g, ' ').trim();
+
+  // Si lo que queda es muy corto o son puro números/símbolos → necesita Groq
+  if (!limpio || limpio.length < 3 || /^[\d\s._\-]+$/.test(limpio)) {
+    return null;
+  }
+
+  // Capitalizar primera letra si está en minúsculas
+  if (limpio[0] === limpio[0].toLowerCase()) {
+    limpio = limpio[0].toUpperCase() + limpio.slice(1);
+  }
+
+  return limpio.slice(0, 80);
 }
 
 function fetchImageBase64(url) {
@@ -104,7 +146,7 @@ Reglas:
     const raw = response.choices[0]?.message?.content?.trim() || '';
     const titulo = raw
       .replace(/^["'`]|["'`]$/g, '')
-      .replace(/\.$/,'')
+      .replace(/\.$/, '')
       .slice(0, 80)
       .trim();
 
@@ -113,7 +155,7 @@ Reglas:
   } catch (err) {
     if (err.status === 429 && intento <= 3) {
       const wait = intento * 30000;
-      console.log(`\n  ⏳ Rate limit (intento ${intento}/3), esperando ${wait/1000}s...`);
+      console.log(`\n  ⏳ Rate limit (intento ${intento}/3), esperando ${wait / 1000}s...`);
       await sleep(wait);
       return analizarConGroq(patron, intento + 1);
     }
@@ -137,13 +179,10 @@ async function eliminarDuplicados(conHash) {
 
   let totalElim = 0;
   for (const [titulo, arr] of grupos) {
-    // Ordenar por id (el más antiguo primero = mantener)
     arr.sort((a, b) => a.id < b.id ? -1 : 1);
     const mantener = arr[0];
     const eliminar = arr.slice(1);
-
-    console.log(`  "${titulo.slice(0, 45)}..." → mantener ${mantener.id}, eliminar: ${eliminar.map(p=>p.id).join(', ')}`);
-
+    console.log(`  "${titulo.slice(0, 45)}..." → mantener ${mantener.id}, eliminar: ${eliminar.map(p => p.id).join(', ')}`);
     for (const p of eliminar) {
       await dbRun('DELETE FROM progreso WHERE patron_id = ?', [p.id]);
       await dbRun('DELETE FROM mi_lista WHERE patron_id = ?', [p.id]);
@@ -153,6 +192,15 @@ async function eliminarDuplicados(conHash) {
     }
   }
   return totalElim;
+}
+
+function getUnicos(conHash) {
+  const porTitulo = {};
+  for (const p of conHash) {
+    if (!porTitulo[p.titulo]) porTitulo[p.titulo] = [];
+    porTitulo[p.titulo].push(p);
+  }
+  return Object.values(porTitulo).map(arr => arr.sort((a, b) => a.id < b.id ? -1 : 1)[0]);
 }
 
 async function main() {
@@ -166,24 +214,22 @@ async function main() {
   console.log(`🔍 Con título tipo hash: ${conHash.length}`);
 
   if (BATCH === null) {
-    // Modo estadísticas + limpieza de duplicados
     console.log('\n=== ELIMINANDO DUPLICADOS ===');
     const eliminados = await eliminarDuplicados(conHash);
     console.log(`✅ ${eliminados} duplicados desactivados\n`);
 
-    // Recalcular únicos tras dedup
-    const porTitulo = {};
-    for (const p of conHash) {
-      if (!porTitulo[p.titulo]) porTitulo[p.titulo] = [];
-      porTitulo[p.titulo].push(p);
-    }
-    const unicos = Object.values(porTitulo).map(arr => arr.sort((a,b)=>a.id<b.id?-1:1)[0]);
+    const unicos = getUnicos(conHash);
+    const limpiables = unicos.filter(p => limpiarTitulo(p.titulo) !== null);
+    const necesitanGroq = unicos.filter(p => limpiarTitulo(p.titulo) === null);
 
     console.log(`📝 Patrones únicos a renombrar: ${unicos.length}`);
+    console.log(`  ✂️  Limpieza directa (sin Groq): ${limpiables.length}`);
+    console.log(`  🤖 Necesitan Groq Vision:        ${necesitanGroq.length}`);
     console.log(`📦 Lotes de ${BATCH_SIZE}: ${Math.ceil(unicos.length / BATCH_SIZE)} lotes\n`);
 
     for (let i = 0; i < Math.min(5, unicos.length); i++) {
-      console.log(`  "${unicos[i].titulo.slice(0,50)}" [id:${unicos[i].id}]`);
+      const t = limpiarTitulo(unicos[i].titulo);
+      console.log(`  "${unicos[i].titulo.slice(0, 45)}" → ${t ? `"${t}"` : '🤖 Groq'}`);
     }
     if (unicos.length > 5) console.log(`  ... y ${unicos.length - 5} más`);
 
@@ -193,48 +239,50 @@ async function main() {
   }
 
   // Modo procesamiento de lote
-  const porTitulo = {};
-  for (const p of conHash) {
-    if (!porTitulo[p.titulo]) porTitulo[p.titulo] = [];
-    porTitulo[p.titulo].push(p);
-  }
-  const unicos = Object.values(porTitulo)
-    .map(arr => arr.sort((a,b)=>a.id<b.id?-1:1)[0]);
-
+  const unicos = getUnicos(conHash);
   const inicio = BATCH * BATCH_SIZE;
   const lote = unicos.slice(inicio, inicio + BATCH_SIZE);
+  const totalLotes = Math.ceil(unicos.length / BATCH_SIZE);
 
   if (lote.length === 0) {
-    console.log('\n✅ ¡Todos los lotes procesados! No quedan patrones con hash.\n');
+    console.log('\n✅ ¡Todos los lotes procesados!\n');
     db.close();
     return;
   }
 
-  const totalLotes = Math.ceil(unicos.length / BATCH_SIZE);
   console.log(`\n🚀 Lote ${BATCH + 1}/${totalLotes} — procesando ${lote.length} patrones\n`);
 
-  let ok = 0, errores = 0;
+  let okDirecto = 0, okGroq = 0, errores = 0;
 
   for (let i = 0; i < lote.length; i++) {
     const patron = lote[i];
-    const tituloCorto = patron.titulo.slice(0, 35);
-    process.stdout.write(`[${String(i+1).padStart(2)}/${lote.length}] "${tituloCorto}..." → `);
+    const tituloCorto = patron.titulo.slice(0, 32);
+    process.stdout.write(`[${String(i + 1).padStart(2)}/${lote.length}] "${tituloCorto}..." → `);
 
-    const nuevoTitulo = await analizarConGroq(patron);
+    // Intentar limpieza directa primero
+    const tituloDirecto = limpiarTitulo(patron.titulo);
 
-    if (nuevoTitulo) {
-      await dbRun('UPDATE patrones SET titulo = ? WHERE id = ?', [nuevoTitulo, patron.id]);
-      console.log(`"${nuevoTitulo}"`);
-      ok++;
+    if (tituloDirecto) {
+      await dbRun('UPDATE patrones SET titulo = ? WHERE id = ?', [tituloDirecto, patron.id]);
+      console.log(`✂️  "${tituloDirecto}"`);
+      okDirecto++;
     } else {
-      console.log('❌ sin resultado');
-      errores++;
+      // Necesita Groq
+      process.stdout.write('🤖 ');
+      const tituloGroq = await analizarConGroq(patron);
+      if (tituloGroq) {
+        await dbRun('UPDATE patrones SET titulo = ? WHERE id = ?', [tituloGroq, patron.id]);
+        console.log(`"${tituloGroq}"`);
+        okGroq++;
+        await sleep(DELAY_GROQ_MS);
+      } else {
+        console.log('❌ sin resultado');
+        errores++;
+      }
     }
-
-    if (i < lote.length - 1) await sleep(DELAY_MS);
   }
 
-  console.log(`\n✅ ${ok} renombrados | ❌ ${errores} errores`);
+  console.log(`\n✅ ${okDirecto} por limpieza directa | 🤖 ${okGroq} por Groq | ❌ ${errores} errores`);
 
   if (BATCH + 1 < totalLotes) {
     console.log(`\n▶  Siguiente lote: node scripts/renombrar-patrones.js ${BATCH + 1}\n`);
