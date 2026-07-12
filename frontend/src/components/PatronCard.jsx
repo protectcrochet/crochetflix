@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Clock, Star, Download } from 'lucide-react';
+import { Clock, Star, Download, Crown } from 'lucide-react';
 
 export default function PatronCard({ patron }) {
   return (
@@ -17,6 +17,11 @@ export default function PatronCard({ patron }) {
         <div className="absolute top-2 left-2 flex gap-1">
           {patron.es_preview === 1 && (
             <span className="bg-green-600 text-xs px-2 py-0.5 rounded font-bold">GRATIS</span>
+          )}
+          {patron.es_solo_premium === 1 && (
+            <span className="bg-yellow-400 text-black text-xs px-2 py-1 rounded-md font-black flex items-center gap-1 shadow-lg">
+              <Crown className="w-3 h-3" /> PREMIUM
+            </span>
           )}
           {patron.offline === 1 && (
             <span className="bg-blue-600 text-xs px-2 py-0.5 rounded">
