@@ -44,15 +44,25 @@ export default function Register() {
     return (
       <div className="min-h-[70vh] flex items-center justify-center px-4">
         <div className="w-full max-w-md text-center">
-          <Mail className="w-16 h-16 text-crochet-primary mx-auto mb-4" />
-          <h1 className="text-2xl font-bold mb-2">¡Cuenta creada!</h1>
-          <p className="text-gray-400 mb-1">
-            Te enviamos un correo a <strong className="text-white">{email}</strong>
+          <div className="w-20 h-20 bg-crochet-primary/20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Mail className="w-10 h-10 text-crochet-primary" />
+          </div>
+          <h1 className="text-2xl font-bold mb-3">Revisa tu correo</h1>
+          <p className="text-gray-300 mb-2">
+            Enviamos un enlace de verificación a
           </p>
-          <p className="text-gray-500 text-sm mb-6">Haz clic en el enlace para verificar tu cuenta. Revisa spam si no lo ves.</p>
-          <button onClick={() => navigate('/')} className="btn-primary px-8 py-3">
-            Explorar CrochetFlix
-          </button>
+          <p className="text-white font-semibold text-lg mb-6">{email}</p>
+
+          <div className="bg-yellow-900/30 border border-yellow-700/50 rounded-xl px-5 py-4 mb-6 text-left">
+            <p className="text-yellow-300 text-sm font-semibold mb-1">📬 ¿No lo ves?</p>
+            <p className="text-yellow-200/80 text-sm leading-relaxed">
+              Revisa tu carpeta de <strong>spam o correo no deseado</strong>. A veces los correos de verificación llegan ahí.
+            </p>
+          </div>
+
+          <p className="text-gray-500 text-sm">
+            Una vez que verifiques tu correo podrás acceder a CrochetFlix.
+          </p>
         </div>
       </div>
     );

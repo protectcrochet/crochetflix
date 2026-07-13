@@ -56,7 +56,7 @@ export default function VerificarEmail() {
               onClick={() => window.location.replace('/')}
               className="btn-primary px-10 py-3 text-base font-bold"
             >
-              Explorar patrones
+              Entrar a CrochetFlix
             </button>
           </>
         )}
