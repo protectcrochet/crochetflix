@@ -153,10 +153,19 @@ exports.referidos = async (req, res) => {
   res.json({ codigo: null, referidos: 0, descuento: 0 });
 };
 
+function renderVerificacionHTML(success) {
+  const FRONT_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const styles = `*{margin:0;padding:0;box-sizing:border-box}body{background:#111;font-family:'Helvetica Neue',Arial,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}.card{background:#1c1c1c;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.4);max-width:480px;width:100%}.hdr{background:#dc2626;padding:32px 40px;text-align:center}.hdr .eyebrow{color:rgba(255,255,255,.7);font-size:11px;letter-spacing:3px;text-transform:uppercase;margin-bottom:8px}.hdr h1{color:#fff;font-size:32px;font-weight:800;letter-spacing:-1px}.bod{padding:40px;text-align:center}.icon{width:80px;height:80px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 24px}.icon.ok{background:#16a34a}.icon.err{background:#7f1d1d}h2{color:#fff;font-size:22px;font-weight:700;margin-bottom:12px}p{color:#9ca3af;font-size:15px;line-height:1.75;margin-bottom:32px}.btn{display:inline-block;background:#dc2626;color:#fff;text-decoration:none;padding:16px 44px;border-radius:50px;font-weight:700;font-size:16px}.foot{color:#4b5563;font-size:11px;text-align:center;margin-top:20px}`;
+  if (success) {
+    return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CrochetFlix — Correo verificado</title><style>${styles}</style></head><body><div style="width:100%;max-width:480px"><div class="card"><div class="hdr"><p class="eyebrow">Bienvenida a</p><h1>CrochetFlix</h1></div><div class="bod"><div class="icon ok"><svg width="40" height="40" fill="none" stroke="#fff" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg></div><h2>¡Correo verificado!</h2><p>Tu cuenta está lista. Ya puedes explorar cientos de patrones de crochet.</p><a href="${FRONT_URL}" class="btn">Entrar a CrochetFlix</a></div></div><p class="foot">© CrochetFlix · Todos los derechos reservados</p></div></body></html>`;
+  }
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CrochetFlix — Enlace inválido</title><style>${styles}</style></head><body><div style="width:100%;max-width:480px"><div class="card"><div class="hdr"><p class="eyebrow">Bienvenida a</p><h1>CrochetFlix</h1></div><div class="bod"><div class="icon err"><svg width="40" height="40" fill="none" stroke="#fff" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></div><h2>Enlace inválido o expirado</h2><p>El enlace expiró o ya fue usado. Inicia sesión y solicita un nuevo correo desde tu perfil.</p><a href="${FRONT_URL}/login" class="btn">Iniciar sesión</a></div></div><p class="foot">© CrochetFlix · Todos los derechos reservados</p></div></body></html>`;
+}
+
 exports.verificarEmail = async (req, res) => {
   const { token } = req.query;
 
-  if (!token) return res.status(400).json({ error: 'Token requerido' });
+  if (!token) return res.send(renderVerificacionHTML(false));
 
   try {
     const user = await new Promise((resolve, reject) => {
@@ -165,7 +174,7 @@ exports.verificarEmail = async (req, res) => {
       });
     });
 
-    if (!user) return res.status(400).json({ error: 'invalid' });
+    if (!user) return res.send(renderVerificacionHTML(false));
 
     await new Promise((resolve, reject) => {
       db.run(
@@ -175,10 +184,10 @@ exports.verificarEmail = async (req, res) => {
       );
     });
 
-    res.json({ ok: true });
+    res.send(renderVerificacionHTML(true));
   } catch (err) {
     console.error('Error verificar email:', err);
-    res.status(500).json({ error: 'Error interno' });
+    res.send(renderVerificacionHTML(false));
   }
 };
 
