@@ -155,81 +155,8 @@ exports.referidos = async (req, res) => {
 
 exports.verificarEmail = async (req, res) => {
   const { token } = req.query;
-  const FRONT_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
-  const paginaExito = `<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Correo verificado — CrochetFlix</title>
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{background:#111;font-family:'Helvetica Neue',Arial,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
-    .card{background:#1c1c1c;border-radius:20px;max-width:480px;width:100%;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.5)}
-    .header{background:#dc2626;padding:28px 32px;text-align:center}
-    .logo{color:#fff;font-size:28px;font-weight:800;letter-spacing:-1px}
-    .body{padding:40px 32px;text-align:center}
-    .icon{width:64px;height:64px;background:#16a34a;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px}
-    .icon svg{width:32px;height:32px;stroke:#fff;stroke-width:2.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
-    h1{color:#fff;font-size:22px;font-weight:700;margin-bottom:10px}
-    p{color:#9ca3af;font-size:15px;line-height:1.6;margin-bottom:28px}
-    a{display:inline-block;background:#dc2626;color:#fff;text-decoration:none;padding:14px 40px;border-radius:50px;font-weight:700;font-size:15px}
-    a:hover{background:#b91c1c}
-  </style>
-</head>
-<body>
-  <div class="card">
-    <div class="header"><span class="logo">CrochetFlix</span></div>
-    <div class="body">
-      <div class="icon">
-        <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-      </div>
-      <h1>¡Correo verificado!</h1>
-      <p>Tu cuenta está activa. Ya puedes acceder a todos los patrones de CrochetFlix.</p>
-      <a href="${FRONT_URL}">Ir a CrochetFlix</a>
-    </div>
-  </div>
-</body>
-</html>`;
-
-  const paginaError = `<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Enlace inválido — CrochetFlix</title>
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{background:#111;font-family:'Helvetica Neue',Arial,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
-    .card{background:#1c1c1c;border-radius:20px;max-width:480px;width:100%;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.5)}
-    .header{background:#dc2626;padding:28px 32px;text-align:center}
-    .logo{color:#fff;font-size:28px;font-weight:800;letter-spacing:-1px}
-    .body{padding:40px 32px;text-align:center}
-    .icon{width:64px;height:64px;background:#dc2626;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px}
-    .icon svg{width:32px;height:32px;stroke:#fff;stroke-width:2.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
-    h1{color:#fff;font-size:22px;font-weight:700;margin-bottom:10px}
-    p{color:#9ca3af;font-size:15px;line-height:1.6;margin-bottom:28px}
-    a{display:inline-block;background:#dc2626;color:#fff;text-decoration:none;padding:14px 40px;border-radius:50px;font-weight:700;font-size:15px}
-    a:hover{background:#b91c1c}
-  </style>
-</head>
-<body>
-  <div class="card">
-    <div class="header"><span class="logo">CrochetFlix</span></div>
-    <div class="body">
-      <div class="icon">
-        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </div>
-      <h1>Enlace inválido</h1>
-      <p>El enlace expiró o ya fue usado. Inicia sesión y solicita uno nuevo desde tu cuenta.</p>
-      <a href="${FRONT_URL}/login">Iniciar sesión</a>
-    </div>
-  </div>
-</body>
-</html>`;
-
-  if (!token) return res.send(paginaError);
+  if (!token) return res.status(400).json({ error: 'Token requerido' });
 
   try {
     const user = await new Promise((resolve, reject) => {
@@ -238,7 +165,7 @@ exports.verificarEmail = async (req, res) => {
       });
     });
 
-    if (!user) return res.redirect(`${FRONT_URL}/verificar-email?error=invalid`);
+    if (!user) return res.status(400).json({ error: 'invalid' });
 
     await new Promise((resolve, reject) => {
       db.run(
@@ -248,10 +175,10 @@ exports.verificarEmail = async (req, res) => {
       );
     });
 
-    res.redirect(`${FRONT_URL}/verificar-email?success=1`);
+    res.json({ ok: true });
   } catch (err) {
     console.error('Error verificar email:', err);
-    res.redirect(`${FRONT_URL}/verificar-email?error=invalid`);
+    res.status(500).json({ error: 'Error interno' });
   }
 };
 

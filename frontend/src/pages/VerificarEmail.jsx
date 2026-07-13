@@ -6,18 +6,20 @@ import { useAuth } from '../hooks/useAuth';
 
 export default function VerificarEmail() {
   const [searchParams] = useSearchParams();
-  const { user, login } = useAuth();
-  const [estado, setEstado] = useState('cargando'); // cargando | ok | error | pendiente
+  const { user } = useAuth();
+  const [estado, setEstado] = useState('cargando');
   const [reenviando, setReenviando] = useState(false);
   const [reenviado, setReenviado] = useState(false);
 
-  const success = searchParams.get('success');
-  const error = searchParams.get('error');
   const token = searchParams.get('token');
+  const error = searchParams.get('error');
 
   useEffect(() => {
-    if (success === '1') {
-      setEstado('ok');
+    if (token) {
+      // Verificar el token directamente desde el frontend
+      api.get(`/auth/verificar-email?token=${token}`)
+        .then(() => setEstado('ok'))
+        .catch(() => setEstado('error'));
     } else if (error) {
       setEstado('error');
     } else {
@@ -40,6 +42,13 @@ export default function VerificarEmail() {
   return (
     <div className="min-h-[70vh] flex items-center justify-center px-4">
       <div className="w-full max-w-md text-center">
+
+        {estado === 'cargando' && (
+          <>
+            <Loader className="w-10 h-10 animate-spin mx-auto text-crochet-primary mb-4" />
+            <p className="text-gray-400">Verificando tu correo...</p>
+          </>
+        )}
 
         {estado === 'ok' && (
           <>
@@ -93,10 +102,6 @@ export default function VerificarEmail() {
             )}
             {reenviado && <p className="text-green-400 text-sm">¡Correo reenviado!</p>}
           </>
-        )}
-
-        {estado === 'cargando' && (
-          <Loader className="w-10 h-10 animate-spin mx-auto text-crochet-primary" />
         )}
 
       </div>
