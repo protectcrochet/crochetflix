@@ -6,6 +6,8 @@ const axios = require('axios');
 
 const UPLOADS_DIR = path.join(__dirname, '../../uploads/patrones');
 
+const SIN_LIMITE_TRADUCCION = new Set(['jeramgon@outlook.com']);
+
 const dbGet = (sql, p) => new Promise((res, rej) => db.get(sql, p, (err, row) => err ? rej(err) : res(row)));
 const dbRun = (sql, p) => new Promise((res, rej) => db.run(sql, p, function(err) { err ? rej(err) : res(this); }));
 
@@ -361,33 +363,36 @@ exports.traducir = async (req, res) => {
     );
     if (cached) return res.json({ texto: cached.texto_traducido, cached: true });
 
-    // Control semanal (lunes a domingo)
-    const hoy = new Date();
-    const diaSemana = hoy.getDay() === 0 ? 6 : hoy.getDay() - 1;
-    const lunes = new Date(hoy);
-    lunes.setDate(hoy.getDate() - diaSemana);
-    const semana = lunes.toISOString().slice(0, 10);
+    // Control semanal (lunes a domingo) — omitir para usuarios sin límite
+    const userRow = await dbGet('SELECT email FROM users WHERE id = ?', [userId]);
+    if (!SIN_LIMITE_TRADUCCION.has(userRow?.email)) {
+      const hoy = new Date();
+      const diaSemana = hoy.getDay() === 0 ? 6 : hoy.getDay() - 1;
+      const lunes = new Date(hoy);
+      lunes.setDate(hoy.getDate() - diaSemana);
+      const semana = lunes.toISOString().slice(0, 10);
 
-    const LIMITE = 5;
-    const yaUsado = await dbGet(
-      'SELECT 1 FROM traducciones_uso WHERE user_id = ? AND patron_id = ? AND semana = ?',
-      [userId, id, semana]
-    );
-    if (!yaUsado) {
-      const usados = await dbGet(
-        'SELECT COUNT(DISTINCT patron_id) as n FROM traducciones_uso WHERE user_id = ? AND semana = ?',
-        [userId, semana]
-      );
-      if ((usados?.n || 0) >= LIMITE) {
-        return res.status(403).json({
-          error: 'limite_traduccion',
-          mensaje: `Alcanzaste el límite de ${LIMITE} patrones traducidos esta semana. Se renueva el lunes.`,
-        });
-      }
-      await dbRun(
-        'INSERT OR IGNORE INTO traducciones_uso (user_id, patron_id, semana) VALUES (?, ?, ?)',
+      const LIMITE = 5;
+      const yaUsado = await dbGet(
+        'SELECT 1 FROM traducciones_uso WHERE user_id = ? AND patron_id = ? AND semana = ?',
         [userId, id, semana]
       );
+      if (!yaUsado) {
+        const usados = await dbGet(
+          'SELECT COUNT(DISTINCT patron_id) as n FROM traducciones_uso WHERE user_id = ? AND semana = ?',
+          [userId, semana]
+        );
+        if ((usados?.n || 0) >= LIMITE) {
+          return res.status(403).json({
+            error: 'limite_traduccion',
+            mensaje: `Alcanzaste el límite de ${LIMITE} patrones traducidos esta semana. Se renueva el lunes.`,
+          });
+        }
+        await dbRun(
+          'INSERT OR IGNORE INTO traducciones_uso (user_id, patron_id, semana) VALUES (?, ?, ?)',
+          [userId, id, semana]
+        );
+      }
     }
 
     let traduccion = null;
