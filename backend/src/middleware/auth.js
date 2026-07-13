@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const db = require('../models');
 
 function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -19,4 +20,14 @@ function authMiddleware(req, res, next) {
   }
 }
 
-module.exports = authMiddleware;
+function requireEmailVerified(req, res, next) {
+  db.get('SELECT email_verified FROM users WHERE id = ?', [req.userId], (err, row) => {
+    if (err || !row) return res.status(401).json({ error: 'Usuario no encontrado' });
+    if (!row.email_verified) {
+      return res.status(403).json({ error: 'email_no_verificado', mensaje: 'Verifica tu correo electrónico para acceder a los patrones.' });
+    }
+    next();
+  });
+}
+
+module.exports = { authMiddleware, requireEmailVerified };

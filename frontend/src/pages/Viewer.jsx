@@ -166,7 +166,9 @@ export default function Viewer() {
       img.src = url;
       api.post('/viewer/progreso', { patronId: id, paginaActual: numero });
     } catch (err) {
-      if (err.response?.status === 402) {
+      if (err.response?.data?.error === 'email_no_verificado') {
+        setPaginaError('email_no_verificado');
+      } else if (err.response?.status === 402) {
         setPaginaError('solo_premium');
       } else if (err.response?.status === 403) {
         setPaginaError('limite_free');
@@ -464,7 +466,22 @@ export default function Viewer() {
             <Loader className="w-10 h-10 text-crochet-primary animate-spin" />
           </div>
         )}
-        {paginaError === 'solo_premium' ? (
+        {paginaError === 'email_no_verificado' ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center z-20 bg-gray-950/97 px-6 py-8 text-center">
+            <Mail className="w-14 h-14 text-yellow-400 mb-4" />
+            <h2 className="text-xl font-bold text-white mb-2">Verifica tu correo</h2>
+            <p className="text-gray-400 mb-6 max-w-xs">
+              Debes verificar tu correo electrónico para acceder a los patrones.<br />
+              Revisa tu bandeja de entrada y haz clic en el enlace de verificación.
+            </p>
+            <button onClick={() => navigate('/perfil')} className="w-full max-w-xs py-3.5 bg-yellow-500 hover:bg-yellow-400 text-black font-bold rounded-xl transition text-base mb-3">
+              Ir a mi perfil
+            </button>
+            <button onClick={() => navigate(-1)} className="text-sm text-gray-500 hover:text-gray-300 mt-1">
+              ← Volver al catálogo
+            </button>
+          </div>
+        ) : paginaError === 'solo_premium' ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center z-20 bg-gray-950/97 px-6 py-8 text-center">
             <Crown className="w-14 h-14 text-yellow-400 mb-4" />
             <h2 className="text-xl font-bold text-white mb-2">Este patrón es exclusivo Premium ⭐</h2>

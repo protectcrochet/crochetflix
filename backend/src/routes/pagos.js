@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const pagoController = require('../controllers/pagoController');
-const authMiddleware = require('../middleware/auth');
+const { authMiddleware } = require('../middleware/auth');
 
 router.get('/precio-local', pagoController.precioLocal);
 router.post('/crear', authMiddleware, pagoController.crearPago);
