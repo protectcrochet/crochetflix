@@ -54,8 +54,11 @@ export default function Perfil() {
     try {
       const res = await api.post('/pagos/crear', { plan, moneda: geo.moneda });
 
-      if (res.data.payment_url) {
-        window.location.href = res.data.payment_url;
+      const redirectUrl = res.data.payment_url || res.data.checkout_url;
+      if (redirectUrl) {
+        window.location.href = redirectUrl;
+      } else {
+        setError('No se recibió URL de pago. Intenta de nuevo.');
       }
     } catch (err) {
       setError(err.response?.data?.error || 'Error procesando pago');
