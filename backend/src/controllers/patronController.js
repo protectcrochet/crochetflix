@@ -41,7 +41,7 @@ RÈGLES:
 };
 
 async function groqPost(payload, maxIntentos = 3) {
-  const key = process.env.GROQ_API_KEY;
+  const key = process.env.GROQ_API_KEY_TRADUCCION || process.env.GROQ_API_KEY;
   if (!key) throw new Error('GROQ_API_KEY no configurado');
   for (let intento = 0; intento < maxIntentos; intento++) {
     try {
