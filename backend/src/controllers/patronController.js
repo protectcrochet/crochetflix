@@ -412,8 +412,14 @@ exports.traducir = async (req, res) => {
 
     // 2. Fallback: visión con la imagen ya convertida (PDFs basados en imagen)
     if (!traduccion) {
-      const imgPath = path.join(UPLOADS_DIR, id, `pagina_${paginaNum}.jpg`);
-      if (fs.existsSync(imgPath)) {
+      const posibles = [
+        path.join(UPLOADS_DIR, id, `pagina_${paginaNum}.jpg`),
+        path.join(UPLOADS_DIR, id, `pagina.${paginaNum}.jpeg`),
+        path.join(UPLOADS_DIR, id, `pagina.${paginaNum}.jpg`),
+        path.join(UPLOADS_DIR, id, `pagina_${paginaNum}.jpeg`),
+      ];
+      const imgPath = posibles.find(p => fs.existsSync(p));
+      if (imgPath) {
         traduccion = await groqVisionTraducir(imgPath, idioma);
       }
     }
