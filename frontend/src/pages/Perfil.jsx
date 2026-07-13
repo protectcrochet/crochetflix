@@ -34,9 +34,12 @@ export default function Perfil() {
     : null;
 
   useEffect(() => {
-    fetch('https://ipapi.co/json/')
-      .then(r => r.json())
-      .then(d => setGeo(PRECIOS_GEO[d.country_code] || PRECIOS_GEO.DEFAULT))
+    api.get('/pagos/precio-local')
+      .then(res => {
+        const { monto, moneda } = res.data;
+        const geoEntry = Object.values(PRECIOS_GEO).find(g => g.moneda === moneda);
+        if (geoEntry) setGeo({ ...geoEntry, mensual: monto });
+      })
       .catch(() => {});
   }, []);
 
@@ -52,7 +55,7 @@ export default function Perfil() {
     setError('');
 
     try {
-      const res = await api.post('/pagos/crear', { plan, moneda: geo.moneda });
+      const res = await api.post('/pagos/crear', { plan });
 
       const redirectUrl = res.data.payment_url || res.data.checkout_url;
       if (redirectUrl) {
