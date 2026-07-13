@@ -18,8 +18,6 @@ export default function VerificarEmail() {
   useEffect(() => {
     if (success === '1') {
       setEstado('ok');
-      // Recargar tras 2s para refrescar estado del usuario
-      setTimeout(() => window.location.replace('/'), 2000);
     } else if (error) {
       setEstado('error');
     } else {
