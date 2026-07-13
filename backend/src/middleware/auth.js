@@ -30,4 +30,7 @@ function requireEmailVerified(req, res, next) {
   });
 }
 
-module.exports = { authMiddleware, requireEmailVerified };
+// Compatible con import por defecto y nombrado
+module.exports = authMiddleware;
+module.exports.authMiddleware = authMiddleware;
+module.exports.requireEmailVerified = requireEmailVerified;
