@@ -238,7 +238,7 @@ exports.verificarEmail = async (req, res) => {
       });
     });
 
-    if (!user) return res.send(paginaError);
+    if (!user) return res.redirect(`${FRONT_URL}/verificar-email?error=invalid`);
 
     await new Promise((resolve, reject) => {
       db.run(
@@ -248,10 +248,10 @@ exports.verificarEmail = async (req, res) => {
       );
     });
 
-    res.send(paginaExito);
+    res.redirect(`${FRONT_URL}/verificar-email?success=1`);
   } catch (err) {
     console.error('Error verificar email:', err);
-    res.send(paginaError);
+    res.redirect(`${FRONT_URL}/verificar-email?error=invalid`);
   }
 };
 

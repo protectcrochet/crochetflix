@@ -45,10 +45,19 @@ export default function VerificarEmail() {
 
         {estado === 'ok' && (
           <>
-            <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold mb-2">¡Correo verificado!</h1>
-            <p className="text-gray-400 mb-6">Ya puedes disfrutar de todos los patrones de CrochetFlix.</p>
-            <Link to="/" className="btn-primary px-8 py-3 inline-block">Ir al inicio</Link>
+            <div className="w-20 h-20 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
+              <CheckCircle className="w-10 h-10 text-white" />
+            </div>
+            <p className="text-crochet-primary text-sm font-semibold tracking-widest uppercase mb-2">Bienvenida a</p>
+            <h1 className="text-4xl font-extrabold mb-3 tracking-tight">CrochetFlix</h1>
+            <p className="text-gray-400 mb-1">Tu correo ha sido verificado.</p>
+            <p className="text-gray-500 text-sm mb-8">Ya puedes explorar cientos de patrones de crochet.</p>
+            <button
+              onClick={() => window.location.replace('/')}
+              className="btn-primary px-10 py-3 text-base font-bold"
+            >
+              Explorar patrones
+            </button>
           </>
         )}
 

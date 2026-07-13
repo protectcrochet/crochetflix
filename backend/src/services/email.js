@@ -40,6 +40,12 @@ async function enviarVerificacion(email, token) {
           </a>
         </div>
 
+        <div style="background:#1a1a1a;border:1px solid #3d2f00;border-radius:12px;padding:16px 20px;margin-bottom:24px;text-align:center;">
+          <p style="color:#fbbf24;font-size:13px;margin:0;line-height:1.6;">
+            📬 ¿No ves el correo? Revisa tu carpeta de <strong>spam o correo no deseado</strong>
+          </p>
+        </div>
+
         <div style="border-top:1px solid #2d2d2d;padding-top:24px;">
           <p style="color:#6b7280;font-size:13px;text-align:center;margin:0;line-height:1.6;">
             El enlace expira en 48 horas.<br>
