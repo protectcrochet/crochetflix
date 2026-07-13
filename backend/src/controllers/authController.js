@@ -14,6 +14,7 @@ const DOMINIOS_BLOQUEADOS = [
   'mails1.org', 'skkdke.com', 'ozsaip.com', 'necub.com',
   'wnbaldwy.com', 'lnovic.com', 'initwag.com', 'hoadkf.com',
   'bltiwd.com', 'asitrai.com', 'preparmy.com',
+  'hidepost.net',
 ];
 
 exports.register = async (req, res) => {
