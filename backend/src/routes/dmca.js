@@ -17,8 +17,8 @@ db.run(`CREATE TABLE IF NOT EXISTS dmca_claims (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )`);
 
-// Agregar columnas nuevas si la tabla ya existía sin ellas
-['infringing_urls', 'proof_url', 'signature'].forEach(col => {
+// Agregar columnas que puedan faltar (ignora error si ya existen)
+['nombre_reclamante', 'email', 'descripcion', 'infringing_urls', 'proof_url', 'signature'].forEach(col => {
   db.run(`ALTER TABLE dmca_claims ADD COLUMN ${col} TEXT`, () => {});
 });
 
