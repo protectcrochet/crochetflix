@@ -43,28 +43,46 @@ RÈGLES:
 3. Сохраняйте формат. Отвечайте ТОЛЬКО переведённым текстом.`,
 };
 
+function getGroqKeys() {
+  const keys = [];
+  for (let i = 1; i <= 10; i++) {
+    const k = process.env[`GROQ_API_KEY_${i}`];
+    if (k) keys.push(k);
+  }
+  const legacy = process.env.GROQ_API_KEY_TRADUCCION || process.env.GROQ_API_KEY;
+  if (legacy && !keys.includes(legacy)) keys.push(legacy);
+  return keys;
+}
+
 async function groqPost(payload, maxIntentos = 3) {
-  const key = process.env.GROQ_API_KEY_TRADUCCION || process.env.GROQ_API_KEY;
-  if (!key) throw new Error('GROQ_API_KEY no configurado');
-  for (let intento = 0; intento < maxIntentos; intento++) {
+  const keys = getGroqKeys();
+  if (!keys.length) throw new Error('GROQ_API_KEY no configurado');
+
+  for (const key of keys) {
     try {
-      const resp = await axios.post(
-        'https://api.groq.com/openai/v1/chat/completions',
-        payload,
-        { headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, timeout: 90000 }
-      );
-      return resp.data.choices[0].message.content.trim();
+      for (let intento = 0; intento < maxIntentos; intento++) {
+        try {
+          const resp = await axios.post(
+            'https://api.groq.com/openai/v1/chat/completions',
+            payload,
+            { headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, timeout: 90000 }
+          );
+          return resp.data.choices[0].message.content.trim();
+        } catch (e) {
+          if (e.response?.status === 429) throw e; // saltar al siguiente key
+          if (intento < maxIntentos - 1) continue;
+          throw e;
+        }
+      }
     } catch (e) {
       if (e.response?.status === 429) {
-        if (intento < maxIntentos - 1) {
-          await new Promise(r => setTimeout(r, 20000));
-          continue;
-        }
-        throw new Error('rate_limit');
+        console.log(`[groq] key agotada, probando siguiente...`);
+        continue;
       }
       throw e;
     }
   }
+  throw new Error('rate_limit'); // todos los keys agotados
 }
 
 const MYMEMORY_LANG = { es: 'es', en: 'en', pt: 'pt', fr: 'fr', ru: 'ru' };
@@ -113,8 +131,7 @@ function resizeImgPath(imgPath) {
 }
 
 async function groqVisionTraducir(imgPath, idioma) {
-  const key = process.env.GROQ_API_KEY;
-  if (!key) throw new Error('GROQ_API_KEY no configurado');
+  if (!getGroqKeys().length) throw new Error('GROQ_API_KEY no configurado');
   const nombre = { es: 'español', en: 'English', pt: 'português', fr: 'français', ru: 'русский' }[idioma] || idioma;
 
   const resizedPath = resizeImgPath(imgPath);
