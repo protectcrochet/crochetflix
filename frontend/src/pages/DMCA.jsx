@@ -88,7 +88,7 @@ export default function DMCA() {
           </p>
         </div>
         <p className="text-xs text-gray-500">
-          <strong>Agente de DMCA:</strong> CrochetFlix — contacto: <a href="mailto:dmca@crochetflix.app" className="text-crochet-primary hover:underline">dmca@crochetflix.app</a>
+          <strong>Agente de DMCA:</strong> CrochetFlix — contacto: <a href="mailto:crochetflix@proton.me" className="text-crochet-primary hover:underline">crochetflix@proton.me</a>
           {' · '}
           <a href="/derechos-de-autor" className="text-crochet-primary hover:underline">Consultar política completa de derechos de autor</a>
         </p>
@@ -211,7 +211,7 @@ export default function DMCA() {
 
         <p className="text-xs text-gray-500 text-center">
           Para preguntas sobre derechos de autor, escríbenos a{' '}
-          <a href="mailto:dmca@crochetflix.app" className="text-crochet-primary hover:underline">dmca@crochetflix.app</a>
+          <a href="mailto:crochetflix@proton.me" className="text-crochet-primary hover:underline">crochetflix@proton.me</a>
         </p>
       </form>
     </div>

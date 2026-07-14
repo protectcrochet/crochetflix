@@ -112,8 +112,8 @@ export default function DerechosDeAutor() {
               Formulario de Notificación DMCA
             </Link>{' '}
             o directamente a{' '}
-            <a href="mailto:dmca@crochetflix.app" className="text-crochet-primary hover:underline">
-              dmca@crochetflix.app
+            <a href="mailto:crochetflix@proton.me" className="text-crochet-primary hover:underline">
+              crochetflix@proton.me
             </a>.
           </p>
         </div>
@@ -145,7 +145,7 @@ export default function DerechosDeAutor() {
         </ul>
         <p>
           Envía tu contra-notificación a{' '}
-          <a href="mailto:dmca@crochetflix.app" className="text-crochet-primary hover:underline">dmca@crochetflix.app</a>{' '}
+          <a href="mailto:crochetflix@proton.me" className="text-crochet-primary hover:underline">crochetflix@proton.me</a>{' '}
           con el asunto <span className="font-mono text-xs bg-gray-700 px-1 rounded">CONTRA-NOTIFICACION: [ID de reclamación]</span>.
         </p>
       </Seccion>
@@ -182,7 +182,7 @@ export default function DerechosDeAutor() {
           <div className="text-gray-300 pl-6 space-y-1">
             <p><strong>Plataforma:</strong> CrochetFlix</p>
             <p><strong>Correo:</strong>{' '}
-              <a href="mailto:dmca@crochetflix.app" className="text-crochet-primary hover:underline">dmca@crochetflix.app</a>
+              <a href="mailto:crochetflix@proton.me" className="text-crochet-primary hover:underline">crochetflix@proton.me</a>
             </p>
           </div>
         </div>

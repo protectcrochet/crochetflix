@@ -50,7 +50,7 @@ router.post('/', (req, res) => {
         const FROM = process.env.RESEND_FROM_EMAIL || 'CrochetFlix <noreply@crochetflix.app>';
         resend.emails.send({
           from: FROM,
-          to: process.env.ADMIN_EMAIL || 'kroshapattern@gmail.com',
+          to: process.env.ADMIN_EMAIL || 'crochetflix@proton.me',
           subject: `Nueva reclamación DMCA — ${claimant_name}`,
           html: `
             <h2>Nueva reclamación DMCA</h2>
