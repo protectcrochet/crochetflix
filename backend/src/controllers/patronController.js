@@ -6,6 +6,7 @@ const axios = require('axios');
 
 const UPLOADS_DIR = path.join(__dirname, '../../uploads/patrones');
 
+
 const SIN_LIMITE_TRADUCCION = new Set(['jeramgon@outlook.com']);
 
 const dbGet = (sql, p) => new Promise((res, rej) => db.get(sql, p, (err, row) => err ? rej(err) : res(row)));
