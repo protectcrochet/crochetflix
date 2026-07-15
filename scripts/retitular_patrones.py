@@ -211,19 +211,25 @@ def main():
             continue
 
         datos = None
+        raw = None
         for intento in range(3):
             try:
                 raw = groq_vision(img_b64, keys)
                 datos = parsear(raw)
                 break
             except Exception as e:
+                err_msg = f'error Groq intento {intento+1}: {e}'
+                print(err_msg)
+                log.write(f'[{idx}] {patron_id} — {err_msg}\n')
                 if intento < 2:
                     time.sleep(2 ** intento)
-                else:
-                    log.write(f'[{idx}] {patron_id} — error Groq: {e}\n')
 
         if not datos:
-            print('sin datos')
+            if raw:
+                print(f'sin datos (raw: {raw[:200]!r})')
+                log.write(f'[{idx}] {patron_id} — sin datos, raw={raw[:200]}\n')
+            else:
+                print('sin datos (sin respuesta)')
             fallidos += 1
             continue
 
