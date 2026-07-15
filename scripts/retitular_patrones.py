@@ -32,7 +32,8 @@ def leer_groq_keys():
     try:
         for line in open(ENV_FILE):
             line = line.strip()
-            m = re.match(r'GROQ_API_KEY\w*\s*=\s*(.+)', line)
+            # Solo GROQ_API_KEY base — NO _TRADUCCION (esa la usa el backend)
+            m = re.match(r'GROQ_API_KEY\s*=\s*(.+)', line)
             if m:
                 k = m.group(1).strip().strip('"\'')
                 if k and k not in keys:
