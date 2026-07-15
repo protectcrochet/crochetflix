@@ -131,8 +131,15 @@ Responde ÚNICAMENTE con el JSON, sin explicaciones."""
         except urllib.error.HTTPError as e:
             body = e.read().decode('utf-8', errors='ignore')
             if e.code == 429:
+                # Leer cuántos segundos esperar según Groq
+                retry_after = e.headers.get('retry-after') or e.headers.get('x-ratelimit-reset-requests')
+                try:
+                    wait = max(float(retry_after), 5) if retry_after else 30
+                except (ValueError, TypeError):
+                    wait = 30
+                print(f'  rate-limit key {_key_idx % len(keys)}, esperando {wait:.0f}s...')
                 _key_idx += 1
-                time.sleep(15)  # esperar antes de intentar siguiente key
+                time.sleep(wait)
                 continue
             raise RuntimeError(f'HTTP {e.code}: {body[:300]}')
         except Exception:
@@ -255,8 +262,8 @@ def main():
             fallidos += 1
             log.write(f'[{idx}] {patron_id} — error DB: {e}\n')
 
-        # 4s entre requests = ~15 RPM/key, margen seguro bajo el límite de Groq
-        time.sleep(4)
+        # 10s entre requests = ~6 RPM, seguro para modelos Llama-4 en Groq
+        time.sleep(10)
 
     conn.close()
     resumen = f'Actualizados: {actualizados} | Sin imagen: {sin_img} | Fallidos: {fallidos}'
