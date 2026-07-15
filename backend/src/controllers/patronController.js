@@ -252,10 +252,19 @@ exports.listar = async (req, res) => {
         });
       }),
       new Promise((resolve, reject) => {
-        const countSql = offline === '1'
-          ? `SELECT COUNT(*) as n FROM patrones p LEFT JOIN progreso pr ON pr.patron_id = p.id AND pr.user_id = ? WHERE p.activo = 1 AND p.paginas > 0 AND pr.descargado_offline = 1`
-          : `SELECT COUNT(*) as n FROM patrones WHERE activo = 1 AND paginas > 0`;
-        const countParams = offline === '1' ? [userId] : [];
+        let countSql, countParams;
+        if (offline === '1') {
+          countSql = `SELECT COUNT(*) as n FROM patrones p LEFT JOIN progreso pr ON pr.patron_id = p.id AND pr.user_id = ? WHERE p.activo = 1 AND p.paginas > 0 AND pr.descargado_offline = 1`;
+          countParams = [userId];
+        } else {
+          countSql = `SELECT COUNT(*) as n FROM patrones p WHERE p.activo = 1 AND p.paginas > 0`;
+          countParams = [];
+          if (categoria) { countSql += ' AND p.categoria = ?'; countParams.push(categoria); }
+          if (dificultad) { countSql += ' AND p.dificultad = ?'; countParams.push(dificultad); }
+          if (destacado === '1') { countSql += ' AND p.destacado = 1'; }
+          if (tendencia === '1') { countSql += ' AND p.tendencia = 1'; }
+          if (search) { countSql += ' AND p.titulo LIKE ?'; countParams.push(`%${search}%`); }
+        }
         db.get(countSql, countParams, (err, row) => { if (err) reject(err); else resolve(row?.n || 0); });
       }),
     ]);

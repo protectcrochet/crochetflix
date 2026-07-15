@@ -62,7 +62,7 @@ export default function Catalogo() {
     return () => clearTimeout(timer);
   }, [cargar]);
 
-  // Infinite scroll
+  // Infinite scroll — hayMas en deps para que se adjunte cuando aparece el sentinel
   useEffect(() => {
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
@@ -72,7 +72,7 @@ export default function Catalogo() {
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [cargar]);
+  }, [cargar, hayMas]);
 
   const limpiarFiltros = () => {
     setBusqueda('');
