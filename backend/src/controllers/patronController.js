@@ -199,7 +199,7 @@ async function groqVisionTraducir(imgPath, idioma) {
 // Listar patrones (con info de preview gratis)
 exports.listar = async (req, res) => {
   try {
-    const { categoria, dificultad, search, destacado, tendencia, orden, limit, offset } = req.query;
+    const { categoria, dificultad, search, destacado, tendencia, orden, limit, offset, offline } = req.query;
     const userId = req.userId || null;
 
     let sql = `
@@ -219,6 +219,7 @@ exports.listar = async (req, res) => {
     if (dificultad) { sql += ' AND p.dificultad = ?'; params.push(dificultad); }
     if (destacado === '1') { sql += ' AND p.destacado = 1'; }
     if (tendencia === '1') { sql += ' AND p.tendencia = 1'; }
+    if (offline === '1') { sql += ' AND pr.descargado_offline = 1'; }
     if (search) {
       // Use CASE WHEN so that fields with placeholder values like "Telegram" are excluded from search
       sql += ` AND (
@@ -251,8 +252,11 @@ exports.listar = async (req, res) => {
         });
       }),
       new Promise((resolve, reject) => {
-        db.get(`SELECT COUNT(*) as n FROM patrones WHERE activo = 1 AND paginas > 0`, [],
-          (err, row) => { if (err) reject(err); else resolve(row?.n || 0); });
+        const countSql = offline === '1'
+          ? `SELECT COUNT(*) as n FROM patrones p LEFT JOIN progreso pr ON pr.patron_id = p.id AND pr.user_id = ? WHERE p.activo = 1 AND p.paginas > 0 AND pr.descargado_offline = 1`
+          : `SELECT COUNT(*) as n FROM patrones WHERE activo = 1 AND paginas > 0`;
+        const countParams = offline === '1' ? [userId] : [];
+        db.get(countSql, countParams, (err, row) => { if (err) reject(err); else resolve(row?.n || 0); });
       }),
     ]);
 
