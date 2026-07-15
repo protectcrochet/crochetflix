@@ -85,6 +85,17 @@ async function groqPost(payload, maxIntentos = 3) {
   throw new Error('rate_limit'); // todos los keys agotados
 }
 
+async function cerebrasPost(payload) {
+  const key = process.env.CEREBRAS_API_KEY;
+  if (!key) throw new Error('CEREBRAS_API_KEY no configurado');
+  const resp = await axios.post(
+    'https://api.cerebras.ai/v1/chat/completions',
+    payload,
+    { headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, timeout: 90000 }
+  );
+  return resp.data.choices[0].message.content.trim();
+}
+
 const MYMEMORY_LANG = { es: 'es', en: 'en', pt: 'pt', fr: 'fr', ru: 'ru' };
 
 async function myMemoryTraducir(texto, idiomaDestino) {
@@ -102,21 +113,32 @@ async function myMemoryTraducir(texto, idiomaDestino) {
 }
 
 async function traducirTexto(texto, idioma) {
+  const payload = {
+    model: 'llama-3.3-70b',
+    messages: [
+      { role: 'system', content: SISTEMAS[idioma] },
+      { role: 'user', content: texto },
+    ],
+    temperature: 0.2,
+    max_tokens: 4096,
+  };
+
+  // 1. Groq (key rotation)
   try {
-    // Groq es muy rápido (1-3s). Un solo intento — si hay 429, caemos a MyMemory de inmediato.
-    return await groqPost({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        { role: 'system', content: SISTEMAS[idioma] },
-        { role: 'user', content: texto },
-      ],
-      temperature: 0.2,
-      max_tokens: 4096,
-    }, 1);
+    return await groqPost({ ...payload, model: 'llama-3.3-70b-versatile' }, 1);
   } catch {
-    // Si Groq falla (rate limit, error de red, etc.) → MyMemory sin límites
-    return myMemoryTraducir(texto, idioma);
+    console.log('[traducir] Groq agotado, intentando Cerebras...');
   }
+
+  // 2. Cerebras
+  try {
+    return await cerebrasPost(payload);
+  } catch {
+    console.log('[traducir] Cerebras falló, cayendo a MyMemory...');
+  }
+
+  // 3. MyMemory (sin IA, básico)
+  return myMemoryTraducir(texto, idioma);
 }
 
 function resizeImgPath(imgPath) {
