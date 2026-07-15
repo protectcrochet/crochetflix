@@ -22,7 +22,7 @@ ENV_FILE     = '/var/www/crochetflix-app/backend/.env'
 LOG          = '/root/retitular_log.txt'
 CATEGORIAS   = {'amigurumi', 'ropa', 'accesorios', 'hogar', 'navidad', 'otro'}
 DIFICULTADES = {'principiante', 'intermedio', 'avanzado'}
-GROQ_MODEL   = 'meta-llama/llama-4-scout-17b-16e-instruct'
+GROQ_MODEL   = 'llama-3.2-11b-vision-preview'
 
 
 # ── Leer claves Groq del .env ─────────────────────────────────────────────────
@@ -32,7 +32,7 @@ def leer_groq_keys():
     try:
         for line in open(ENV_FILE):
             line = line.strip()
-            m = re.match(r'GROQ_API_KEY(?:_\d+)?\s*=\s*(.+)', line)
+            m = re.match(r'GROQ_API_KEY\w*\s*=\s*(.+)', line)
             if m:
                 k = m.group(1).strip().strip('"\'')
                 if k and k not in keys:
@@ -128,11 +128,12 @@ Responde ÚNICAMENTE con el JSON, sin explicaciones."""
                 data = json.loads(resp.read())
             return data['choices'][0]['message']['content'].strip()
         except urllib.error.HTTPError as e:
+            body = e.read().decode('utf-8', errors='ignore')
             if e.code == 429:
                 _key_idx += 1
-                time.sleep(1)
+                time.sleep(2)
                 continue
-            raise
+            raise RuntimeError(f'HTTP {e.code}: {body[:300]}')
         except Exception:
             raise
 
