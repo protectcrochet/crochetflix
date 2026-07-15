@@ -88,9 +88,7 @@ def imagen_a_base64(ruta, max_kb=150):
 
 _key_idx = 0
 
-def groq_vision(img_b64, keys):
-    global _key_idx
-    prompt = """Analiza esta portada de patrón de crochet y extrae la información.
+PROMPT = """Analiza esta portada de patrón de crochet y extrae la información.
 Devuelve SOLO un JSON válido con estos campos exactos:
 {
   "titulo": "nombre del patrón (sin palabras como pdf, crochet, patron al inicio)",
@@ -100,44 +98,55 @@ Devuelve SOLO un JSON válido con estos campos exactos:
 }
 Responde ÚNICAMENTE con el JSON, sin explicaciones."""
 
-    for intento in range(len(keys) * 2):
-        key = keys[_key_idx % len(keys)]
-        payload = json.dumps({
-            'model': GROQ_MODEL,
-            'messages': [{
-                'role': 'user',
-                'content': [
-                    {'type': 'text', 'text': prompt},
-                    {'type': 'image_url', 'image_url': {'url': f'data:image/jpeg;base64,{img_b64}'}},
-                ]
-            }],
-            'temperature': 0.1,
-            'max_tokens': 200,
-        }).encode()
 
-        req = urllib.request.Request(
-            'https://api.groq.com/openai/v1/chat/completions',
-            data=payload,
-            headers={
-                'Authorization': f'Bearer {key}',
-                'Content-Type': 'application/json',
-                'User-Agent': 'groq-python/0.11.0',
-            }
-        )
+def _llamar_groq(key, img_b64):
+    payload = json.dumps({
+        'model': GROQ_MODEL,
+        'messages': [{
+            'role': 'user',
+            'content': [
+                {'type': 'text', 'text': PROMPT},
+                {'type': 'image_url', 'image_url': {'url': f'data:image/jpeg;base64,{img_b64}'}},
+            ]
+        }],
+        'temperature': 0.1,
+        'max_tokens': 200,
+    }).encode()
+    req = urllib.request.Request(
+        'https://api.groq.com/openai/v1/chat/completions',
+        data=payload,
+        headers={
+            'Authorization': f'Bearer {key}',
+            'Content-Type': 'application/json',
+            'User-Agent': 'groq-python/0.11.0',
+        }
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        data = json.loads(resp.read())
+    return data['choices'][0]['message']['content'].strip()
+
+
+def groq_vision(img_b64, keys):
+    """Alterna claves proactivamente para repartir carga entre keys."""
+    global _key_idx
+
+    # Intentar con cada key; si da 429 esperar su retry-after y probar la siguiente
+    for ronda in range(len(keys) * 3):
+        key_i = _key_idx % len(keys)
+        key = keys[key_i]
         try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                data = json.loads(resp.read())
-            return data['choices'][0]['message']['content'].strip()
+            result = _llamar_groq(key, img_b64)
+            _key_idx += 1  # alternar para el siguiente llamado
+            return result
         except urllib.error.HTTPError as e:
             body = e.read().decode('utf-8', errors='ignore')
             if e.code == 429:
-                # Leer cuántos segundos esperar según Groq
                 retry_after = e.headers.get('retry-after') or e.headers.get('x-ratelimit-reset-requests')
                 try:
-                    wait = max(float(retry_after), 5) if retry_after else 30
+                    wait = max(float(retry_after), 10) if retry_after else 30
                 except (ValueError, TypeError):
                     wait = 30
-                print(f'  rate-limit key {_key_idx % len(keys)}, esperando {wait:.0f}s...')
+                print(f'  429 key[{key_i}] → esperando {wait:.0f}s antes de key[{(_key_idx+1)%len(keys)}]...')
                 _key_idx += 1
                 time.sleep(wait)
                 continue
@@ -262,8 +271,8 @@ def main():
             fallidos += 1
             log.write(f'[{idx}] {patron_id} — error DB: {e}\n')
 
-        # 10s entre requests = ~6 RPM, seguro para modelos Llama-4 en Groq
-        time.sleep(10)
+        # 6s entre requests + alternancia de keys = ~10 RPM total (5 por key)
+        time.sleep(6)
 
     conn.close()
     resumen = f'Actualizados: {actualizados} | Sin imagen: {sin_img} | Fallidos: {fallidos}'
