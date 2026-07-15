@@ -87,6 +87,7 @@ def imagen_a_base64(ruta, max_kb=150):
 # ── Llamada a Groq Vision ─────────────────────────────────────────────────────
 
 _key_idx = 0
+_key_reset = {}   # key_index → timestamp cuando vuelve a estar disponible
 
 PROMPT = """Analiza esta portada de patrón de crochet y extrae la información.
 Devuelve SOLO un JSON válido con estos campos exactos:
@@ -127,34 +128,49 @@ def _llamar_groq(key, img_b64):
 
 
 def groq_vision(img_b64, keys):
-    """Alterna claves proactivamente para repartir carga entre keys."""
-    global _key_idx
+    """Alterna claves, salta las rate-limitadas sin esperar si hay otra disponible."""
+    global _key_idx, _key_reset
 
-    # Intentar con cada key; si da 429 esperar su retry-after y probar la siguiente
-    for ronda in range(len(keys) * 3):
-        key_i = _key_idx % len(keys)
-        key = keys[key_i]
+    for _ in range(20):  # máx 20 intentos en total
+        now = time.time()
+
+        # Buscar la próxima key disponible
+        key_i = None
+        for offset in range(len(keys)):
+            candidate = (_key_idx + offset) % len(keys)
+            if now >= _key_reset.get(candidate, 0):
+                key_i = candidate
+                break
+
+        # Todas las keys siguen en rate-limit → esperar a la primera en recuperarse
+        if key_i is None:
+            wait = min(_key_reset.values()) - now + 1
+            print(f'  Todas las keys en rate-limit, esperando {wait:.0f}s...')
+            time.sleep(max(wait, 1))
+            continue
+
         try:
-            result = _llamar_groq(key, img_b64)
-            _key_idx += 1  # alternar para el siguiente llamado
+            result = _llamar_groq(keys[key_i], img_b64)
+            _key_idx = (key_i + 1) % len(keys)  # alternar para el siguiente
             return result
         except urllib.error.HTTPError as e:
             body = e.read().decode('utf-8', errors='ignore')
             if e.code == 429:
                 retry_after = e.headers.get('retry-after') or e.headers.get('x-ratelimit-reset-requests')
                 try:
-                    wait = max(float(retry_after), 10) if retry_after else 30
+                    wait = max(float(retry_after), 5)
                 except (ValueError, TypeError):
                     wait = 30
-                print(f'  429 key[{key_i}] → esperando {wait:.0f}s antes de key[{(_key_idx+1)%len(keys)}]...')
-                _key_idx += 1
-                time.sleep(wait)
+                _key_reset[key_i] = time.time() + wait
+                print(f'  429 key[{key_i}] → bloqueada {wait:.0f}s, probando otra...')
+                _key_idx = (key_i + 1) % len(keys)
+                # No sleep — intentar otra key inmediatamente
                 continue
             raise RuntimeError(f'HTTP {e.code}: {body[:300]}')
         except Exception:
             raise
 
-    raise RuntimeError('Todos los keys de Groq agotados')
+    raise RuntimeError('Todos los keys de Groq agotados tras 20 intentos')
 
 
 def parsear(texto):
