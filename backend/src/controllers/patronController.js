@@ -199,7 +199,7 @@ async function groqVisionTraducir(imgPath, idioma) {
 // Listar patrones (con info de preview gratis)
 exports.listar = async (req, res) => {
   try {
-    const { categoria, dificultad, search, destacado, tendencia, orden, limit, offset, offline } = req.query;
+    const { categoria, dificultad, search, destacado, tendencia, orden, seed, limit, offset, offline } = req.query;
     const userId = req.userId || null;
 
     let sql = `
@@ -230,7 +230,12 @@ exports.listar = async (req, res) => {
       params.push(`%${search}%`, `%${search}%`, `%${search}%`);
     }
 
-    sql += orden === 'aleatorio' ? ' ORDER BY RANDOM()' : ' ORDER BY p.created_at DESC';
+    if (orden === 'aleatorio') {
+      const s = (Math.abs(parseInt(seed) || 1) % 999983) || 1;
+      sql += ` ORDER BY ((p.rowid * ${s}) % 999983)`;
+    } else {
+      sql += ' ORDER BY p.created_at DESC';
+    }
 
     const lim = parseInt(limit) || 60;
     const off = parseInt(offset) || 0;

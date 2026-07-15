@@ -19,6 +19,7 @@ export default function Catalogo() {
   const offsetRef = useRef(0);
   const loadingMoreRef = useRef(false);
   const sentinelRef = useRef(null);
+  const seedRef = useRef(Math.floor(Math.random() * 999983) + 1);
   const hayMas = patrones.length < total;
 
   const cargar = useCallback(async (reset = true) => {
@@ -33,7 +34,7 @@ export default function Catalogo() {
     }
 
     try {
-      const params = { limit: PAGE_SIZE, offset: offsetRef.current };
+      const params = { limit: PAGE_SIZE, offset: offsetRef.current, orden: 'aleatorio', seed: seedRef.current };
       if (busqueda.trim()) params.search = busqueda.trim();
       if (categoria !== 'todos') params.categoria = categoria;
       if (dificultad !== 'todos') params.dificultad = dificultad;
