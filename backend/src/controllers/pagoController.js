@@ -224,6 +224,15 @@ exports.webhook = [webhookRateLimit, async (req, res) => {
       }
     }
 
+    // Renovación automática mensual de suscripción Stripe
+    if (event.type === 'invoice.payment_succeeded') {
+      const invoice = event.data.object;
+      if (invoice.billing_reason === 'subscription_cycle' || invoice.billing_reason === 'subscription_create') {
+        console.log(`[webhook] invoice.paid customer=${invoice.customer} sub=${invoice.subscription} reason=${invoice.billing_reason}`);
+        await renovarPremiumPorStripe(invoice.customer, invoice.subscription, invoice.id);
+      }
+    }
+
     res.status(200).json({ received: true });
   } catch (err) {
     console.error('Error webhook Stripe:', err);
@@ -329,6 +338,65 @@ async function activarPremiumPorEmail(email, paymentIntentId, plan) {
     }
   } catch (err) {
     console.error('[webhook] Error activarPremiumPorEmail:', err);
+  }
+}
+
+// Renovar premium por renovación automática de suscripción Stripe
+async function renovarPremiumPorStripe(customerId, subscriptionId, invoiceId) {
+  try {
+    const user = await new Promise((resolve, reject) => {
+      db.get(
+        `SELECT id, email, tier, subscription_expires_at FROM users
+         WHERE stripe_customer_id = ? OR stripe_subscription_id = ?`,
+        [customerId, subscriptionId],
+        (err, row) => { if (err) reject(err); resolve(row); }
+      );
+    });
+
+    if (!user) {
+      console.warn(`[webhook] renovar: usuario no encontrado customer=${customerId}`);
+      return;
+    }
+
+    // Evitar procesar el mismo invoice dos veces
+    const yaExiste = await new Promise((resolve, reject) => {
+      db.get('SELECT id FROM pagos WHERE stripe_payment_intent_id = ?', [invoiceId],
+        (err, row) => { if (err) reject(err); resolve(row); });
+    });
+    if (yaExiste) {
+      console.log(`[webhook] renovar: invoice ${invoiceId} ya procesado`);
+      return;
+    }
+
+    let fechaExpiracion = new Date();
+    if (user.tier === 'premium' && user.subscription_expires_at) {
+      const existente = new Date(user.subscription_expires_at);
+      if (existente > fechaExpiracion) fechaExpiracion = existente;
+    }
+    fechaExpiracion.setDate(fechaExpiracion.getDate() + 30);
+
+    const pagoId = uuidv4();
+    const orderId = `CF-sub-${pagoId.slice(0, 8)}`;
+    await new Promise((resolve, reject) => {
+      db.run(
+        `INSERT INTO pagos (id, user_id, order_id, monto_usd, status, plan, descuento_aplicado, stripe_payment_intent_id, created_at, updated_at)
+         VALUES (?, ?, ?, 0, 'paid', 'mensual', 0, ?, datetime('now'), datetime('now'))`,
+        [pagoId, user.id, orderId, invoiceId],
+        function(err) { if (err) reject(err); resolve(); }
+      );
+    });
+
+    await new Promise((resolve, reject) => {
+      db.run(
+        `UPDATE users SET tier = 'premium', subscription_expires_at = ? WHERE id = ?`,
+        [fechaExpiracion.toISOString(), user.id],
+        function(err) { if (err) reject(err); resolve(); }
+      );
+    });
+
+    console.log(`[webhook] Renovación premium: ${user.email}, expira ${fechaExpiracion.toISOString()}`);
+  } catch (err) {
+    console.error('[webhook] Error renovarPremiumPorStripe:', err);
   }
 }
 
