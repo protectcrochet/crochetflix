@@ -85,15 +85,37 @@ async function groqPost(payload, maxIntentos = 3) {
   throw new Error('rate_limit'); // todos los keys agotados
 }
 
+function getCerebrasKeys() {
+  const keys = [];
+  for (let i = 1; i <= 10; i++) {
+    const k = process.env[`CEREBRAS_API_KEY_${i}`];
+    if (k) keys.push(k);
+  }
+  const legacy = process.env.CEREBRAS_API_KEY;
+  if (legacy && !keys.includes(legacy)) keys.push(legacy);
+  return keys;
+}
+
 async function cerebrasPost(payload) {
-  const key = process.env.CEREBRAS_API_KEY;
-  if (!key) throw new Error('CEREBRAS_API_KEY no configurado');
-  const resp = await axios.post(
-    'https://api.cerebras.ai/v1/chat/completions',
-    payload,
-    { headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, timeout: 90000 }
-  );
-  return resp.data.choices[0].message.content.trim();
+  const keys = getCerebrasKeys();
+  if (!keys.length) throw new Error('CEREBRAS_API_KEY no configurado');
+  for (const key of keys) {
+    try {
+      const resp = await axios.post(
+        'https://api.cerebras.ai/v1/chat/completions',
+        payload,
+        { headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, timeout: 90000 }
+      );
+      return resp.data.choices[0].message.content.trim();
+    } catch (e) {
+      if (e.response?.status === 429) {
+        console.log('[cerebras] key agotada, probando siguiente...');
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw new Error('cerebras_rate_limit');
 }
 
 const MYMEMORY_LANG = { es: 'es', en: 'en', pt: 'pt', fr: 'fr', ru: 'ru' };
