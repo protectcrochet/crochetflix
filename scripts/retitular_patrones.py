@@ -149,7 +149,7 @@ def parsear(texto):
         d = json.loads(m.group())
         titulo = re.sub(r'(?i)\b(pdf|crochet|patron|patrón|pattern)\b', '', d.get('titulo') or '').strip()
         titulo = re.sub(r'\s+', ' ', titulo).strip(' -_')
-        if len(titulo) < 2:
+        if len(titulo) < 2 or titulo.lower() in ('null', 'none', 'n/a', 'sin titulo', 'sin título', 'untitled'):
             return None
         dis = (d.get('diseñadora') or '').strip() or None
         cat = (d.get('categoria') or 'otro').lower()
