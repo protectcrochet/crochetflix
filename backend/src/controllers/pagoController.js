@@ -199,19 +199,28 @@ exports.webhook = [webhookRateLimit, async (req, res) => {
       return res.status(400).send(`Webhook error: ${err.message}`);
     }
 
+    console.log(`[webhook] Evento: ${event.type} id=${event.id}`);
+
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
+      const { orderId, plan } = session.metadata || {};
+      const paymentIntentId = session.payment_intent;
+      console.log(`[webhook] session.completed payment_status=${session.payment_status} orderId=${orderId} email=${session.customer_email}`);
+
       if (session.payment_status === 'paid') {
-        const { orderId, plan } = session.metadata || {};
-        const paymentIntentId = session.payment_intent;
-        await new Promise((resolve, reject) => {
-          db.run(
-            `UPDATE pagos SET status = 'paid', stripe_payment_intent_id = ?, updated_at = datetime('now') WHERE order_id = ?`,
-            [paymentIntentId, orderId],
-            function(err) { if (err) reject(err); resolve(); }
-          );
-        });
-        await activarPremium(orderId, plan);
+        if (orderId) {
+          await new Promise((resolve, reject) => {
+            db.run(
+              `UPDATE pagos SET status = 'paid', stripe_payment_intent_id = ?, updated_at = datetime('now') WHERE order_id = ?`,
+              [paymentIntentId, orderId],
+              function(err) { if (err) reject(err); resolve(); }
+            );
+          });
+          await activarPremium(orderId, plan || 'mensual');
+        } else {
+          console.warn(`[webhook] Sin orderId en metadata — activando por email: ${session.customer_email}`);
+          await activarPremiumPorEmail(session.customer_email, paymentIntentId, plan || 'mensual');
+        }
       }
     }
 
@@ -270,6 +279,56 @@ async function activarPremium(orderId, plan) {
   } catch (err) {
     console.error('Error activando premium:', err);
     throw err;
+  }
+}
+
+// Fallback: activar premium buscando usuario por email (cuando falta orderId en metadata)
+async function activarPremiumPorEmail(email, paymentIntentId, plan) {
+  if (!email) { console.error('[webhook] activarPremiumPorEmail: sin email'); return; }
+  try {
+    const user = await new Promise((resolve, reject) => {
+      db.get('SELECT id, tier, subscription_expires_at FROM users WHERE email = ?', [email],
+        (err, row) => { if (err) reject(err); resolve(row); });
+    });
+    if (!user) { console.error(`[webhook] Usuario no encontrado por email: ${email}`); return; }
+
+    const dias = plan === 'anual' ? 365 : 30;
+    let fechaExpiracion = new Date();
+    if (user.tier === 'premium' && user.subscription_expires_at) {
+      const existente = new Date(user.subscription_expires_at);
+      if (existente > fechaExpiracion) fechaExpiracion = existente;
+    }
+    fechaExpiracion.setDate(fechaExpiracion.getDate() + dias);
+
+    const pagoId = uuidv4();
+    const orderId = `CF-auto-${pagoId.slice(0, 8)}`;
+    await new Promise((resolve, reject) => {
+      db.run(
+        `INSERT INTO pagos (id, user_id, order_id, monto_usd, status, plan, descuento_aplicado, stripe_payment_intent_id, created_at, updated_at)
+         VALUES (?, ?, ?, 0, 'paid', ?, 0, ?, datetime('now'), datetime('now'))`,
+        [pagoId, user.id, orderId, plan, paymentIntentId],
+        function(err) { if (err) reject(err); resolve(); }
+      );
+    });
+
+    await new Promise((resolve, reject) => {
+      db.run(
+        `UPDATE users SET tier = 'premium', subscription_expires_at = ?, new_account_discount = 0 WHERE id = ?`,
+        [fechaExpiracion.toISOString(), user.id],
+        function(err) { if (err) reject(err); resolve(); }
+      );
+    });
+
+    console.log(`[webhook] Premium activado por email: ${email}, expira ${fechaExpiracion.toISOString()}`);
+
+    try {
+      const { enviarConfirmacionPago } = require('../services/email');
+      await enviarConfirmacionPago(email, fechaExpiracion.toISOString());
+    } catch (emailErr) {
+      console.error('Error enviando email confirmación pago:', emailErr.message);
+    }
+  } catch (err) {
+    console.error('[webhook] Error activarPremiumPorEmail:', err);
   }
 }
 
