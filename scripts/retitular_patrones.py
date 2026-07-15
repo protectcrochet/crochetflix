@@ -22,7 +22,7 @@ ENV_FILE     = '/var/www/crochetflix-app/backend/.env'
 LOG          = '/root/retitular_log.txt'
 CATEGORIAS   = {'amigurumi', 'ropa', 'accesorios', 'hogar', 'navidad', 'otro'}
 DIFICULTADES = {'principiante', 'intermedio', 'avanzado'}
-GROQ_MODEL   = 'llama-3.2-11b-vision-preview'
+GROQ_MODEL   = 'meta-llama/llama-4-scout-17b-16e-instruct'
 
 
 # ── Leer claves Groq del .env ─────────────────────────────────────────────────
