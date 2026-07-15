@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Re-extrae título, diseñadora, categoría y dificultad de los patrones
-que tienen "sin título" o título nulo usando Cerebras + pdftotext/fitz.
+con "sin título" usando Groq Vision sobre pagina.1.jpeg / pagina_1.jpg.
 
 Uso: python3 /root/retitular_patrones.py
 Log: /root/retitular_log.txt
@@ -11,108 +11,132 @@ import sqlite3
 import os
 import json
 import time
-import subprocess
 import re
+import base64
 import urllib.request
+import urllib.error
 
 MAIN_DB      = '/var/www/crochetflix-app/database/crochetflix.sqlite'
 UPLOADS      = '/var/www/crochetflix-app/backend/uploads/patrones'
-BOT_SCRIPT   = '/root/sync_patrones_vps.py'
+ENV_FILE     = '/var/www/crochetflix-app/backend/.env'
 LOG          = '/root/retitular_log.txt'
 CATEGORIAS   = {'amigurumi', 'ropa', 'accesorios', 'hogar', 'navidad', 'otro'}
 DIFICULTADES = {'principiante', 'intermedio', 'avanzado'}
+GROQ_MODEL   = 'meta-llama/llama-4-scout-17b-16e-instruct'
 
 
-# ── Leer API key del bot (nunca va al repo) ───────────────────────────────────
+# ── Leer claves Groq del .env ─────────────────────────────────────────────────
 
-def leer_api_key():
-    key = os.environ.get('CEREBRAS_KEY')
-    if key:
-        return key
+def leer_groq_keys():
+    keys = []
     try:
-        for line in open(BOT_SCRIPT):
-            m = re.search(r"CEREBRAS_API_KEY_BOT\s*=\s*'([^']+)'", line)
+        for line in open(ENV_FILE):
+            line = line.strip()
+            m = re.match(r'GROQ_API_KEY(?:_\d+)?\s*=\s*(.+)', line)
             if m:
-                return m.group(1)
-    except Exception:
-        pass
-    raise RuntimeError('No se encontró CEREBRAS_KEY. Exporta: export CEREBRAS_KEY="csk-..."')
+                k = m.group(1).strip().strip('"\'')
+                if k and k not in keys:
+                    keys.append(k)
+    except Exception as e:
+        print(f'No se pudo leer {ENV_FILE}: {e}')
+    if not keys:
+        raise RuntimeError(f'No se encontraron claves GROQ en {ENV_FILE}')
+    print(f'Claves Groq encontradas: {len(keys)}')
+    return keys
 
 
-# ── Extracción de texto del PDF ───────────────────────────────────────────────
+# ── Encontrar primera página ──────────────────────────────────────────────────
 
-def extraer_texto_pdf(ruta_pdf):
-    try:
-        texto = subprocess.check_output(
-            ['pdftotext', '-f', '1', '-l', '3', ruta_pdf, '-'],
-            timeout=15, stderr=subprocess.DEVNULL
-        ).decode('utf-8', errors='ignore').strip()
-        if len(texto) >= 80:
-            return texto[:4000]
-    except Exception:
-        pass
-    try:
-        import fitz
-        doc = fitz.open(ruta_pdf)
-        texto = ''.join(doc[i].get_text() for i in range(min(3, len(doc)))).strip()
-        doc.close()
-        if len(texto) >= 80:
-            return texto[:4000]
-    except Exception:
-        pass
-    return ''
-
-
-def encontrar_pdf(patron_id):
+def encontrar_pagina1(patron_id):
     d = os.path.join(UPLOADS, patron_id)
     if not os.path.isdir(d):
         return None
-    for f in os.listdir(d):
-        if f.lower().endswith('.pdf'):
-            return os.path.join(d, f)
+    for fname in ['pagina_1.jpg', 'pagina.1.jpeg', 'pagina.1.jpg', 'pagina_1.jpeg']:
+        p = os.path.join(d, fname)
+        if os.path.exists(p):
+            return p
     return None
 
 
-# ── Llamada a Cerebras ────────────────────────────────────────────────────────
+def imagen_a_base64(ruta, max_kb=150):
+    """Redimensiona la imagen si es muy grande y la convierte a base64."""
+    try:
+        from PIL import Image
+        import io
+        img = Image.open(ruta)
+        # Redimensionar a max 600px de ancho para ahorrar tokens
+        if img.width > 600:
+            ratio = 600 / img.width
+            img = img.resize((600, int(img.height * ratio)), Image.LANCZOS)
+        buf = io.BytesIO()
+        img.convert('RGB').save(buf, format='JPEG', quality=70)
+        data = buf.getvalue()
+        # Si sigue siendo grande, reducir más
+        if len(data) > max_kb * 1024:
+            buf = io.BytesIO()
+            img_small = img.resize((400, int(img.height * 400 / img.width)), Image.LANCZOS)
+            img_small.convert('RGB').save(buf, format='JPEG', quality=60)
+            data = buf.getvalue()
+        return base64.b64encode(data).decode()
+    except Exception:
+        # Sin PIL: leer el archivo directo
+        with open(ruta, 'rb') as f:
+            return base64.b64encode(f.read()).decode()
 
-def cerebras_extraer(contenido, es_nombre=False, api_key=''):
-    if es_nombre:
-        ctx = f'Nombre del archivo: "{contenido}"'
-    else:
-        ctx = f'Texto del patrón:\n{contenido}'
 
-    prompt = f"""Analiza este patrón de crochet y extrae la información.
+# ── Llamada a Groq Vision ─────────────────────────────────────────────────────
 
-{ctx}
+_key_idx = 0
 
-Devuelve SOLO un JSON válido con estos campos:
-{{
+def groq_vision(img_b64, keys):
+    global _key_idx
+    prompt = """Analiza esta portada de patrón de crochet y extrae la información.
+Devuelve SOLO un JSON válido con estos campos exactos:
+{
   "titulo": "nombre del patrón (sin palabras como pdf, crochet, patron al inicio)",
-  "diseñadora": "nombre del autor/diseñadora, o null si no se menciona",
+  "diseñadora": "nombre del autor/diseñadora o null si no aparece",
   "categoria": "amigurumi|ropa|accesorios|hogar|navidad|otro",
   "dificultad": "principiante|intermedio|avanzado"
-}}
+}
+Responde ÚNICAMENTE con el JSON, sin explicaciones."""
 
-Responde ÚNICAMENTE con el JSON."""
+    for intento in range(len(keys) * 2):
+        key = keys[_key_idx % len(keys)]
+        payload = json.dumps({
+            'model': GROQ_MODEL,
+            'messages': [{
+                'role': 'user',
+                'content': [
+                    {'type': 'text', 'text': prompt},
+                    {'type': 'image_url', 'image_url': {'url': f'data:image/jpeg;base64,{img_b64}'}},
+                ]
+            }],
+            'temperature': 0.1,
+            'max_tokens': 200,
+        }).encode()
 
-    payload = json.dumps({
-        'model': 'llama-3.3-70b',
-        'messages': [{'role': 'user', 'content': prompt}],
-        'temperature': 0.1,
-        'max_tokens': 200,
-    }).encode()
+        req = urllib.request.Request(
+            'https://api.groq.com/openai/v1/chat/completions',
+            data=payload,
+            headers={
+                'Authorization': f'Bearer {key}',
+                'Content-Type': 'application/json',
+            }
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                data = json.loads(resp.read())
+            return data['choices'][0]['message']['content'].strip()
+        except urllib.error.HTTPError as e:
+            if e.code == 429:
+                _key_idx += 1
+                time.sleep(1)
+                continue
+            raise
+        except Exception:
+            raise
 
-    req = urllib.request.Request(
-        'https://api.cerebras.ai/v1/chat/completions',
-        data=payload,
-        headers={
-            'Authorization': f'Bearer {api_key}',
-            'Content-Type': 'application/json',
-        }
-    )
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        data = json.loads(resp.read())
-    return data['choices'][0]['message']['content'].strip()
+    raise RuntimeError('Todos los keys de Groq agotados')
 
 
 def parsear(texto):
@@ -121,8 +145,8 @@ def parsear(texto):
         if not m:
             return None
         d = json.loads(m.group())
-        titulo = re.sub(r'(?i)\b(pdf|crochet|patron|patrón|pattern)\b', '', d.get('titulo') or '').strip(' -_')
-        titulo = re.sub(r'\s+', ' ', titulo).strip()
+        titulo = re.sub(r'(?i)\b(pdf|crochet|patron|patrón|pattern)\b', '', d.get('titulo') or '').strip()
+        titulo = re.sub(r'\s+', ' ', titulo).strip(' -_')
         if len(titulo) < 2:
             return None
         dis = (d.get('diseñadora') or '').strip() or None
@@ -141,8 +165,7 @@ def parsear(texto):
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
-    api_key = leer_api_key()
-    print(f'API key: {api_key[:12]}...')
+    keys = leer_groq_keys()
 
     conn = sqlite3.connect(MAIN_DB, timeout=15)
     c = conn.cursor()
@@ -165,34 +188,38 @@ def main():
     total = len(sin_titulo)
     print(f'Patrones a retitular: {total}\n')
 
-    actualizados = sin_pdf = fallidos = 0
+    actualizados = sin_img = fallidos = 0
     log = open(LOG, 'w', buffering=1)
     log.write(f'Total: {total}\n\n')
 
     for idx, (patron_id,) in enumerate(sin_titulo, 1):
         print(f'[{idx}/{total}] {patron_id}', end=' ... ', flush=True)
 
-        pdf = encontrar_pdf(patron_id)
-        if not pdf:
-            print('sin PDF')
-            log.write(f'[{idx}] {patron_id} — sin PDF\n')
-            sin_pdf += 1
+        img_path = encontrar_pagina1(patron_id)
+        if not img_path:
+            print('sin imagen')
+            log.write(f'[{idx}] {patron_id} — sin imagen\n')
+            sin_img += 1
             continue
 
-        texto = extraer_texto_pdf(pdf)
-        nombre = os.path.basename(pdf).replace('.pdf', '').replace('_', ' ').replace('-', ' ')
+        try:
+            img_b64 = imagen_a_base64(img_path)
+        except Exception as e:
+            print(f'error imagen: {e}')
+            fallidos += 1
+            continue
 
         datos = None
         for intento in range(3):
             try:
-                raw = cerebras_extraer(texto if texto else nombre, es_nombre=not texto, api_key=api_key)
+                raw = groq_vision(img_b64, keys)
                 datos = parsear(raw)
                 break
             except Exception as e:
                 if intento < 2:
                     time.sleep(2 ** intento)
                 else:
-                    log.write(f'[{idx}] {patron_id} — error: {e}\n')
+                    log.write(f'[{idx}] {patron_id} — error Groq: {e}\n')
 
         if not datos:
             print('sin datos')
@@ -220,13 +247,15 @@ def main():
             fallidos += 1
             log.write(f'[{idx}] {patron_id} — error DB: {e}\n')
 
-        time.sleep(0.3)
+        # Pausa para no agotar los keys (~6-7 patrones/minuto)
+        time.sleep(0.5)
 
     conn.close()
-    log.write(f'\n--- Actualizados: {actualizados} | Sin PDF: {sin_pdf} | Fallidos: {fallidos} ---\n')
+    resumen = f'Actualizados: {actualizados} | Sin imagen: {sin_img} | Fallidos: {fallidos}'
+    log.write(f'\n--- {resumen} ---\n')
     log.close()
 
-    print(f'\n✓ Actualizados: {actualizados} | Sin PDF: {sin_pdf} | Fallidos: {fallidos}')
+    print(f'\n✓ {resumen}')
     print(f'Log completo: {LOG}')
 
 
