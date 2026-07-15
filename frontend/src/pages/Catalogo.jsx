@@ -17,18 +17,23 @@ export default function Catalogo() {
   const [dificultad, setDificultad] = useState('todos');
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const offsetRef = useRef(0);
+  const loadingMoreRef = useRef(false);
+  const sentinelRef = useRef(null);
   const hayMas = patrones.length < total;
 
   const cargar = useCallback(async (reset = true) => {
+    if (!reset && loadingMoreRef.current) return;
+
     if (reset) {
       setLoading(true);
       offsetRef.current = 0;
     } else {
+      loadingMoreRef.current = true;
       setLoadingMore(true);
     }
 
     try {
-      const params = { orden: 'aleatorio', limit: PAGE_SIZE, offset: offsetRef.current };
+      const params = { limit: PAGE_SIZE, offset: offsetRef.current };
       if (busqueda.trim()) params.search = busqueda.trim();
       if (categoria !== 'todos') params.categoria = categoria;
       if (dificultad !== 'todos') params.dificultad = dificultad;
@@ -47,6 +52,7 @@ export default function Catalogo() {
       console.error(err);
     } finally {
       setLoading(false);
+      loadingMoreRef.current = false;
       setLoadingMore(false);
     }
   }, [busqueda, categoria, dificultad]);
@@ -54,7 +60,19 @@ export default function Catalogo() {
   useEffect(() => {
     const timer = setTimeout(() => cargar(true), busqueda ? 400 : 0);
     return () => clearTimeout(timer);
-  }, [cargar, busqueda]);
+  }, [cargar]);
+
+  // Infinite scroll
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) cargar(false); },
+      { rootMargin: '400px' }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [cargar]);
 
   const limpiarFiltros = () => {
     setBusqueda('');
@@ -149,20 +167,19 @@ export default function Catalogo() {
             {patrones.map(p => <PatronCard key={p.id} patron={p} />)}
           </div>
 
-          {hayMas && (
-            <div className="flex justify-center mt-8">
-              <button
-                onClick={() => cargar(false)}
-                disabled={loadingMore}
-                className="px-6 py-2.5 bg-gray-800 hover:bg-gray-700 text-sm rounded-full transition disabled:opacity-50">
-                {loadingMore ? (
-                  <span className="flex items-center gap-2">
-                    <span className="w-4 h-4 border-2 border-crochet-primary border-t-transparent rounded-full animate-spin" />
-                    Cargando...
-                  </span>
-                ) : `Cargar más (${total - patrones.length} restantes)`}
-              </button>
+          {/* Sentinel para infinite scroll */}
+          {hayMas && <div ref={sentinelRef} className="h-4" />}
+
+          {loadingMore && (
+            <div className="flex justify-center py-6">
+              <div className="w-7 h-7 border-2 border-crochet-primary border-t-transparent rounded-full animate-spin" />
             </div>
+          )}
+
+          {!hayMas && patrones.length > 0 && (
+            <p className="text-center text-xs text-gray-600 py-6">
+              {total} patrones cargados
+            </p>
           )}
         </>
       )}
