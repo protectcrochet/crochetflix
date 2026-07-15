@@ -132,7 +132,7 @@ Responde ÚNICAMENTE con el JSON, sin explicaciones."""
             body = e.read().decode('utf-8', errors='ignore')
             if e.code == 429:
                 _key_idx += 1
-                time.sleep(2)
+                time.sleep(15)  # esperar antes de intentar siguiente key
                 continue
             raise RuntimeError(f'HTTP {e.code}: {body[:300]}')
         except Exception:
@@ -223,7 +223,7 @@ def main():
                 print(err_msg)
                 log.write(f'[{idx}] {patron_id} — {err_msg}\n')
                 if intento < 2:
-                    time.sleep(2 ** intento)
+                    time.sleep(30)  # espera larga para que los keys se recuperen
 
         if not datos:
             if raw:
@@ -255,8 +255,8 @@ def main():
             fallidos += 1
             log.write(f'[{idx}] {patron_id} — error DB: {e}\n')
 
-        # Pausa para no agotar los keys (~6-7 patrones/minuto)
-        time.sleep(0.5)
+        # 2s entre requests = ~30 RPM total con 2 keys (límite Groq ~30 RPM/key)
+        time.sleep(2)
 
     conn.close()
     resumen = f'Actualizados: {actualizados} | Sin imagen: {sin_img} | Fallidos: {fallidos}'
