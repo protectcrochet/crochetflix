@@ -255,8 +255,8 @@ def main():
             fallidos += 1
             log.write(f'[{idx}] {patron_id} — error DB: {e}\n')
 
-        # 2s entre requests = ~30 RPM total con 2 keys (límite Groq ~30 RPM/key)
-        time.sleep(2)
+        # 4s entre requests = ~15 RPM/key, margen seguro bajo el límite de Groq
+        time.sleep(4)
 
     conn.close()
     resumen = f'Actualizados: {actualizados} | Sin imagen: {sin_img} | Fallidos: {fallidos}'
