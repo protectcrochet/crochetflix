@@ -121,6 +121,7 @@ Responde ÚNICAMENTE con el JSON, sin explicaciones."""
             headers={
                 'Authorization': f'Bearer {key}',
                 'Content-Type': 'application/json',
+                'User-Agent': 'groq-python/0.11.0',
             }
         )
         try:
