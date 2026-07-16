@@ -184,13 +184,16 @@ async function groqVisionTraducir(imgPath, idioma) {
 
   return groqPost({
     model: 'meta-llama/llama-4-scout-17b-16e-instruct',
-    messages: [{
-      role: 'user',
-      content: [
-        { type: 'text', text: `Extrae TODO el texto de esta página de patrón de crochet y tradúcelo al ${nombre}. Mantén la estructura. Devuelve SOLO el texto traducido.` },
-        { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${imgBase64}` } },
-      ],
-    }],
+    messages: [
+      { role: 'system', content: SISTEMAS[idioma] },
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: `Extrae TODO el texto de esta página de patrón de crochet y tradúcelo al ${nombre}. Mantén la estructura. Devuelve SOLO el texto traducido.` },
+          { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${imgBase64}` } },
+        ],
+      },
+    ],
     temperature: 0.2,
     max_tokens: 1500,
   });
