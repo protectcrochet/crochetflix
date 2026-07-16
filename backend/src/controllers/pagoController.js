@@ -526,5 +526,34 @@ exports.verificarEstado = async (req, res) => {
   }
 };
 
+// ============================================
+// Portal de Cliente de Stripe (gestionar/cancelar suscripción)
+// ============================================
+exports.portalCliente = async (req, res) => {
+  try {
+    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+    const userId = req.userId;
+
+    const user = await new Promise((resolve, reject) => {
+      db.get('SELECT stripe_customer_id FROM users WHERE id = ?', [userId],
+        (err, row) => { if (err) reject(err); resolve(row); });
+    });
+
+    if (!user || !user.stripe_customer_id) {
+      return res.status(404).json({ error: 'No tienes una suscripción gestionable.' });
+    }
+
+    const session = await stripe.billingPortal.sessions.create({
+      customer: user.stripe_customer_id,
+      return_url: `${FRONTEND_URL}/perfil`
+    });
+
+    res.json({ url: session.url });
+  } catch (err) {
+    console.error('Error portalCliente:', err);
+    res.status(500).json({ error: 'No se pudo abrir el portal de gestión.' });
+  }
+};
+
 module.exports.webhookRateLimit = webhookRateLimit;
 module.exports.crearPagoRateLimit = crearPagoRateLimit;

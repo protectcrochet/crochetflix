@@ -66,6 +66,15 @@ export default function Perfil() {
       .catch(() => {});
   }, [esPremium]);
 
+  const handlePortal = async () => {
+    try {
+      const res = await api.post('/pagos/portal');
+      if (res.data.url) window.location.href = res.data.url;
+    } catch {
+      // Silencioso: no queremos llamar la atención sobre la gestión de la suscripción
+    }
+  };
+
   const handleSuscribir = async (plan) => {
     pixelInitCheckout();
     setLoading(true);
@@ -117,6 +126,14 @@ export default function Perfil() {
           <p className="text-sm text-gray-400 flex items-center gap-1">
             <Clock className="w-4 h-4" /> Próxima renovación: <strong className="text-white ml-1">{expira}</strong>
           </p>
+        )}
+        {esPremium && (
+          <button
+            onClick={handlePortal}
+            className="text-xs text-gray-600 hover:text-gray-400 underline mt-3 transition"
+          >
+            Gestionar suscripción
+          </button>
         )}
       </div>
 
