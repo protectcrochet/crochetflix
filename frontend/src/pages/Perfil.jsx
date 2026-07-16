@@ -3,7 +3,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import { Crown, Check, Clock, Loader, CreditCard, Calendar, Star, History } from 'lucide-react';
-import { pixelPurchase, pixelInitCheckout } from '../lib/pixel';
+import { pixelPurchase, pixelInitCheckout, pixelStartTrial } from '../lib/pixel';
 
 const PRECIOS_GEO = {
   MX: { moneda: 'MXN', simbolo: '$', mensual: 100,   anual: 1000,  locale: 'es-MX' },
@@ -30,6 +30,7 @@ export default function Perfil() {
   const [error, setError] = useState('');
   const [suscInfo, setSuscInfo] = useState(null);
   const [geo, setGeo] = useState(PRECIOS_GEO.DEFAULT);
+  const conTrial = typeof window !== 'undefined' && localStorage.getItem('cf_trial') === '3';
 
   const esPremium = user?.tier === 'premium';
   const expira = user?.subscription_expires_at
@@ -38,7 +39,13 @@ export default function Perfil() {
 
   useEffect(() => {
     if (searchParams.get('pago') === 'exitoso') {
-      pixelPurchase(geo.mensual, geo.moneda);
+      // Con prueba de 3 días aún no hay cobro → StartTrial. Sin prueba → Purchase.
+      if (localStorage.getItem('cf_trial') === '3') {
+        pixelStartTrial(geo.mensual, geo.moneda);
+      } else {
+        pixelPurchase(geo.mensual, geo.moneda);
+      }
+      localStorage.removeItem('cf_trial');
     }
   }, []);
 
@@ -65,7 +72,8 @@ export default function Perfil() {
     setError('');
 
     try {
-      const res = await api.post('/pagos/crear', { plan });
+      const trial = localStorage.getItem('cf_trial') === '3' ? 3 : undefined;
+      const res = await api.post('/pagos/crear', { plan, trial });
 
       const redirectUrl = res.data.payment_url || res.data.checkout_url;
       if (redirectUrl) {
@@ -243,16 +251,27 @@ export default function Perfil() {
                 <Check className="w-4 h-4 text-crochet-primary" /> Sin anuncios
               </li>
             </ul>
-            <button 
+            {conTrial && (
+              <div className="bg-green-600/20 border border-green-500/50 text-green-300 text-sm text-center rounded-lg px-3 py-2 mb-3 font-semibold">
+                🎁 3 días gratis — cancela antes y no se cobra nada
+              </div>
+            )}
+            <button
               onClick={() => handleSuscribir('mensual')}
               disabled={loading}
               className="w-full btn-primary py-3 flex items-center justify-center gap-2"
             >
               {loading ? <Loader className="w-5 h-5 animate-spin" /> : <CreditCard className="w-5 h-5" />}
-              {loading ? 'Procesando...' : `Suscribirme — ${formatPrecio(geo.mensual, geo)}/mes`}
+              {loading
+                ? 'Procesando...'
+                : conTrial
+                  ? 'Comenzar prueba de 3 días gratis'
+                  : `Suscribirme — ${formatPrecio(geo.mensual, geo)}/mes`}
             </button>
             <p className="text-xs text-gray-500 text-center mt-2">
-              Pago seguro vía Stripe. Cancela en cualquier momento.
+              {conTrial
+                ? `Después de la prueba: ${formatPrecio(geo.mensual, geo)}/mes. Cancela en cualquier momento.`
+                : 'Pago seguro vía Stripe. Cancela en cualquier momento.'}
             </p>
           </div>
 

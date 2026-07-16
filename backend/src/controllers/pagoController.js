@@ -136,18 +136,26 @@ exports.crearPago = [crearPagoRateLimit, async (req, res) => {
       );
     });
 
+    // Prueba gratis de 3 días solo para tráfico de campaña (llega con ?trial=3 desde el anuncio)
+    const trialDias = (parseInt(req.body.trial, 10) === 3) ? 3 : 0;
+
+    const subscriptionData = { metadata: { userId, orderId, plan } };
+    if (trialDias > 0) subscriptionData.trial_period_days = trialDias;
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
-      mode: 'payment',
+      mode: 'subscription',
       line_items: [{
         price_data: {
           currency: precioData.moneda.toLowerCase(),
           product_data: { name: label },
-          unit_amount
+          unit_amount,
+          recurring: { interval: 'month' }
         },
         quantity: 1
       }],
-      metadata: { userId, orderId, plan },
+      subscription_data: subscriptionData,
+      metadata: { userId, orderId, plan, trial: trialDias },
       customer_email: req.userEmail || undefined,
       success_url: `${FRONTEND_URL}/perfil?pago=exitoso&order=${orderId}`,
       cancel_url: `${FRONTEND_URL}/perfil?pago=cancelado`
@@ -203,11 +211,15 @@ exports.webhook = [webhookRateLimit, async (req, res) => {
 
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
-      const { orderId, plan } = session.metadata || {};
-      const paymentIntentId = session.payment_intent;
-      console.log(`[webhook] session.completed payment_status=${session.payment_status} orderId=${orderId} email=${session.customer_email}`);
+      const { orderId, plan, trial } = session.metadata || {};
+      console.log(`[webhook] session.completed mode=${session.mode} payment_status=${session.payment_status} orderId=${orderId} trial=${trial}`);
 
-      if (session.payment_status === 'paid') {
+      if (session.mode === 'subscription') {
+        // Suscripción real: guarda IDs de Stripe y concede acceso inicial (trial o primer periodo)
+        await activarSuscripcionStripe(session, orderId, plan || 'mensual', parseInt(trial, 10) || 0);
+      } else if (session.payment_status === 'paid') {
+        // Ruta legada: pago único (compatibilidad con checkouts antiguos)
+        const paymentIntentId = session.payment_intent;
         if (orderId) {
           await new Promise((resolve, reject) => {
             db.run(
@@ -224,10 +236,12 @@ exports.webhook = [webhookRateLimit, async (req, res) => {
       }
     }
 
-    // Renovación automática mensual de suscripción Stripe
+    // Renovación automática mensual + primer cobro tras la prueba.
+    // 'subscription_create' se maneja en checkout.session.completed; aquí solo el cobro recurrente
+    // ('subscription_cycle' incluye el primer cargo real cuando termina el trial de 3 días).
     if (event.type === 'invoice.payment_succeeded') {
       const invoice = event.data.object;
-      if (invoice.billing_reason === 'subscription_cycle' || invoice.billing_reason === 'subscription_create') {
+      if (invoice.billing_reason === 'subscription_cycle') {
         console.log(`[webhook] invoice.paid customer=${invoice.customer} sub=${invoice.subscription} reason=${invoice.billing_reason}`);
         await renovarPremiumPorStripe(invoice.customer, invoice.subscription, invoice.id);
       }
@@ -239,6 +253,75 @@ exports.webhook = [webhookRateLimit, async (req, res) => {
     res.status(500).send('Error interno');
   }
 }];
+
+// ============================================
+// Activar suscripción real de Stripe (guarda IDs + concede acceso inicial)
+// ============================================
+async function activarSuscripcionStripe(session, orderId, plan, trialDias) {
+  try {
+    const customerId = session.customer;
+    const subscriptionId = session.subscription;
+
+    // Ubicar al usuario por el pago pendiente (orderId) o por email
+    let user = null;
+    if (orderId) {
+      user = await new Promise((resolve, reject) => {
+        db.get(
+          `SELECT u.id, u.email, u.tier, u.subscription_expires_at
+           FROM pagos p JOIN users u ON p.user_id = u.id
+           WHERE p.order_id = ?`,
+          [orderId],
+          (err, row) => { if (err) reject(err); resolve(row); }
+        );
+      });
+    }
+    if (!user && session.customer_email) {
+      user = await new Promise((resolve, reject) => {
+        db.get('SELECT id, email, tier, subscription_expires_at FROM users WHERE email = ?',
+          [session.customer_email], (err, row) => { if (err) reject(err); resolve(row); });
+      });
+    }
+    if (!user) { console.warn(`[webhook] suscripción: usuario no encontrado order=${orderId}`); return; }
+
+    // Guardar IDs de Stripe para que las renovaciones futuras encuentren al usuario
+    await new Promise((resolve, reject) => {
+      db.run(
+        `UPDATE users SET stripe_customer_id = ?, stripe_subscription_id = ? WHERE id = ?`,
+        [customerId, subscriptionId, user.id],
+        function(err) { if (err) reject(err); resolve(); }
+      );
+    });
+
+    // Acceso inicial: si hay prueba, 3 días; si no, el primer periodo de 30 días.
+    // El cobro real (fin de prueba) y las renovaciones extienden +30 vía invoice.payment_succeeded.
+    const dias = trialDias > 0 ? trialDias : 30;
+    let fechaExpiracion = new Date();
+    if (user.tier === 'premium' && user.subscription_expires_at) {
+      const existente = new Date(user.subscription_expires_at);
+      if (existente > fechaExpiracion) fechaExpiracion = existente;
+    }
+    fechaExpiracion.setDate(fechaExpiracion.getDate() + dias);
+
+    await new Promise((resolve, reject) => {
+      db.run(
+        `UPDATE users SET tier = 'premium', subscription_expires_at = ?, new_account_discount = 0 WHERE id = ?`,
+        [fechaExpiracion.toISOString(), user.id],
+        function(err) { if (err) reject(err); resolve(); }
+      );
+    });
+
+    if (orderId) {
+      await new Promise((resolve) => {
+        db.run(`UPDATE pagos SET status = 'paid', updated_at = datetime('now') WHERE order_id = ?`,
+          [orderId], () => resolve());
+      });
+    }
+
+    console.log(`[webhook] Suscripción activada: ${user.email}, trial=${trialDias}d, acceso hasta ${fechaExpiracion.toISOString()}`);
+  } catch (err) {
+    console.error('[webhook] Error activarSuscripcionStripe:', err);
+  }
+}
 
 // ============================================
 // Activar suscripción premium

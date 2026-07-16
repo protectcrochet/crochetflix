@@ -24,11 +24,24 @@ function PageViewTracker() {
   return null;
 }
 
+// Captura el flag de prueba gratis del anuncio (?trial=3) y lo persiste
+// hasta que el usuario complete el checkout en /perfil.
+function TrialCapture() {
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('trial') === '3') {
+      localStorage.setItem('cf_trial', '3');
+    }
+  }, []);
+  return null;
+}
+
 function App() {
   return (
     <AuthProvider>
       <AdminModeProvider>
         <PageViewTracker />
+        <TrialCapture />
         <Routes>
           <Route path="/admin" element={<Admin />} />
           <Route path="/" element={<Layout />}>
