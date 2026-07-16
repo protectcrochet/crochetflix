@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import { useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import { Crown, Check, Clock, Loader, CreditCard, Calendar, Star, History } from 'lucide-react';
+import { pixelPurchase, pixelInitCheckout } from '../lib/pixel';
 
 const PRECIOS_GEO = {
   MX: { moneda: 'MXN', simbolo: '$', mensual: 100,   anual: 1000,  locale: 'es-MX' },
@@ -23,6 +25,7 @@ function formatPrecio(monto, geo) {
 
 export default function Perfil() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [suscInfo, setSuscInfo] = useState(null);
@@ -32,6 +35,12 @@ export default function Perfil() {
   const expira = user?.subscription_expires_at
     ? new Date(user.subscription_expires_at).toLocaleDateString('es-MX')
     : null;
+
+  useEffect(() => {
+    if (searchParams.get('pago') === 'exitoso') {
+      pixelPurchase(geo.mensual, geo.moneda);
+    }
+  }, []);
 
   useEffect(() => {
     api.get('/pagos/precio-local')
@@ -51,6 +60,7 @@ export default function Perfil() {
   }, [esPremium]);
 
   const handleSuscribir = async (plan) => {
+    pixelInitCheckout();
     setLoading(true);
     setError('');
 

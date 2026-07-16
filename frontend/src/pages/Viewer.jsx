@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
+import { pixelViewContent } from '../lib/pixel';
 import { Crown, Mail } from 'lucide-react';
 import {
   ChevronLeft, ChevronRight, ZoomIn, ZoomOut,
@@ -126,6 +127,7 @@ export default function Viewer() {
       setPatron(res.data.patron);
       setTotalPaginas(res.data.patron.paginas);
       setTieneAcceso(res.data.tieneAcceso);
+      pixelViewContent(res.data.patron.titulo || 'Patrón', id);
       setErrorAcceso(res.data.errorAcceso || null);
       setPatronesUsados(res.data.patronesUsados || 0);
       setEsPreview(res.data.esPreview);

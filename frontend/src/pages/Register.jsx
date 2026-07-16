@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Eye, EyeOff, Mail } from 'lucide-react';
+import { pixelLead } from '../lib/pixel';
 
 export default function Register() {
   const [email, setEmail] = useState('');
@@ -32,6 +33,7 @@ export default function Register() {
 
     try {
       await register(email, password);
+      pixelLead();
       setRegistrado(true);
     } catch (err) {
       setError(err.response?.data?.error || 'Error al registrarse');

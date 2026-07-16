@@ -1,6 +1,8 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
 import { AuthProvider } from './hooks/useAuth';
 import { AdminModeProvider } from './context/AdminMode';
+import { pixelPageView } from './lib/pixel';
 import Layout from './components/Layout';
 import Home from './pages/Home';
 import Login from './pages/Login';
@@ -16,10 +18,17 @@ import DerechosDeAutor from './pages/DerechosDeAutor';
 import Coleccion from './pages/Coleccion';
 import VerificarEmail from './pages/VerificarEmail';
 
+function PageViewTracker() {
+  const location = useLocation();
+  useEffect(() => { pixelPageView(); }, [location.pathname]);
+  return null;
+}
+
 function App() {
   return (
     <AuthProvider>
       <AdminModeProvider>
+        <PageViewTracker />
         <Routes>
           <Route path="/admin" element={<Admin />} />
           <Route path="/" element={<Layout />}>
