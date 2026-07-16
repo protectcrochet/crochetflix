@@ -283,17 +283,9 @@ async function activarSuscripcionStripe(session, orderId, plan, trialDias) {
     }
     if (!user) { console.warn(`[webhook] suscripción: usuario no encontrado order=${orderId}`); return; }
 
-    // Guardar IDs de Stripe para que las renovaciones futuras encuentren al usuario
-    await new Promise((resolve, reject) => {
-      db.run(
-        `UPDATE users SET stripe_customer_id = ?, stripe_subscription_id = ? WHERE id = ?`,
-        [customerId, subscriptionId, user.id],
-        function(err) { if (err) reject(err); resolve(); }
-      );
-    });
-
-    // Acceso inicial: si hay prueba, 3 días; si no, el primer periodo de 30 días.
-    // El cobro real (fin de prueba) y las renovaciones extienden +30 vía invoice.payment_succeeded.
+    // 1) LO CRÍTICO PRIMERO: conceder acceso. Si hay prueba, 3 días; si no, el primer
+    // periodo de 30 días. El cobro real (fin de prueba) y las renovaciones extienden +30
+    // vía invoice.payment_succeeded.
     const dias = trialDias > 0 ? trialDias : 30;
     let fechaExpiracion = new Date();
     if (user.tier === 'premium' && user.subscription_expires_at) {
@@ -318,6 +310,20 @@ async function activarSuscripcionStripe(session, orderId, plan, trialDias) {
     }
 
     console.log(`[webhook] Suscripción activada: ${user.email}, trial=${trialDias}d, acceso hasta ${fechaExpiracion.toISOString()}`);
+
+    // 2) Guardar IDs de Stripe para renovaciones futuras. Aislado: si las columnas no
+    // existen todavía, esto falla SIN afectar el acceso ya concedido arriba.
+    try {
+      await new Promise((resolve, reject) => {
+        db.run(
+          `UPDATE users SET stripe_customer_id = ?, stripe_subscription_id = ? WHERE id = ?`,
+          [customerId, subscriptionId, user.id],
+          function(err) { if (err) reject(err); resolve(); }
+        );
+      });
+    } catch (idErr) {
+      console.error(`[webhook] No se pudieron guardar IDs Stripe (¿faltan columnas?): ${idErr.message}`);
+    }
   } catch (err) {
     console.error('[webhook] Error activarSuscripcionStripe:', err);
   }
