@@ -57,6 +57,32 @@ exports.register = async (req, res) => {
       );
     });
 
+    // Registrar el referido si llegó con ?ref=CÓDIGO (no bloquea el registro si falla)
+    const refCode = (req.body.ref || '').trim().toUpperCase();
+    if (refCode) {
+      try {
+        const referrer = await new Promise((resolve, reject) => {
+          db.get('SELECT id FROM users WHERE referral_code = ?', [refCode],
+            (err, r) => { if (err) reject(err); else resolve(r); });
+        });
+        if (referrer && referrer.id !== userId) {
+          await new Promise((resolve, reject) => {
+            db.run('UPDATE users SET referred_by = ? WHERE id = ?', [referrer.id, userId],
+              (err) => { if (err) reject(err); else resolve(); });
+          });
+          await new Promise((resolve, reject) => {
+            db.run(
+              "INSERT INTO referidos (id, referrer_id, referido_id, convertido, created_at) VALUES (?, ?, ?, 0, datetime('now'))",
+              [uuidv4(), referrer.id, userId],
+              (err) => { if (err) reject(err); else resolve(); });
+          });
+          console.log(`[referido] ${email} referida por ${referrer.id}`);
+        }
+      } catch (e) {
+        console.error('[referido] no se pudo registrar ref:', e.message);
+      }
+    }
+
     // Enviar email de verificación — loguear resultado para debug
     enviarVerificacion(email, verToken)
       .then(() => console.log('[email-ver] enviado a', email))
@@ -149,8 +175,58 @@ exports.historial = async (req, res) => {
   }
 };
 
+// Genera un código de referido corto y sin caracteres ambiguos (sin 0/O/1/I/L)
+function generarCodigoReferido() {
+  const abc = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  const bytes = crypto.randomBytes(6);
+  let code = '';
+  for (let i = 0; i < 6; i++) code += abc[bytes[i] % abc.length];
+  return code;
+}
+
 exports.referidos = async (req, res) => {
-  res.json({ codigo: null, referidos: 0, descuento: 0 });
+  try {
+    const userId = req.userId;
+
+    // Obtener (o crear) el código de referido de la usuaria
+    let row = await new Promise((resolve, reject) => {
+      db.get('SELECT referral_code FROM users WHERE id = ?', [userId],
+        (err, r) => { if (err) reject(err); else resolve(r); });
+    });
+
+    let codigo = row?.referral_code;
+    if (!codigo) {
+      for (let i = 0; i < 6; i++) {
+        const cand = generarCodigoReferido();
+        const clash = await new Promise((resolve, reject) => {
+          db.get('SELECT id FROM users WHERE referral_code = ?', [cand],
+            (err, r) => { if (err) reject(err); else resolve(r); });
+        });
+        if (!clash) { codigo = cand; break; }
+      }
+      await new Promise((resolve, reject) => {
+        db.run('UPDATE users SET referral_code = ? WHERE id = ?', [codigo, userId],
+          (err) => { if (err) reject(err); else resolve(); });
+      });
+    }
+
+    // Contar amigas referidas que ya se suscribieron (convertido = 1)
+    const cnt = await new Promise((resolve, reject) => {
+      db.get('SELECT COUNT(*) AS total FROM referidos WHERE referrer_id = ? AND convertido = 1', [userId],
+        (err, r) => { if (err) reject(err); else resolve(r); });
+    });
+    const totalConvertidas = cnt?.total || 0;
+
+    res.json({
+      codigo,
+      convertidos: totalConvertidas % 3,       // progreso hacia el próximo mes gratis (barra X/3)
+      total: totalConvertidas,
+      meses_ganados: Math.floor(totalConvertidas / 3)
+    });
+  } catch (err) {
+    console.error('Error referidos:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
 };
 
 function renderVerificacionHTML(success) {

@@ -24,13 +24,18 @@ function PageViewTracker() {
   return null;
 }
 
-// Captura el flag de prueba gratis del anuncio (?trial=3) y lo persiste
-// hasta que el usuario complete el checkout en /perfil.
+// Captura los parámetros de campaña de la URL y los persiste hasta que se
+// usen: ?trial=3 (prueba gratis, se aplica en /perfil) y ?ref=CÓDIGO
+// (referido, se aplica al registrarse).
 function TrialCapture() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('trial') === '3') {
       localStorage.setItem('cf_trial', '3');
+    }
+    const ref = params.get('ref');
+    if (ref) {
+      localStorage.setItem('cf_ref', ref);
     }
   }, []);
   return null;

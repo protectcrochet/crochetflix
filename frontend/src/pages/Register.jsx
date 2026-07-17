@@ -32,7 +32,9 @@ export default function Register() {
     setLoading(true);
 
     try {
-      await register(email, password);
+      const ref = localStorage.getItem('cf_ref') || undefined;
+      await register(email, password, ref);
+      localStorage.removeItem('cf_ref');
       pixelLead();
       setRegistrado(true);
     } catch (err) {

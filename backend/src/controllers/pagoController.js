@@ -255,6 +255,57 @@ exports.webhook = [webhookRateLimit, async (req, res) => {
 }];
 
 // ============================================
+// Referidos: al pagar por primera vez una usuaria referida, marcarla como
+// convertida y, cada 3 conversiones, regalar 1 mes a quien la invitó.
+// Idempotente: solo actúa sobre referidos con convertido = 0.
+// ============================================
+async function procesarReferido(userId) {
+  try {
+    const ref = await new Promise((resolve, reject) => {
+      db.get('SELECT id, referrer_id FROM referidos WHERE referido_id = ? AND convertido = 0', [userId],
+        (err, row) => { if (err) reject(err); else resolve(row); });
+    });
+    if (!ref) return;
+
+    await new Promise((resolve, reject) => {
+      db.run('UPDATE referidos SET convertido = 1 WHERE id = ?', [ref.id],
+        (err) => { if (err) reject(err); else resolve(); });
+    });
+
+    const cnt = await new Promise((resolve, reject) => {
+      db.get('SELECT COUNT(*) AS total FROM referidos WHERE referrer_id = ? AND convertido = 1', [ref.referrer_id],
+        (err, row) => { if (err) reject(err); else resolve(row); });
+    });
+    const total = cnt?.total || 0;
+    console.log(`[referido] conversión: referrer=${ref.referrer_id} total=${total}`);
+
+    // Cada 3 amigas suscritas → +30 días para quien invitó
+    if (total > 0 && total % 3 === 0) {
+      const referrer = await new Promise((resolve, reject) => {
+        db.get('SELECT id, email, tier, subscription_expires_at FROM users WHERE id = ?', [ref.referrer_id],
+          (err, row) => { if (err) reject(err); else resolve(row); });
+      });
+      if (referrer) {
+        let fecha = new Date();
+        if (referrer.tier === 'premium' && referrer.subscription_expires_at) {
+          const ex = new Date(referrer.subscription_expires_at);
+          if (ex > fecha) fecha = ex;
+        }
+        fecha.setDate(fecha.getDate() + 30);
+        await new Promise((resolve, reject) => {
+          db.run("UPDATE users SET tier = 'premium', subscription_expires_at = ? WHERE id = ?",
+            [fecha.toISOString(), referrer.id],
+            (err) => { if (err) reject(err); else resolve(); });
+        });
+        console.log(`[referido] ${referrer.email} ganó 1 mes gratis (${total} referidas). Expira ${fecha.toISOString()}`);
+      }
+    }
+  } catch (err) {
+    console.error('[referido] Error procesarReferido:', err);
+  }
+}
+
+// ============================================
 // Activar suscripción real de Stripe (guarda IDs + concede acceso inicial)
 // ============================================
 async function activarSuscripcionStripe(session, orderId, plan, trialDias) {
@@ -311,6 +362,10 @@ async function activarSuscripcionStripe(session, orderId, plan, trialDias) {
 
     console.log(`[webhook] Suscripción activada: ${user.email}, trial=${trialDias}d, acceso hasta ${fechaExpiracion.toISOString()}`);
 
+    // Conversión de referido SOLO si hubo pago real. Con prueba de 3 días aún no
+    // hay cobro → se contará en el primer invoice (renovarPremiumPorStripe).
+    if (trialDias === 0) await procesarReferido(user.id);
+
     // 2) Guardar IDs de Stripe para renovaciones futuras. Aislado: si las columnas no
     // existen todavía, esto falla SIN afectar el acceso ya concedido arriba.
     try {
@@ -363,6 +418,8 @@ async function activarPremium(orderId, plan) {
     });
 
     console.log(`Premium activado: usuario ${pago.user_id}, expira ${fechaExpiracion.toISOString()}`);
+
+    await procesarReferido(pago.user_id);
 
     // Notificar al usuario por correo
     try {
@@ -418,6 +475,8 @@ async function activarPremiumPorEmail(email, paymentIntentId, plan) {
     });
 
     console.log(`[webhook] Premium activado por email: ${email}, expira ${fechaExpiracion.toISOString()}`);
+
+    await procesarReferido(user.id);
 
     try {
       const { enviarConfirmacionPago } = require('../services/email');
@@ -484,6 +543,8 @@ async function renovarPremiumPorStripe(customerId, subscriptionId, invoiceId) {
     });
 
     console.log(`[webhook] Renovación premium: ${user.email}, expira ${fechaExpiracion.toISOString()}`);
+
+    await procesarReferido(user.id);
   } catch (err) {
     console.error('[webhook] Error renovarPremiumPorStripe:', err);
   }
