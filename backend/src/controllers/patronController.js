@@ -239,13 +239,34 @@ async function geminiVisionTraducir(imgPath, idioma) {
   return text;
 }
 
-// Motor de visión: Gemini primero, Groq como respaldo (por si Groq recupera visión).
+// OCR local con Tesseract (gratis, sin API, sin límites). Extrae el texto de la imagen.
+function ocrTexto(imgPath) {
+  const { execSync } = require('child_process');
+  // eng+spa: los patrones suelen venir en inglés o español
+  return execSync(`tesseract "${imgPath}" stdout -l eng+spa`,
+    { timeout: 30000, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+}
+
+// Motor de visión GRATIS: OCR local + traducción con modelos de texto gratis
+// (Groq/Cerebras/MyMemory). Gemini/Groq quedan como respaldo si algún día hay acceso.
 async function visionTraducir(imgPath, idioma) {
+  // 1. OCR local (gratis) → traducir el texto extraído con la cadena gratuita
+  try {
+    const texto = ocrTexto(imgPath);
+    if (texto && texto.replace(/\s+/g, '').length > 25) {
+      return await traducirTexto(texto, idioma);
+    }
+    console.log('[vision] OCR sin texto suficiente, probando visión IA...');
+  } catch (e) {
+    console.log('[vision] OCR falló (¿Tesseract instalado?):', e.message);
+  }
+  // 2. Gemini (si en el futuro habilitan facturación / hay una key con acceso)
   try {
     return await geminiVisionTraducir(imgPath, idioma);
   } catch (e) {
-    console.log('[vision] Gemini falló, intentando Groq:', e.response?.data?.error?.message || e.message);
+    console.log('[vision] Gemini falló:', e.response?.data?.error?.message || e.message);
   }
+  // 3. Groq (por si recupera modelos de visión)
   return groqVisionTraducir(imgPath, idioma);
 }
 
