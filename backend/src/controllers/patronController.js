@@ -175,28 +175,16 @@ function resizeImgPath(imgPath) {
 }
 
 async function groqVisionTraducir(imgPath, idioma) {
-  if (!getGroqKeys().length) throw new Error('GROQ_API_KEY no configurado');
-  const nombre = { es: 'español', en: 'English', pt: 'português', fr: 'français', ru: 'русский' }[idioma] || idioma;
-
-  const resizedPath = resizeImgPath(imgPath);
-  const imgBase64 = fs.readFileSync(resizedPath).toString('base64');
-  if (resizedPath !== imgPath) { try { fs.unlinkSync(resizedPath); } catch {} }
-
-  return groqPost({
-    model: 'meta-llama/llama-4-scout-17b-16e-instruct',
-    messages: [
-      { role: 'system', content: SISTEMAS[idioma] },
-      {
-        role: 'user',
-        content: [
-          { type: 'text', text: `Extrae TODO el texto de esta página de patrón de crochet y tradúcelo al ${nombre}. Mantén la estructura. Devuelve SOLO el texto traducido.` },
-          { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${imgBase64}` } },
-        ],
-      },
-    ],
-    temperature: 0.2,
-    max_tokens: 1500,
-  });
+  // OCR local (gratis) + traducción con text model (no vision model muerto)
+  try {
+    const texto = ocrTexto(imgPath, idioma);
+    if (texto && texto.replace(/\s+/g, '').length > 25) {
+      return await traducirTexto(texto, idioma);
+    }
+  } catch (e) {
+    console.log('[groqVision] OCR falló:', e.message);
+  }
+  throw new Error('No se pudo extraer ni traducir el patrón');
 }
 
 // Traducción por visión con Gemini (Google). Motor principal desde que Groq
