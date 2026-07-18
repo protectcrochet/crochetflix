@@ -152,9 +152,10 @@ async function traducirTexto(texto, idioma) {
     console.log('[traducir] Groq agotado, intentando Cerebras...');
   }
 
-  // 2. Cerebras
+  // 2. Cerebras (gemma-4-31b: único que devuelve texto limpio; llama-3.3-70b
+  // fue retirado y los modelos de razonamiento glm/gpt-oss devuelven vacío).
   try {
-    return await cerebrasPost(payload);
+    return await cerebrasPost({ ...payload, model: 'gemma-4-31b' });
   } catch {
     console.log('[traducir] Cerebras falló, cayendo a MyMemory...');
   }
