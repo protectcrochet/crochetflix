@@ -130,14 +130,12 @@ export default function Home() {
   }, [user]);
 
   const cargarAleatorios = async () => {
-    const horaKey = `aleatorio_${new Date().toISOString().slice(0, 13)}`;
-    const cached = sessionStorage.getItem(horaKey);
-    if (cached) { setPatronesAleatorios(JSON.parse(cached)); return; }
     try {
-      const res = await api.get('/patrones', { params: { orden: 'aleatorio', limit: 20 } });
-      const data = res.data.patrones || [];
-      sessionStorage.setItem(horaKey, JSON.stringify(data));
-      setPatronesAleatorios(data);
+      // Semilla aleatoria en cada carga → "Nuevos patrones" sale distinto cada
+      // vez que alguien entra (antes el seed era fijo y siempre daba lo mismo).
+      const seed = Math.floor(Math.random() * 999983) + 1;
+      const res = await api.get('/patrones', { params: { orden: 'aleatorio', seed, limit: 20 } });
+      setPatronesAleatorios(res.data.patrones || []);
     } catch {}
   };
 
