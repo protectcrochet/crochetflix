@@ -311,18 +311,32 @@ export default function Viewer() {
     );
   }
 
-  if (!tieneAcceso && errorAcceso === 'sin_registro') return (
-    <div className="flex flex-col items-center justify-center min-h-96 px-4 py-12 text-center">
-      <Lock className="w-16 h-16 text-gray-600 mb-4" />
-      <h2 className="text-xl font-bold mb-2">Crea una cuenta gratis</h2>
-      <p className="text-gray-400 mb-1">Regístrate gratis: <strong className="text-white">1 patrón de prueba gratuito</strong>.</p>
-      <p className="text-gray-500 text-sm mb-6">No necesitas tarjeta de crédito.</p>
-      <div className="flex gap-3 flex-wrap justify-center">
-        <button onClick={() => navigate(`/register?redirect=/patron/${id}`)} className="btn-primary">Registrarme gratis</button>
-        <button onClick={() => navigate(`/login?redirect=/patron/${id}`)} className="btn-secondary">Iniciar sesión</button>
+  if (!tieneAcceso && errorAcceso === 'sin_registro') {
+    // Si llegó por un anuncio con prueba (?trial=3), promovemos los 3 días de premium
+    const conTrial = typeof window !== 'undefined' && localStorage.getItem('cf_trial') === '3';
+    return (
+      <div className="flex flex-col items-center justify-center min-h-96 px-4 py-12 text-center">
+        <Lock className="w-16 h-16 text-gray-600 mb-4" />
+        {conTrial ? (
+          <>
+            <h2 className="text-xl font-bold mb-2">Regístrate y obtén 3 días de premium 🎁</h2>
+            <p className="text-gray-400 mb-1">Acceso <strong className="text-white">ilimitado</strong> a todos los patrones durante 3 días.</p>
+            <p className="text-gray-500 text-sm mb-6">Cancela antes y no se te cobra nada.</p>
+          </>
+        ) : (
+          <>
+            <h2 className="text-xl font-bold mb-2">Crea una cuenta gratis</h2>
+            <p className="text-gray-400 mb-1">Regístrate gratis: <strong className="text-white">1 patrón de prueba gratuito</strong>.</p>
+            <p className="text-gray-500 text-sm mb-6">No necesitas tarjeta de crédito.</p>
+          </>
+        )}
+        <div className="flex gap-3 flex-wrap justify-center">
+          <button onClick={() => navigate(`/register?redirect=/patron/${id}`)} className="btn-primary">{conTrial ? 'Registrarme' : 'Registrarme gratis'}</button>
+          <button onClick={() => navigate(`/login?redirect=/patron/${id}`)} className="btn-secondary">Iniciar sesión</button>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
 
   if (!tieneAcceso && errorAcceso === 'limite_free') {
     const precio = PRECIOS[moneda] || PRECIOS['USD'];
