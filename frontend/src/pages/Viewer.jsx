@@ -296,8 +296,9 @@ export default function Viewer() {
     );
   }
 
-  // Bloquear acceso a patrones si el correo no está verificado
-  if (user && user.email_verified === 0) {
+  // Bloquear acceso si el correo no está verificado — salvo premium (incluida la prueba),
+  // que puede entrar y validar el correo en paralelo.
+  if (user && user.email_verified === 0 && user.tier !== 'premium') {
     return (
       <div className="flex flex-col items-center justify-center min-h-96 px-4 py-16 text-center">
         <Mail className="w-16 h-16 text-crochet-primary mb-4" />

@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Eye, EyeOff, Mail } from 'lucide-react';
-import { pixelLead } from '../lib/pixel';
+import api from '../services/api';
+import { pixelLead, pixelInitCheckout } from '../lib/pixel';
 
 export default function Register() {
   const [email, setEmail] = useState('');
@@ -36,6 +37,21 @@ export default function Register() {
       await register(email, password, ref);
       localStorage.removeItem('cf_ref');
       pixelLead();
+
+      // Si llegó por un anuncio con prueba (?trial=3): lo mandamos directo al
+      // checkout de la prueba de 3 días (captura la tarjeta en el pico de interés).
+      // El correo de verificación se envía en paralelo y no bloquea (premium lo salta).
+      if (localStorage.getItem('cf_trial') === '3') {
+        try {
+          pixelInitCheckout();
+          const res = await api.post('/pagos/crear', { plan: 'mensual', trial: 3 });
+          const url = res.data.payment_url || res.data.checkout_url;
+          if (url) { window.location.href = url; return; }
+        } catch {
+          // Si algo falla, caemos al flujo normal de "revisa tu correo"
+        }
+      }
+
       setRegistrado(true);
     } catch (err) {
       setError(err.response?.data?.error || 'Error al registrarse');
