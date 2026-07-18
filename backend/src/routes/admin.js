@@ -67,32 +67,63 @@ async function pageToBase64(convert, pageNum, tempFiles) {
   return null;
 }
 
+// OCR local con Tesseract para extraer texto de imágenes (gratis, sin API)
+function extraerConOCR(base64Images) {
+  if (!base64Images.length) return '';
+  const { execSync } = require('child_process');
+  const textos = [];
+
+  for (const b64 of base64Images) {
+    try {
+      const tmpFile = `/tmp/ocr_${crypto.randomBytes(4).toString('hex')}.jpg`;
+      fs.writeFileSync(tmpFile, Buffer.from(b64, 'base64'));
+
+      const texto = execSync(`tesseract "${tmpFile}" stdout -l eng+spa`,
+        { timeout: 30000, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+
+      textos.push(texto);
+      try { fs.unlinkSync(tmpFile); } catch {}
+    } catch (e) {
+      console.log('[OCR] error:', e.message);
+    }
+  }
+
+  return textos.join('\n\n');
+}
+
+// Extrae título y diseñadora usando OCR + modelo de texto Groq
 async function extraerConVision(groqApiKey, base64Images) {
   if (!base64Images.length) return null;
   try {
+    // Extraer texto con OCR local
+    const textoExtraido = extraerConOCR(base64Images);
+    if (!textoExtraido || textoExtraido.replace(/\s+/g, '').length < 20) {
+      console.log('[analizar] OCR sin texto suficiente');
+      return null;
+    }
+
+    // Enviar texto extraído a Groq para parsear título y diseñadora
     const res = await axios.post(
       'https://api.groq.com/openai/v1/chat/completions',
       {
-        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+        model: 'llama-3.1-8b-instant',
         messages: [{
           role: 'user',
-          content: [
-            { type: 'text', text: 'Estas son páginas de un patrón de crochet. Extrae: 1) Título exacto 2) Nombre del/la diseñador/a. Si no encuentras alguno pon null. Responde SOLO con JSON: {"titulo": "...", "diseñadora": "..."}' },
-            ...base64Images.map(b64 => ({ type: 'image_url', image_url: { url: `data:image/jpeg;base64,${b64}` } })),
-          ],
+          content: `Del siguiente texto de un patrón de crochet, extrae el título exacto y el nombre del/la diseñador/a. Si no encuentras algo, pon null. Responde SOLO con JSON: {"titulo": "...", "diseñadora": "..."}\n\nTEXTO:\n${textoExtraido}`,
         }],
         temperature: 0.1,
         max_tokens: 150,
       },
       { headers: { Authorization: `Bearer ${groqApiKey}`, 'Content-Type': 'application/json' }, timeout: 25000 }
     );
+
     const text = res.data.choices[0].message.content.trim();
     const match = text.match(/\{[\s\S]*?\}/);
     if (!match) return null;
     const parsed = JSON.parse(match[0]);
     return (parsed.titulo || parsed.diseñadora) ? parsed : null;
   } catch (err) {
-    console.error('Error visión Groq:', err?.response?.data || err.message);
+    console.error('Error extracción:', err?.response?.data?.error || err.message);
     return null;
   }
 }
