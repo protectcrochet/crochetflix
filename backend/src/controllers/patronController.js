@@ -199,6 +199,56 @@ async function groqVisionTraducir(imgPath, idioma) {
   });
 }
 
+// Traducción por visión con Gemini (Google). Motor principal desde que Groq
+// eliminó sus modelos de visión. Lee GEMINI_API_KEY del .env.
+async function geminiVisionTraducir(imgPath, idioma) {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) throw new Error('GEMINI_API_KEY no configurado');
+  const nombre = { es: 'español', en: 'English', pt: 'português', fr: 'français', ru: 'русский' }[idioma] || idioma;
+  const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+
+  const resizedPath = resizeImgPath(imgPath);
+  const imgBase64 = fs.readFileSync(resizedPath).toString('base64');
+  if (resizedPath !== imgPath) { try { fs.unlinkSync(resizedPath); } catch {} }
+
+  const resp = await axios.post(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
+    {
+      system_instruction: { parts: [{ text: SISTEMAS[idioma] }] },
+      contents: [{
+        role: 'user',
+        parts: [
+          { text: `Extrae TODO el texto de esta página de patrón de crochet y tradúcelo al ${nombre}. Mantén la estructura. Devuelve SOLO el texto traducido.` },
+          { inline_data: { mime_type: 'image/jpeg', data: imgBase64 } },
+        ],
+      }],
+      generationConfig: { temperature: 0.2, maxOutputTokens: 4096 },
+      safetySettings: [
+        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+      ],
+    },
+    { headers: { 'Content-Type': 'application/json' }, timeout: 90000 }
+  );
+
+  const text = (resp.data?.candidates?.[0]?.content?.parts || [])
+    .map(p => p.text).filter(Boolean).join('').trim();
+  if (!text) throw new Error('Gemini devolvió respuesta vacía');
+  return text;
+}
+
+// Motor de visión: Gemini primero, Groq como respaldo (por si Groq recupera visión).
+async function visionTraducir(imgPath, idioma) {
+  try {
+    return await geminiVisionTraducir(imgPath, idioma);
+  } catch (e) {
+    console.log('[vision] Gemini falló, intentando Groq:', e.response?.data?.error?.message || e.message);
+  }
+  return groqVisionTraducir(imgPath, idioma);
+}
+
 // Listar patrones (con info de preview gratis)
 exports.listar = async (req, res) => {
   try {
@@ -508,7 +558,7 @@ exports.traducir = async (req, res) => {
       ];
       const imgPath = posibles.find(p => fs.existsSync(p));
       if (imgPath) {
-        traduccion = await groqVisionTraducir(imgPath, idioma);
+        traduccion = await visionTraducir(imgPath, idioma);
       }
     }
 
