@@ -240,19 +240,22 @@ async function geminiVisionTraducir(imgPath, idioma) {
 }
 
 // OCR local con Tesseract (gratis, sin API, sin límites). Extrae el texto de la imagen.
-function ocrTexto(imgPath) {
+// Usa el idioma de origen del patrón si se conoce (más preciso, sobre todo para
+// cirílico); si no, prueba todos los idiomas soportados.
+function ocrTexto(imgPath, idiomaOrigen) {
   const { execSync } = require('child_process');
-  // eng+spa: los patrones suelen venir en inglés o español
-  return execSync(`tesseract "${imgPath}" stdout -l eng+spa`,
-    { timeout: 30000, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  const MAP = { es: 'spa', en: 'eng', pt: 'por', fr: 'fra', ru: 'rus' };
+  const langs = MAP[idiomaOrigen] || 'eng+spa+por+fra+rus';
+  return execSync(`tesseract "${imgPath}" stdout -l ${langs}`,
+    { timeout: 40000, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
 }
 
 // Motor de visión GRATIS: OCR local + traducción con modelos de texto gratis
 // (Groq/Cerebras/MyMemory). Gemini/Groq quedan como respaldo si algún día hay acceso.
-async function visionTraducir(imgPath, idioma) {
+async function visionTraducir(imgPath, idioma, idiomaOrigen) {
   // 1. OCR local (gratis) → traducir el texto extraído con la cadena gratuita
   try {
-    const texto = ocrTexto(imgPath);
+    const texto = ocrTexto(imgPath, idiomaOrigen);
     if (texto && texto.replace(/\s+/g, '').length > 25) {
       return await traducirTexto(texto, idioma);
     }
@@ -579,7 +582,7 @@ exports.traducir = async (req, res) => {
       ];
       const imgPath = posibles.find(p => fs.existsSync(p));
       if (imgPath) {
-        traduccion = await visionTraducir(imgPath, idioma);
+        traduccion = await visionTraducir(imgPath, idioma, patron.idioma);
       }
     }
 
