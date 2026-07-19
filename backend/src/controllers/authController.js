@@ -15,6 +15,12 @@ const DOMINIOS_BLOQUEADOS = [
   'wnbaldwy.com', 'lnovic.com', 'initwag.com', 'hoadkf.com',
   'bltiwd.com', 'asitrai.com', 'preparmy.com',
   'hidepost.net',
+  // Guerrilla Mail (desechables)
+  'sharklasers.com', 'guerrillamail.com', 'guerrillamail.net', 'guerrillamail.org',
+  'guerrillamail.biz', 'guerrillamailblock.com', 'grr.la', 'pokemail.net', 'spam4.me',
+  // Otros desechables comunes
+  'mailinator.com', 'yopmail.com', 'getnada.com', 'temp-mail.org', 'tempmail.com',
+  '10minutemail.com', 'trashmail.com', 'throwawaymail.com', 'maildrop.cc', 'dispostable.com',
 ];
 
 exports.register = async (req, res) => {
