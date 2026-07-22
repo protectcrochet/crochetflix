@@ -48,9 +48,6 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/dmca', dmcaRoutes);
 app.use('/api/colecciones', coleccionesRoutes);
 
-// Worker automático de sincronización
-sincronizador.iniciar();
-
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
