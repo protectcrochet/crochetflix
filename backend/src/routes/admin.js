@@ -44,14 +44,19 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   fileFilter: (req, file, cb) => {
-    if (file.mimetype === 'application/pdf') {
-      cb(null, true);
-    } else {
-      cb(new Error('Solo se permiten archivos PDF'), false);
-    }
+    cb(null, true);
   },
-  limits: { fileSize: 50 * 1024 * 1024 }
+  limits: { fileSize: 100 * 1024 * 1024 }
 });
+
+// Acepta el PDF en el campo 'file' (bot de Telegram) o 'pdf' (panel admin)
+const subirPdf = [
+  upload.fields([{ name: 'file', maxCount: 1 }, { name: 'pdf', maxCount: 1 }]),
+  (req, res, next) => {
+    req.file = req.files?.file?.[0] || req.files?.pdf?.[0];
+    next();
+  },
+];
 
 // ── Helpers de visión ─────────────────────────────────────────────────────────
 
@@ -78,7 +83,7 @@ function extraerConOCR(base64Images) {
       const tmpFile = `/tmp/ocr_${crypto.randomBytes(4).toString('hex')}.jpg`;
       fs.writeFileSync(tmpFile, Buffer.from(b64, 'base64'));
 
-      const texto = execSync(`tesseract "${tmpFile}" stdout -l eng+spa`,
+      const texto = execSync(`timeout -s KILL 25 tesseract "${tmpFile}" stdout -l eng+spa`,
         { timeout: 30000, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
 
       textos.push(texto);
@@ -106,7 +111,7 @@ async function extraerConVision(groqApiKey, base64Images) {
     const res = await axios.post(
       'https://api.groq.com/openai/v1/chat/completions',
       {
-        model: 'llama-3.1-8b-instant',
+        model: 'gemma-7b-it',
         messages: [{
           role: 'user',
           content: `Del siguiente texto de un patrón de crochet, extrae el título exacto y el nombre del/la diseñador/a. Si no encuentras algo, pon null. Responde SOLO con JSON: {"titulo": "...", "diseñadora": "..."}\n\nTEXTO:\n${textoExtraido}`,
@@ -117,6 +122,7 @@ async function extraerConVision(groqApiKey, base64Images) {
       { headers: { Authorization: `Bearer ${groqApiKey}`, 'Content-Type': 'application/json' }, timeout: 25000 }
     );
 
+    try { require('../utils/apiUso').registrarUso('groq', res.data.usage?.total_tokens); } catch (e) {}
     const text = res.data.choices[0].message.content.trim();
     const match = text.match(/\{[\s\S]*?\}/);
     if (!match) return null;
@@ -130,108 +136,18 @@ async function extraerConVision(groqApiKey, base64Images) {
 
 // ── Endpoint: analizar patrón antes de subir ────────────────────────────────
 
-router.post('/patrones/analizar', verifyAdmin, upload.single('pdf'), async (req, res) => {
-  const tempFiles = [];
+router.post('/patrones/analizar', verifyAdmin, subirPdf, async (req, res) => {
   try {
-    let { titulo, descripcion, diseñadora } = req.body;
-    const groqApiKey = process.env.GROQ_API_KEY;
-    if (!groqApiKey) return res.status(500).json({ error: 'GROQ_API_KEY no configurada' });
-
-    // Si se subió PDF y falta título/diseñadora, extraer con visión de páginas
-    if (req.file) {
-      tempFiles.push(req.file.path);
-
-      if (!titulo?.trim() || !diseñadora?.trim()) {
-        const { fromPath } = require('pdf2pic');
-        const tempDir = path.join(__dirname, '../../uploads/temp-analisis');
-        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
-
-        const opts = { density: 100, saveFilename: `an_${Date.now()}`, savePath: tempDir, format: 'jpeg', width: 800, height: 1100 };
-        const convert = fromPath(req.file.path, opts);
-
-        // Páginas 1-3
-        const imgs1_3 = [];
-        for (let p = 1; p <= 3; p++) {
-          const b64 = await pageToBase64(convert, p, tempFiles);
-          if (b64) imgs1_3.push(b64); else break;
-        }
-
-        let extraido = imgs1_3.length ? await extraerConVision(groqApiKey, imgs1_3) : null;
-
-        // Si no encontró, buscar en últimas 2 páginas
-        if (!extraido?.titulo && !extraido?.diseñadora) {
-          const allImgs = [...imgs1_3];
-          for (let p = 4; p <= 80; p++) {
-            const b64 = await pageToBase64(convert, p, tempFiles);
-            if (b64) allImgs.push(b64); else break;
-          }
-          if (allImgs.length > 3) {
-            const ultimas = allImgs.slice(-2);
-            extraido = await extraerConVision(groqApiKey, ultimas);
-          }
-        }
-
-        if (extraido) {
-          if (extraido.titulo && !titulo?.trim()) titulo = extraido.titulo;
-          if (extraido.diseñadora && !diseñadora?.trim()) diseñadora = extraido.diseñadora;
-        }
-      }
-    }
-
-    // Análisis de texto: duplicados + categoría + idioma
-    const patrones = await new Promise((resolve, reject) => {
-      db.all('SELECT id, titulo FROM patrones WHERE activo = 1 ORDER BY created_at DESC LIMIT 50', [], (err, rows) => {
-        if (err) reject(err); else resolve(rows || []);
-      });
-    });
-
-    const titulosList = patrones.map(p => `"${p.titulo}" [${p.id}]`).join('\n');
-
-    const prompt = `Analiza este patrón de crochet y responde SOLO con JSON válido (sin texto adicional).
-
-PATRÓN:
-Título: "${titulo || '(sin título)'}"
-${descripcion ? `Descripción: "${descripcion}"` : ''}
-
-CATEGORÍAS VÁLIDAS: amigurumi, ropa, accesorios, decoracion, hogar, otro
-SUBCATEGORÍAS (solo si categoría=amigurumi): animales, personas y muñecos, comida, plantas y flores, personajes y fantasía, navidad, otro
-IDIOMAS: es, en, pt, fr, de, it, otro
-
-PATRONES YA EXISTENTES:
-${titulosList}
-
-Responde exactamente con este JSON:
-{"idioma":"es","categoria":"amigurumi","subcategoria":"animales","duplicados":[{"id":"...","titulo":"...","similitud":0.9}]}
-
-Reglas:
-- duplicados: solo incluye si similitud >= 0.75, array vacío si no hay
-- subcategoria: "" si la categoría no es amigurumi`;
-
-    let resultado = { idioma: 'es', categoria: 'otro', subcategoria: '', duplicados: [] };
-    try {
-      const groqRes = await axios.post(
-        'https://api.groq.com/openai/v1/chat/completions',
-        { model: 'llama-3.1-8b-instant', messages: [{ role: 'user', content: prompt }], temperature: 0.1, max_tokens: 600 },
-        { headers: { Authorization: `Bearer ${groqApiKey}`, 'Content-Type': 'application/json' }, timeout: 20000 }
-      );
-      const content = groqRes.data.choices[0].message.content.trim();
-      const match = content.match(/\{[\s\S]*\}/);
-      resultado = JSON.parse(match ? match[0] : content);
-    } catch (groqErr) {
-      // Rate limit o error de Groq — continuar con valores por defecto
-      console.warn('[analizar] Groq no disponible, usando defaults:', groqErr?.response?.data?.error?.message || groqErr.message);
-    }
-
-    res.json({ titulo: titulo || null, diseñadora: diseñadora || null, ...resultado });
+    const { titulo, categoria, diseñadora } = req.body;
+    res.json({ titulo: titulo || null, diseñadora: diseñadora || null, categoria: categoria || 'General', idioma: 'es', duplicados: [] });
   } catch (err) {
-    console.error('Error /admin/patrones/analizar:', err?.response?.data || err.message);
-    res.status(500).json({ error: 'Error en análisis IA' });
+    res.status(500).json({ error: 'Error en análisis' });
   } finally {
-    tempFiles.forEach(f => { try { if (fs.existsSync(f)) fs.unlinkSync(f); } catch {} });
+    // El PDF solo se sube para analizarlo; sin esto se acumula uno por cada análisis
+    if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
   }
 });
 
-// ── Groq: extracción masiva de metadatos ──────────────────────────────────────
 
 router.post('/patrones/extraer-metadatos-groq', verifyAdmin, async (req, res) => {
   const groqApiKey = process.env.GROQ_API_KEY;
@@ -320,7 +236,7 @@ router.post('/patrones/extraer-metadatos-groq', verifyAdmin, async (req, res) =>
 
 // ── Subir patrón ──────────────────────────────────────────────────────────────
 
-router.post('/patrones', verifyAdmin, upload.single('pdf'), async (req, res) => {
+router.post('/patrones', verifyAdmin, subirPdf, async (req, res) => {
   const pdfPath = req.file?.path;
   try {
     if (!req.file) return res.status(400).json({ error: 'No se subió ningún PDF' });
@@ -346,30 +262,21 @@ router.post('/patrones', verifyAdmin, upload.single('pdf'), async (req, res) => 
     }
 
     const patronId = `patron-${uuidv4()}`;
-    const { fromPath } = require('pdf2pic');
     const patronDir = path.join(__dirname, '../../uploads/patrones', patronId);
     if (!fs.existsSync(patronDir)) fs.mkdirSync(patronDir, { recursive: true });
 
-    const convert = fromPath(pdfPath, {
-      density: 150,
-      saveFilename: 'pagina',
-      savePath: patronDir,
-      format: 'jpeg',
-      width: 1200,
-      height: 1600,
-    });
-
-    const response = await convert.bulk(-1);
-    const totalPaginas = response.length;
+    const { execSync } = require('child_process');
+    execSync(`pdftoppm -jpeg -r 150 "${pdfPath}" "${path.join(patronDir, 'pagina')}"`, { timeout: 60000 });
+    
+    const totalPaginas = fs.readdirSync(patronDir).filter(f => f.endsWith('.jpg')).length;
+    const thumbnailPath = `/uploads/patrones/${patronId}/pagina_1.jpg`;
 
     // Renombrar archivos al formato estándar pagina_N.jpg
-    for (let i = 0; i < totalPaginas; i++) {
-      const orig = response[i].path;
-      const dest = path.join(patronDir, `pagina_${i + 1}.jpg`);
-      if (orig !== dest) fs.renameSync(orig, dest);
+    for (let i = 1; i <= totalPaginas; i++) {
+      const oldPath = [1, 2, 3, 4].map(w => path.join(patronDir, `pagina-${String(i).padStart(w, '0')}.jpg`)).find(f => fs.existsSync(f)) || '';
+      const newPath = path.join(patronDir, `pagina_${i}.jpg`);
+      if (fs.existsSync(oldPath)) fs.renameSync(oldPath, newPath);
     }
-
-    const thumbnailPath = `/uploads/patrones/${patronId}/pagina_1.jpg`;
 
     // Insertar patrón
     await new Promise((resolve, reject) => {
@@ -429,6 +336,28 @@ router.get('/patrones', verifyAdmin, async (req, res) => {
     });
     res.json({ patrones });
   } catch (err) {
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+router.get('/patrones/recientes', verifyAdmin, async (req, res) => {
+  try {
+    const dias = parseInt(req.query.dias) || 7;
+    const patrones = await new Promise((resolve, reject) => {
+      db.all(
+        `SELECT id, titulo, autor, diseñadora, categoria, subcategoria, dificultad,
+                paginas, activo, es_premium, es_solo_premium, pdf_corrupto,
+                verificado, destacado, tendencia, thumbnail_path, created_at
+         FROM patrones
+         WHERE created_at >= datetime('now', ?)
+         ORDER BY created_at DESC`,
+        [`-${dias} days`],
+        (err, rows) => { if (err) reject(err); else resolve(rows || []); }
+      );
+    });
+    res.json({ patrones });
+  } catch (err) {
+    console.error('Error /admin/patrones/recientes:', err.message);
     res.status(500).json({ error: 'Error interno' });
   }
 });
@@ -544,7 +473,7 @@ router.get('/usuarios', verifyAdmin, async (req, res) => {
     const usuarios = await new Promise((resolve, reject) => {
       db.all(`
         SELECT u.id, u.email, u.tier, u.subscription_expires_at, u.created_at,
-               u.last_login_at, u.login_count,
+               u.last_login_at, u.login_count, u.email_verified,
                (SELECT COUNT(*) FROM progreso p WHERE p.user_id = u.id) as patrones_abiertos,
                (SELECT COUNT(*) FROM mi_lista m WHERE m.user_id = u.id) as en_lista
         FROM users u
@@ -566,7 +495,7 @@ router.get('/usuarios/premium', verifyAdmin, async (req, res) => {
                (SELECT COUNT(*) FROM progreso p WHERE p.user_id = u.id) as patrones_leidos,
                (SELECT COUNT(*) FROM progreso p WHERE p.user_id = u.id AND p.completado = 1) as patrones_completados,
                (SELECT COUNT(*) FROM mi_lista m WHERE m.user_id = u.id) as en_mi_lista,
-               0 as traducciones_usadas
+               (SELECT COUNT(*) FROM traducciones_uso t WHERE t.user_id = u.id) as traducciones_usadas
         FROM users u
         WHERE u.tier = 'premium'
         ORDER BY u.subscription_expires_at ASC
@@ -994,6 +923,126 @@ router.delete('/colecciones/:id/patrones/:patron_id', verifyAdmin, async (req, r
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// ── Panel: uso de APIs (Groq + Cerebras) ──────────────────────────
+let _limitesCache = { data: null, ts: 0 };
+function _num(h, k) { const v = h && h[k]; return v === undefined ? null : Number(v); }
+async function _probe(url, model, key) {
+  try {
+    const r = await axios.post(url,
+      { model, messages: [{ role: 'user', content: 'hi' }], max_tokens: 1 },
+      { headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, timeout: 15000 });
+    return r.headers;
+  } catch (e) {
+    if (e.response && e.response.headers) return e.response.headers;
+    throw e;
+  }
+}
+router.get('/limites-api', verifyAdmin, async (req, res) => {
+  const now = Date.now();
+  if (_limitesCache.data && now - _limitesCache.ts < 120000)
+    return res.json({ ..._limitesCache.data, cache: true });
+  const out = { groq: null, cerebras: null, ts: new Date().toISOString() };
+  try {
+    const h = await _probe('https://api.groq.com/openai/v1/chat/completions',
+      'gemma-7b-it', process.env.GROQ_API_KEY);
+    out.groq = {
+      req_limit_dia: _num(h, 'x-ratelimit-limit-requests'),
+      req_rest_dia: _num(h, 'x-ratelimit-remaining-requests'),
+      tok_limit_min: _num(h, 'x-ratelimit-limit-tokens'),
+      tok_rest_min: _num(h, 'x-ratelimit-remaining-tokens'),
+    };
+  } catch (e) { out.groq = { error: (e.response && e.response.status) || e.message }; }
+  try {
+    const h = await _probe('https://api.cerebras.ai/v1/chat/completions',
+      'gemma-4-31b', process.env.CEREBRAS_API_KEY);
+    out.cerebras = {
+      req_limit_dia: _num(h, 'x-ratelimit-limit-requests-day'),
+      req_rest_dia: _num(h, 'x-ratelimit-remaining-requests-day'),
+      tok_limit_dia: _num(h, 'x-ratelimit-limit-tokens-day'),
+      tok_rest_dia: _num(h, 'x-ratelimit-remaining-tokens-day'),
+      req_limit_min: _num(h, 'x-ratelimit-limit-requests-minute'),
+      req_rest_min: _num(h, 'x-ratelimit-remaining-requests-minute'),
+    };
+  } catch (e) { out.cerebras = { error: (e.response && e.response.status) || e.message }; }
+  try { const u = require('../utils/apiUso'); out.uso_hoy = { fecha: u.hoyStr(), groq: await u.getUsoHoy('groq'), cerebras: await u.getUsoHoy('cerebras') }; } catch (e) {}
+  _limitesCache = { data: out, ts: now };
+  res.json({ ...out, cache: false });
+});
+
+router.get('/campana', verifyAdmin, async (req, res) => {
+  try {
+    const dias = parseInt(req.query.dias) || 30;
+    const desde = `-${dias} days`;
+    const stats = await new Promise((resolve, reject) => {
+      db.get(
+        `SELECT
+          (SELECT COUNT(*) FROM users WHERE trial_campana = 1 AND created_at >= datetime('now', ?)) as registros,
+          (SELECT COUNT(*) FROM users WHERE trial_campana = 1 AND created_at >= datetime('now', ?) AND stripe_subscription_id IS NOT NULL) as con_tarjeta,
+          (SELECT COUNT(*) FROM users WHERE trial_campana = 1 AND created_at >= datetime('now', ?) AND tier = 'premium' AND subscription_expires_at > datetime('now')) as premium_activo,
+          (SELECT COUNT(*) FROM users WHERE trial_campana = 1 AND created_at >= datetime('now', ?) AND trial_gratis_usado = 1 AND stripe_subscription_id IS NULL) as trial_24h,
+          (SELECT COUNT(DISTINCT p.user_id) FROM pagos p JOIN users u ON u.id = p.user_id WHERE u.trial_campana = 1 AND u.created_at >= datetime('now', ?) AND p.status = 'paid') as con_pago`,
+        [desde, desde, desde, desde, desde],
+        (err, row) => { if (err) reject(err); else resolve(row); });
+    });
+    res.json({ dias, ...stats });
+  } catch (err) {
+    console.error('Error /admin/campana:', err.message);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+let _subsCache = { data: null, ts: 0 };
+router.get('/suscripciones', verifyAdmin, async (req, res) => {
+  const now = Date.now();
+  if (_subsCache.data && now - _subsCache.ts < 300000) return res.json({ ..._subsCache.data, cache: true });
+  try {
+    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+    let subs = [], starting_after;
+    while (true) {
+      const page = await stripe.subscriptions.list({ status: 'all', limit: 100, ...(starting_after ? { starting_after } : {}) });
+      subs = subs.concat(page.data);
+      if (!page.has_more) break;
+      starting_after = page.data[page.data.length - 1].id;
+    }
+    const porEstado = {};
+    subs.forEach(s => porEstado[s.status] = (porEstado[s.status] || 0) + 1);
+    const activas = subs.filter(s => s.status === 'active' || s.status === 'trialing');
+    const cancPorMes = {};
+    subs.filter(s => s.canceled_at).forEach(s => {
+      const m = new Date(s.canceled_at * 1000).toISOString().slice(0, 7);
+      cancPorMes[m] = (cancPorMes[m] || 0) + 1;
+    });
+    let mrr = 0;
+    activas.forEach(s => {
+      const price = s.items && s.items.data && s.items.data[0] && s.items.data[0].price;
+      if (price && price.unit_amount) {
+        let monthly = price.unit_amount / 100;
+        if (price.recurring && price.recurring.interval === 'year') monthly = monthly / 12;
+        mrr += monthly;
+      }
+    });
+    const mesActual = new Date().toISOString().slice(0, 7);
+    const cancMes = cancPorMes[mesActual] || 0;
+    const churnMes = (activas.length + cancMes) > 0 ? (cancMes / (activas.length + cancMes)) * 100 : 0;
+    const out = {
+      total: subs.length,
+      activas: activas.length,
+      past_due: porEstado['past_due'] || 0,
+      canceladas: porEstado['canceled'] || 0,
+      mrr: Math.round(mrr),
+      cancPorMes,
+      churnMes: Math.round(churnMes * 10) / 10,
+      mesActual,
+      ts: new Date().toISOString(),
+    };
+    _subsCache = { data: out, ts: now };
+    res.json({ ...out, cache: false });
+  } catch (err) {
+    console.error('Error /admin/suscripciones:', err.message);
+    res.status(500).json({ error: 'Error consultando Stripe: ' + err.message });
   }
 });
 
